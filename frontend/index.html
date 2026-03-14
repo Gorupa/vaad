@@ -5,658 +5,506 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>vaad.in — Court Case Tracker</title>
     <meta name="description" content="Track Indian court cases instantly. Search by CNR number, party name or advocate name. Free, fast, no ads.">
-    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
-            --bg:        #0a0a0f;
-            --bg2:       #111118;
-            --bg3:       #18181f;
-            --surface:   #1c1c25;
-            --border:    rgba(255,255,255,0.07);
-            --border-h:  rgba(255,255,255,0.14);
-            --text:      #f0f0f5;
-            --muted:     #8a8a9a;
-            --dim:       #55556a;
-            --blue:      #4f8ef7;
-            --blue-d:    rgba(79,142,247,0.1);
-            --blue-bd:   rgba(79,142,247,0.25);
-            --green:     #34c77b;
-            --green-d:   rgba(52,199,123,0.1);
-            --green-bd:  rgba(52,199,123,0.25);
-            --amber:     #f5a623;
-            --amber-d:   rgba(245,166,35,0.1);
-            --amber-bd:  rgba(245,166,35,0.25);
-            --red:       #f56565;
-            --red-d:     rgba(245,101,101,0.1);
-            --red-bd:    rgba(245,101,101,0.25);
-            --radius:    14px;
-            --max:       680px;
+            --bg: #ffffff;
+            --bg-alt: #f9fafb;
+            --border: #e5e7eb;
+            --border-hover: #d1d5db;
+            --text-main: #111827;
+            --text-muted: #6b7280;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --primary-bg: #eff6ff;
+            --success-text: #047857;
+            --success-bg: #ecfdf5;
+            --warning-text: #b45309;
+            --warning-bg: #fffbeb;
+            --error-text: #b91c1c;
+            --error-bg: #fef2f2;
+            --radius: 8px;
+            --max-w: 640px;
         }
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
 
         body {
-            font-family: 'DM Sans', sans-serif;
-            background: var(--bg);
-            color: var(--text);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-alt);
+            color: var(--text-main);
             min-height: 100vh;
             -webkit-font-smoothing: antialiased;
-        }
-
-        /* ── Animations ── */
-        @keyframes fadeUp {
-            from { opacity: 0; transform: translateY(14px); }
-            to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes popIn {
-            from { opacity: 0; transform: scale(0.97) translateY(6px); }
-            to   { opacity: 1; transform: scale(1) translateY(0); }
+            display: flex;
+            flex-direction: column;
         }
 
         /* ── Nav ── */
         .nav {
-            position: sticky; top: 0; z-index: 100;
-            height: 56px;
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 0 20px;
-            background: rgba(10,10,15,0.9);
-            backdrop-filter: blur(16px);
+            background: var(--bg);
             border-bottom: 1px solid var(--border);
+            padding: 16px 24px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 10;
         }
         .nav-brand {
-            display: flex; align-items: center; gap: 8px;
+            font-size: 1.25rem;
+            font-weight: 700;
             text-decoration: none;
+            color: var(--text-main);
+            letter-spacing: -0.02em;
         }
-        .nav-logo {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.2rem; font-weight: 800;
-            color: var(--text); letter-spacing: -0.5px;
-        }
-        .nav-logo span { color: var(--blue); }
-        .nav-tagline {
-            font-size: 0.72rem; color: var(--dim);
-            display: none;
-        }
+        .nav-brand span { color: var(--primary); }
         .nav-right {
-            display: flex; align-items: center; gap: 10px;
-            font-size: 0.78rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.875rem;
         }
         .nav-badge {
-            color: var(--muted);
-            background: var(--bg3);
+            color: var(--text-muted);
+            background: var(--bg-alt);
             border: 1px solid var(--border);
-            border-radius: 100px;
-            padding: 4px 10px;
-            font-size: 0.7rem;
+            border-radius: 999px;
+            padding: 4px 12px;
+            font-weight: 500;
         }
-        .nav-gh {
-            display: flex; align-items: center; gap: 5px;
-            color: var(--muted); text-decoration: none;
-            border: 1px solid var(--border);
-            border-radius: 100px; padding: 5px 12px;
-            transition: all 0.15s;
-        }
-        .nav-gh:hover { color: var(--text); border-color: var(--border-h); }
-        .nav-gh svg { fill: currentColor; }
 
         /* ── Hero ── */
         .hero {
-            max-width: var(--max);
+            max-width: var(--max-w);
             margin: 0 auto;
-            padding: 52px 20px 36px;
-            animation: fadeUp 0.45s ease both;
-        }
-        .hero-tag {
-            display: inline-flex; align-items: center; gap: 6px;
-            font-size: 0.7rem; font-weight: 600;
-            text-transform: uppercase; letter-spacing: 0.5px;
-            color: var(--blue);
-            background: var(--blue-d); border: 1px solid var(--blue-bd);
-            border-radius: 100px; padding: 4px 12px; margin-bottom: 18px;
+            padding: 64px 24px 40px;
+            text-align: center;
         }
         .hero h1 {
-            font-family: 'Syne', sans-serif;
-            font-size: clamp(2rem, 6vw, 3rem);
-            font-weight: 800; letter-spacing: -1.2px;
-            line-height: 1.1; margin-bottom: 14px;
-        }
-        .hero h1 em {
-            font-style: normal;
-            background: linear-gradient(135deg, #4f8ef7 0%, #a78bfa 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
+            font-size: 2.25rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            color: var(--text-main);
+            margin-bottom: 12px;
         }
         .hero p {
-            font-size: 0.95rem; color: var(--muted);
-            line-height: 1.65; max-width: 460px;
+            font-size: 1rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            max-width: 480px;
+            margin: 0 auto;
         }
 
-        /* ── Search Card ── */
+        /* ── Search Area ── */
         .search-card {
-            max-width: var(--max);
-            margin: 0 auto 24px;
-            padding: 0 20px;
-            animation: fadeUp 0.45s ease 0.08s both;
+            max-width: var(--max-w);
+            margin: 0 auto 32px;
+            width: 100%;
+            padding: 0 24px;
+        }
+        .search-container {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            overflow: hidden;
         }
 
-        /* Tab switcher */
+        /* Tabs */
         .tabs {
             display: flex;
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius) var(--radius) 0 0;
-            border-bottom: none;
-            overflow: hidden;
+            border-bottom: 1px solid var(--border);
+            background: var(--bg-alt);
         }
         .tab {
             flex: 1;
-            padding: 13px 8px;
             text-align: center;
-            font-size: 0.82rem;
-            font-weight: 600;
-            color: var(--muted);
+            padding: 14px 8px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
             cursor: pointer;
+            transition: all 0.2s;
             border-bottom: 2px solid transparent;
-            transition: all 0.15s;
-            user-select: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
         }
-        .tab:hover { color: var(--text); background: var(--bg3); }
-        .tab.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--bg3); }
-        .tab-icon { font-size: 14px; }
-
-        /* Search form */
-        .search-form {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: 0 0 var(--radius) var(--radius);
-            padding: 20px;
+        .tab:hover { color: var(--text-main); }
+        .tab.active {
+            color: var(--primary);
+            border-bottom-color: var(--primary);
+            background: var(--bg);
         }
 
+        /* Forms */
+        .search-form { padding: 24px; }
         .form-panel { display: none; }
-        .form-panel.active { display: block; }
+        .form-panel.active { display: block; animation: fadeIn 0.3s ease; }
 
-        .field { margin-bottom: 14px; }
-        .field:last-of-type { margin-bottom: 0; }
-        .field-label {
-            font-size: 0.75rem; font-weight: 600;
-            color: var(--muted); margin-bottom: 6px;
-            text-transform: uppercase; letter-spacing: 0.4px;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        .field-row { display: flex; gap: 10px; }
+
+        .field { margin-bottom: 16px; }
+        .field:last-of-type { margin-bottom: 0; }
+        .field-row { display: flex; gap: 16px; }
         .field-row .field { flex: 1; margin-bottom: 0; }
+        .field-label {
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-main);
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
 
         input[type="text"], select {
             width: 100%;
-            background: var(--bg3);
+            background: var(--bg);
             border: 1px solid var(--border);
-            border-radius: 9px;
-            padding: 11px 14px;
-            font-family: 'DM Sans', sans-serif;
-            font-size: 0.9rem;
-            color: var(--text);
+            border-radius: 6px;
+            padding: 10px 12px;
+            font-family: inherit;
+            font-size: 0.95rem;
+            color: var(--text-main);
             outline: none;
-            transition: border-color 0.15s;
+            transition: all 0.2s;
             appearance: none;
         }
-        input[type="text"]::placeholder { color: var(--dim); }
-        input[type="text"]:focus,
-        select:focus { border-color: var(--blue-bd); background: var(--surface); }
+        input[type="text"]::placeholder { color: #9ca3af; }
+        input[type="text"]:focus, select:focus {
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px var(--primary-bg);
+        }
 
-        select { cursor: pointer; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2355556a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
-        select option { background: var(--bg3); }
+        select {
+            cursor: pointer;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            background-size: 16px;
+            padding-right: 36px;
+        }
+        select:disabled { background-color: var(--bg-alt); cursor: not-allowed; }
 
         .cnr-hint {
-            font-size: 0.72rem;
-            color: var(--dim);
-            margin-top: 5px;
-            font-family: 'DM Mono', monospace;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            margin-top: 8px;
         }
 
         .btn-search {
             width: 100%;
-            margin-top: 16px;
-            padding: 13px;
-            background: var(--blue);
+            margin-top: 24px;
+            padding: 12px;
+            background: var(--primary);
             color: white;
             border: none;
-            border-radius: 10px;
-            font-family: 'DM Sans', sans-serif;
+            border-radius: 6px;
+            font-family: inherit;
             font-size: 0.95rem;
-            font-weight: 600;
+            font-weight: 500;
             cursor: pointer;
             display: flex;
             align-items: center;
             justify-content: center;
             gap: 8px;
-            transition: all 0.2s;
+            transition: background 0.2s;
         }
-        .btn-search:hover { background: #3a7ae0; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,142,247,0.3); }
-        .btn-search:active { transform: translateY(0); }
-        .btn-search:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+        .btn-search:hover { background: var(--primary-hover); }
+        .btn-search:disabled { opacity: 0.7; cursor: not-allowed; }
+
         .spinner {
             width: 16px; height: 16px;
             border: 2px solid rgba(255,255,255,0.3);
             border-top-color: white;
             border-radius: 50%;
-            animation: spin 0.7s linear infinite;
+            animation: spin 0.8s linear infinite;
         }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Results ── */
+        /* ── Results Area ── */
         .results {
-            max-width: var(--max);
+            max-width: var(--max-w);
             margin: 0 auto;
-            padding: 0 20px 60px;
+            width: 100%;
+            padding: 0 24px 64px;
+            flex: 1;
         }
 
-        /* Error */
+        /* Messages */
         .error-box {
-            background: var(--red-d);
-            border: 1px solid var(--red-bd);
+            background: var(--error-bg);
+            border: 1px solid #fecaca;
+            color: var(--error-text);
+            padding: 16px;
             border-radius: var(--radius);
-            padding: 16px 18px;
-            display: flex;
-            align-items: flex-start;
-            gap: 10px;
             font-size: 0.875rem;
-            color: var(--red);
-            animation: popIn 0.25s ease both;
-        }
-        .error-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-
-        /* Case list (party/advocate results) */
-        .case-list {
             display: flex;
-            flex-direction: column;
-            gap: 10px;
-            animation: popIn 0.3s ease both;
-        }
-        .case-list-header {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--dim);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 4px;
-            padding-left: 2px;
-        }
-        .case-item {
-            background: var(--bg2);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px 18px;
-            cursor: pointer;
-            transition: all 0.15s;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
             gap: 12px;
         }
-        .case-item:hover { border-color: var(--blue-bd); background: var(--bg3); }
-        .case-item-left {}
-        .case-item-title {
-            font-family: 'Syne', sans-serif;
-            font-size: 0.9rem; font-weight: 700;
-            color: var(--text); margin-bottom: 3px;
-        }
-        .case-item-meta { font-size: 0.78rem; color: var(--muted); }
-        .case-item-arrow { color: var(--dim); font-size: 1.1rem; flex-shrink: 0; }
 
-        /* Case detail card */
-        .case-detail {
-            display: flex;
-            flex-direction: column;
-            gap: 14px;
-            animation: popIn 0.3s ease both;
+        /* Case List */
+        .case-list-header {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+            margin-bottom: 12px;
         }
-
-        .detail-header {
-            background: var(--bg2);
+        .case-list { display: flex; flex-direction: column; gap: 12px; }
+        .case-item {
+            background: var(--bg);
             border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .case-item:hover { border-color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .case-item-title { font-weight: 600; color: var(--text-main); margin-bottom: 4px; font-size: 1rem; }
+        .case-item-meta { font-size: 0.875rem; color: var(--text-muted); }
+        .case-item-arrow { color: var(--text-muted); font-size: 1.25rem; }
+
+        /* Detail View */
+        .detail-back {
+            display: inline-block;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-weight: 500;
+        }
+        .detail-back:hover { color: var(--text-main); }
+        
+        .detail-header { margin-bottom: 24px; }
+        .detail-title { font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.2; margin-bottom: 8px; }
+        .detail-cnr { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); }
+
+        .next-hearing {
+            background: var(--primary-bg);
+            border: 1px solid #bfdbfe;
             border-radius: var(--radius);
             padding: 20px;
+            margin-bottom: 24px;
         }
-        .detail-back {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.78rem; font-weight: 600;
-            color: var(--muted); cursor: pointer;
-            margin-bottom: 14px;
-            transition: color 0.15s;
-        }
-        .detail-back:hover { color: var(--text); }
-        .detail-title {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.1rem; font-weight: 800;
-            color: var(--text); margin-bottom: 6px;
-            letter-spacing: -0.3px; line-height: 1.3;
-        }
-        .detail-cnr {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.78rem; color: var(--muted);
-        }
+        .nh-label { font-size: 0.75rem; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
+        .nh-date { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
+        .nh-purpose { font-size: 0.875rem; color: var(--text-muted); margin-top: 4px; }
 
-        /* Next hearing — most prominent */
-        .next-hearing {
-            background: linear-gradient(135deg, rgba(79,142,247,0.12) 0%, rgba(167,139,250,0.08) 100%);
-            border: 1px solid var(--blue-bd);
-            border-radius: var(--radius);
-            padding: 18px 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
-        .nh-icon {
-            width: 48px; height: 48px;
-            border-radius: 12px;
-            background: var(--blue-d);
-            border: 1px solid var(--blue-bd);
-            display: flex; align-items: center; justify-content: center;
-            font-size: 1.4rem; flex-shrink: 0;
-        }
-        .nh-label {
-            font-size: 0.72rem; font-weight: 600;
-            color: var(--blue); text-transform: uppercase;
-            letter-spacing: 0.5px; margin-bottom: 4px;
-        }
-        .nh-date {
-            font-family: 'Syne', sans-serif;
-            font-size: 1.3rem; font-weight: 800;
-            color: var(--text); letter-spacing: -0.3px;
-        }
-        .nh-purpose { font-size: 0.8rem; color: var(--muted); margin-top: 2px; }
-
-        /* Info grid */
         .info-grid {
-            background: var(--bg2);
+            background: var(--bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            overflow: hidden;
+            margin-bottom: 24px;
         }
         .info-row {
             display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            padding: 13px 18px;
+            padding: 14px 20px;
             border-bottom: 1px solid var(--border);
-            font-size: 0.85rem;
+            font-size: 0.875rem;
         }
         .info-row:last-child { border-bottom: none; }
-        .info-key {
-            width: 130px;
-            flex-shrink: 0;
-            color: var(--dim);
-            font-size: 0.78rem;
-            font-weight: 500;
-            padding-top: 1px;
-        }
-        .info-val { color: var(--text); flex: 1; line-height: 1.5; }
+        .info-key { width: 140px; font-weight: 500; color: var(--text-muted); flex-shrink: 0; }
+        .info-val { color: var(--text-main); flex: 1; }
 
-        /* Status badge */
         .status-badge {
-            display: inline-flex; align-items: center; gap: 5px;
-            font-size: 0.75rem; font-weight: 600;
-            border-radius: 100px; padding: 3px 10px;
+            display: inline-block;
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
         }
-        .status-pending  { background: var(--amber-d); color: var(--amber); border: 1px solid var(--amber-bd); }
-        .status-disposed { background: var(--green-d);  color: var(--green);  border: 1px solid var(--green-bd); }
-        .status-fresh    { background: var(--blue-d);   color: var(--blue);   border: 1px solid var(--blue-bd); }
+        .status-pending { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #fef3c7; }
+        .status-disposed { background: var(--success-bg); color: var(--success-text); border: 1px solid #d1fae5; }
+        .status-fresh { background: var(--primary-bg); color: var(--primary); border: 1px solid #dbeafe; }
 
-        /* History timeline */
         .history-card {
-            background: var(--bg2);
+            background: var(--bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
-            overflow: hidden;
         }
         .history-header {
-            padding: 14px 18px;
-            font-size: 0.78rem;
+            padding: 16px 20px;
             font-weight: 600;
-            color: var(--dim);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
             border-bottom: 1px solid var(--border);
+            font-size: 0.95rem;
         }
-        .history-list { padding: 8px 0; }
         .history-item {
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border);
             display: flex;
-            gap: 14px;
-            padding: 10px 18px;
-            position: relative;
+            gap: 24px;
         }
-        .history-item::before {
-            content: '';
-            position: absolute;
-            left: 28px; top: 28px;
-            width: 1px;
-            height: calc(100% - 18px);
-            background: var(--border);
-        }
-        .history-item:last-child::before { display: none; }
-        .history-dot {
-            width: 10px; height: 10px;
-            border-radius: 50%;
-            background: var(--border);
-            border: 2px solid var(--border-h);
-            flex-shrink: 0;
-            margin-top: 5px;
-        }
-        .history-item.latest .history-dot { background: var(--blue); border-color: var(--blue); }
-        .history-date {
-            font-family: 'DM Mono', monospace;
-            font-size: 0.75rem; color: var(--muted);
-            width: 90px; flex-shrink: 0;
-        }
-        .history-text { font-size: 0.82rem; color: var(--text); flex: 1; line-height: 1.5; }
-        .history-purpose { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+        .history-item:last-child { border-bottom: none; }
+        .history-date { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); width: 90px; flex-shrink: 0; }
+        .history-text { font-size: 0.875rem; color: var(--text-main); margin-bottom: 4px; }
+        .history-purpose { font-size: 0.75rem; color: var(--text-muted); }
 
         /* ── Placeholder ── */
         .placeholder {
-            max-width: var(--max);
-            margin: 0 auto;
-            padding: 32px 20px 60px;
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 16px;
         }
         .placeholder-card {
-            background: var(--bg2);
+            background: var(--bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             padding: 20px;
         }
         .placeholder-label {
-            font-size: 0.72rem; font-weight: 600;
-            color: var(--dim); text-transform: uppercase;
-            letter-spacing: 0.5px; margin-bottom: 10px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 12px;
         }
         .placeholder-item {
-            display: flex; align-items: center; gap: 10px;
-            padding: 8px 0; border-bottom: 1px solid var(--border);
-            font-size: 0.85rem; color: var(--muted);
+            font-size: 0.875rem;
+            color: var(--text-main);
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            border-bottom: 1px solid var(--border);
         }
-        .placeholder-item:last-child { border-bottom: none; }
-        .placeholder-icon { font-size: 1rem; }
+        .placeholder-item:last-child { border-bottom: none; padding-bottom: 0; }
+        .placeholder-icon { color: var(--text-muted); font-size: 1rem; }
 
         /* ── Footer ── */
         .footer {
             border-top: 1px solid var(--border);
-            padding: 16px 20px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 8px;
+            padding: 24px;
+            text-align: center;
             font-size: 0.75rem;
-            color: var(--dim);
+            color: var(--text-muted);
+            background: var(--bg);
+            margin-top: auto;
         }
-        .footer a {
-            color: var(--dim); text-decoration: none;
-            display: inline-flex; align-items: center; gap: 3px;
-            transition: color 0.15s; font-weight: 500;
-        }
-        .footer a:hover { color: var(--muted); }
-        .footer svg { fill: currentColor; }
-        .fsep { margin: 0 4px; opacity: 0.4; }
+        .footer a { color: var(--text-muted); text-decoration: none; font-weight: 500; }
+        .footer a:hover { color: var(--text-main); }
+        .fsep { margin: 0 8px; opacity: 0.5; }
 
-        /* ── Responsive ── */
-        @media (max-width: 500px) {
-            .hero { padding: 36px 16px 28px; }
-            .search-card, .results, .placeholder { padding-left: 14px; padding-right: 14px; }
-            .field-row { flex-direction: column; gap: 12px; }
-            .info-key { width: 100px; }
-            .next-hearing { flex-direction: column; align-items: flex-start; gap: 12px; }
-            .nav { padding: 0 14px; }
+        @media (max-width: 600px) {
+            .field-row { flex-direction: column; gap: 16px; }
+            .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; }
+            .history-item { flex-direction: column; gap: 8px; }
             .nav-badge { display: none; }
+            .hero { padding: 40px 20px 32px; }
+            .hero h1 { font-size: 1.75rem; }
         }
     </style>
 </head>
 <body>
 
-<!-- Nav -->
 <nav class="nav">
-    <a class="nav-brand" href="#">
-        <div class="nav-logo">vaad<span>.in</span></div>
-    </a>
+    <a class="nav-brand" href="#">vaad<span>.in</span></a>
     <div class="nav-right">
-        <span class="nav-badge">🇮🇳 eCourts Tracker</span>
-        <a class="nav-gh" href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">
-            <svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-        </a>
+        <span class="nav-badge">eCourts Tracker</span>
     </div>
 </nav>
 
-<!-- Hero -->
 <div class="hero">
-    <div class="hero-tag">⚖️ Free · No Ads · Open Source</div>
-    <h1>Track any court case<br><em>in seconds.</em></h1>
-    <p>Search Indian court cases by CNR number, party name or advocate name. Clean results, next hearing date front and centre.</p>
+    <h1>Track court cases simply.</h1>
+    <p>Search Indian court cases by CNR number, party name, or advocate. Clean interface, instant results.</p>
 </div>
 
-<!-- Search -->
 <div class="search-card">
-    <div class="tabs">
-        <div class="tab active" data-tab="cnr" onclick="switchTab('cnr')">
-            <span class="tab-icon">🔢</span> CNR Number
-        </div>
-        <div class="tab" data-tab="party" onclick="switchTab('party')">
-            <span class="tab-icon">👤</span> Party Name
-        </div>
-        <div class="tab" data-tab="advocate" onclick="switchTab('advocate')">
-            <span class="tab-icon">⚖️</span> Advocate
-        </div>
-    </div>
-
-    <div class="search-form">
-
-        <!-- CNR Panel -->
-        <div class="form-panel active" id="panel-cnr">
-            <div class="field">
-                <div class="field-label">CNR Number</div>
-                <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023"
-                    autocomplete="off" autocorrect="off" spellcheck="false"
-                    maxlength="20">
-                <div class="cnr-hint">16-character unique case number printed on cause list</div>
-            </div>
+    <div class="search-container">
+        <div class="tabs">
+            <div class="tab active" data-tab="cnr" onclick="switchTab('cnr')">CNR Number</div>
+            <div class="tab" data-tab="party" onclick="switchTab('party')">Party Name</div>
+            <div class="tab" data-tab="advocate" onclick="switchTab('advocate')">Advocate</div>
         </div>
 
-        <!-- Party Name Panel -->
-        <div class="form-panel" id="panel-party">
-            <div class="field-row">
+        <div class="search-form">
+            <div class="form-panel active" id="panel-cnr">
                 <div class="field">
-                    <div class="field-label">State</div>
-                    <select id="party-state" onchange="loadDistricts('party')">
-                        <option value="">Select state…</option>
-                    </select>
-                </div>
-                <div class="field">
-                    <div class="field-label">District</div>
-                    <select id="party-district" disabled>
-                        <option value="">Select district…</option>
-                    </select>
+                    <label class="field-label" for="cnr-input">CNR Number</label>
+                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
+                    <div class="cnr-hint">16-character alphanumeric case number</div>
                 </div>
             </div>
-            <div class="field" style="margin-top:14px;">
-                <div class="field-label">Party Name</div>
-                <input type="text" id="party-name" placeholder="Enter petitioner or respondent name"
-                    autocomplete="off">
-            </div>
-        </div>
 
-        <!-- Advocate Panel -->
-        <div class="form-panel" id="panel-advocate">
-            <div class="field-row">
-                <div class="field">
-                    <div class="field-label">State</div>
-                    <select id="adv-state" onchange="loadDistricts('advocate')">
-                        <option value="">Select state…</option>
-                    </select>
+            <div class="form-panel" id="panel-party">
+                <div class="field-row">
+                    <div class="field">
+                        <label class="field-label" for="party-state">State</label>
+                        <select id="party-state" onchange="loadDistricts('party')">
+                            <option value="">Select state…</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="party-district">District</label>
+                        <select id="party-district" disabled>
+                            <option value="">Select district…</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="field">
-                    <div class="field-label">District</div>
-                    <select id="adv-district" disabled>
-                        <option value="">Select district…</option>
-                    </select>
+                <div class="field" style="margin-top:16px;">
+                    <label class="field-label" for="party-name">Party Name</label>
+                    <input type="text" id="party-name" placeholder="Petitioner or respondent name" autocomplete="off">
                 </div>
             </div>
-            <div class="field" style="margin-top:14px;">
-                <div class="field-label">Advocate Name</div>
-                <input type="text" id="adv-name" placeholder="Enter advocate name"
-                    autocomplete="off">
-            </div>
-        </div>
 
-        <button class="btn-search" id="search-btn" onclick="handleSearch()">
-            <span id="btn-text">Search Cases</span>
-        </button>
+            <div class="form-panel" id="panel-advocate">
+                <div class="field-row">
+                    <div class="field">
+                        <label class="field-label" for="adv-state">State</label>
+                        <select id="adv-state" onchange="loadDistricts('advocate')">
+                            <option value="">Select state…</option>
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label class="field-label" for="adv-district">District</label>
+                        <select id="adv-district" disabled>
+                            <option value="">Select district…</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="field" style="margin-top:16px;">
+                    <label class="field-label" for="adv-name">Advocate Name</label>
+                    <input type="text" id="adv-name" placeholder="Enter advocate name" autocomplete="off">
+                </div>
+            </div>
+
+            <button class="btn-search" id="search-btn" onclick="handleSearch()">
+                <span id="btn-text">Search Cases</span>
+            </button>
+        </div>
     </div>
 </div>
 
-<!-- Results area -->
 <div class="results" id="results"></div>
 
-<!-- Default placeholder -->
-<div class="placeholder" id="placeholder">
-    <div class="placeholder-card">
-        <div class="placeholder-label">What you'll see</div>
-        <div class="placeholder-item"><span class="placeholder-icon">📅</span> Next hearing date — shown immediately</div>
-        <div class="placeholder-item"><span class="placeholder-icon">⚖️</span> Case type, court name and district</div>
-        <div class="placeholder-item"><span class="placeholder-icon">👥</span> Petitioner and respondent details</div>
-        <div class="placeholder-item"><span class="placeholder-icon">🕐</span> Full case history timeline</div>
-        <div class="placeholder-item"><span class="placeholder-icon">📋</span> Current stage and status</div>
-    </div>
-    <div class="placeholder-card">
-        <div class="placeholder-label">How to find your CNR</div>
-        <div class="placeholder-item"><span class="placeholder-icon">📄</span> Printed on your cause list or case notice</div>
-        <div class="placeholder-item"><span class="placeholder-icon">🌐</span> Available on ecourts.gov.in after registration</div>
-        <div class="placeholder-item"><span class="placeholder-icon">⚖️</span> Ask your advocate — they have it on file</div>
+<div class="results" id="placeholder">
+    <div class="placeholder">
+        <div class="placeholder-card">
+            <div class="placeholder-label">Information Provided</div>
+            <div class="placeholder-item"><span class="placeholder-icon">📅</span> Next hearing date and purpose</div>
+            <div class="placeholder-item"><span class="placeholder-icon">📋</span> Case type, court, and current stage</div>
+            <div class="placeholder-item"><span class="placeholder-icon">👥</span> Party and advocate details</div>
+            <div class="placeholder-item"><span class="placeholder-icon">⏱️</span> Complete case history log</div>
+        </div>
     </div>
 </div>
 
-<!-- Footer -->
 <footer class="footer">
-    <span>vaad.in · © 2026 gorupa / Gaurav Kalal · MIT License</span>
-    <span>
-        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">
-            <svg width="12" height="12" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-            gorupa
-        </a>
-        <span class="fsep">·</span>
-        <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a>
-        <span class="fsep">·</span>
-        <span>No ads · No tracking · Data from eCourts</span>
-    </span>
+    <span>vaad.in</span>
+    <span class="fsep">·</span>
+    <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">GitHub</a>
+    <span class="fsep">·</span>
+    <span>No ads. No tracking. Public records only.</span>
 </footer>
 
 <script>
 /* ── CONFIG ── */
-// Change this to your deployed backend URL
 const API = 'http://localhost:3000/api';
 
 let activeTab    = 'cnr';
@@ -727,7 +575,6 @@ async function handleSearch() {
     const btn     = document.getElementById('search-btn');
     const btnText = document.getElementById('btn-text');
 
-    // Validate inputs
     if (activeTab === 'cnr') {
         const cnr = document.getElementById('cnr-input').value.trim();
         if (!cnr) return shake('cnr-input');
@@ -831,19 +678,19 @@ function renderCaseList(cases) {
     }
 
     let html = `
-        <div class="case-list">
-            <div class="case-list-header">${cases.length} case${cases.length !== 1 ? 's' : ''} found</div>`;
+        <div class="case-list-header">${cases.length} result${cases.length !== 1 ? 's' : ''} found</div>
+        <div class="case-list">`;
 
     cases.forEach((c, i) => {
         const title = c.case_title || c.title || `Case ${i + 1}`;
         const meta  = [c.case_type, c.court_name, c.filing_date].filter(Boolean).join(' · ');
         html += `
             <div class="case-item" onclick="fetchCNR('${c.cnr_number || c.cnr}')">
-                <div class="case-item-left">
+                <div>
                     <div class="case-item-title">${title}</div>
                     <div class="case-item-meta">${meta || c.cnr_number || ''}</div>
                 </div>
-                <span class="case-item-arrow">›</span>
+                <span class="case-item-arrow">→</span>
             </div>`;
     });
 
@@ -886,30 +733,22 @@ function renderCaseDetail(data) {
                       : status.toLowerCase().includes('fresh')  ? 'status-fresh'
                       : 'status-pending';
 
-    let html = `<div class="case-detail">`;
-
-    // Header
-    html += `
+    let html = `
+        <span class="detail-back" onclick="clearResults()">← Back to search</span>
         <div class="detail-header">
-            <div class="detail-back" onclick="clearResults()">← Back to search</div>
             <div class="detail-title">${title}</div>
-            <div class="detail-cnr">${cnr}</div>
+            <div class="detail-cnr">CNR: ${cnr}</div>
         </div>`;
 
-    // Next hearing — most prominent
     if (nextHearing) {
         html += `
             <div class="next-hearing">
-                <div class="nh-icon">📅</div>
-                <div>
-                    <div class="nh-label">Next Hearing</div>
-                    <div class="nh-date">${nextHearing}</div>
-                    ${nextPurpose ? `<div class="nh-purpose">${nextPurpose}</div>` : ''}
-                </div>
+                <div class="nh-label">Next Hearing Date</div>
+                <div class="nh-date">${nextHearing}</div>
+                ${nextPurpose ? `<div class="nh-purpose">${nextPurpose}</div>` : ''}
             </div>`;
     }
 
-    // Case info grid
     html += `
         <div class="info-grid">
             <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
@@ -924,17 +763,14 @@ function renderCaseDetail(data) {
             <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
         </div>`;
 
-    // History timeline
     if (history.length > 0) {
-        html += `<div class="history-card"><div class="history-header">Case History</div><div class="history-list">`;
-        history.forEach((h, i) => {
-            const isLatest = i === history.length - 1;
+        html += `<div class="history-card"><div class="history-header">Case History</div>`;
+        history.forEach((h) => {
             const date     = h.hearing_date || h.date || '—';
             const text     = h.order_details || h.details || h.order || '—';
             const purpose  = h.purpose || h.next_purpose || '';
             html += `
-                <div class="history-item ${isLatest ? 'latest' : ''}">
-                    <div class="history-dot"></div>
+                <div class="history-item">
                     <div class="history-date">${date}</div>
                     <div>
                         <div class="history-text">${text}</div>
@@ -942,10 +778,9 @@ function renderCaseDetail(data) {
                     </div>
                 </div>`;
         });
-        html += `</div></div>`;
+        html += `</div>`;
     }
 
-    html += `</div>`;
     el.innerHTML = html;
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -955,15 +790,14 @@ function showError(msg) {
     hidePlaceholder();
     document.getElementById('results').innerHTML = `
         <div class="error-box">
-            <span class="error-icon">⚠️</span>
+            <span>⚠</span>
             <span>${msg}</span>
         </div>`;
 }
 
 function clearResults() {
     document.getElementById('results').innerHTML = '';
-    document.getElementById('placeholder').style.display = 'flex';
-    document.getElementById('placeholder').style.flexDirection = 'column';
+    document.getElementById('placeholder').style.display = 'block';
 }
 
 function hidePlaceholder() {
@@ -973,17 +807,15 @@ function hidePlaceholder() {
 function shake(id) {
     const el = document.getElementById(id);
     if (!el) return;
-    el.style.borderColor = 'var(--red-bd)';
+    el.style.borderColor = 'var(--error-text)';
     el.focus();
     setTimeout(() => { el.style.borderColor = ''; }, 1500);
 }
 
-// Enter key support
 document.addEventListener('keydown', e => {
     if (e.key === 'Enter') handleSearch();
 });
 
-// Init
 loadStates();
 </script>
 </body>
