@@ -32,26 +32,17 @@ const cache = new NodeCache({ stdTTL: 3600 }); // cache 1 hour
 
 const PORT         = process.env.PORT || 3000;
 const ECIAPI_BASE  = 'https://eciapi.akshit.me';
-const ALLOWED_ORIGINS = [
-    'https://vaad.in',
-    'https://www.vaad.in',
-    'http://localhost:5500',
-    'http://127.0.0.1:5500',
-    'http://localhost:3000',
-];
-
 /* ─────────────────────────────────────────────
    MIDDLEWARE
 ───────────────────────────────────────────── */
 
 app.use(helmet());
 app.use(express.json());
+// Allow any origin (reflect request origin) so frontend works from file://, localhost, or any host
 app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-        cb(new Error('Not allowed by CORS'));
-    },
+    origin: true,
     methods: ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Accept'],
 }));
 
 // Rate limiting — 30 requests per minute per IP
@@ -225,6 +216,8 @@ app.post('/api/advocate', async (req, res) => {
 
 app.use((err, req, res, next) => {
     console.error(err.message);
+    const origin = req.get('Origin');
+    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
     res.status(500).json({ success: false, error: 'Internal server error.' });
 });
 
