@@ -1,4 +1,4 @@
-/**
+ /**
  * vaad.in — backend/server.js
  * Node.js + Express backend for eCourts data
  *
@@ -31,18 +31,31 @@ const cache = new NodeCache({ stdTTL: 3600 }); // cache 1 hour
 ───────────────────────────────────────────── */
 
 const PORT         = process.env.PORT || 3000;
-const ECIAPI_BASE  = 'https://eciapi.akshit.me';
+// API moved from eciapi.akshit.me → court-api.kleopatra.io
+// Free for non-commercial/educational use — register at court-api.kleopatra.io
+const ECIAPI_BASE   = process.env.COURT_API_BASE || 'https://court-api.kleopatra.io';
+const COURT_API_KEY = process.env.COURT_API_KEY || '';
+const ALLOWED_ORIGINS = [
+    'https://vaad.in',
+    'https://www.vaad.in',
+    'https://vaad.pages.dev',
+    'http://localhost:5500',
+    'http://127.0.0.1:5500',
+    'http://localhost:3000',
+];
+
 /* ─────────────────────────────────────────────
    MIDDLEWARE
 ───────────────────────────────────────────── */
 
 app.use(helmet());
 app.use(express.json());
-// Allow any origin (reflect request origin) so frontend works from file://, localhost, or any host
 app.use(cors({
-    origin: true,
+    origin: (origin, cb) => {
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
+        cb(new Error('Not allowed by CORS'));
+    },
     methods: ['GET', 'POST'],
-    allowedHeaders: ['Content-Type', 'Accept'],
 }));
 
 // Rate limiting — 30 requests per minute per IP
@@ -71,7 +84,7 @@ async function fetchECI(endpoint, params = {}, cacheKey) {
     const res = await axios.get(`${ECIAPI_BASE}${endpoint}`, {
         params,
         timeout: 15000,
-        headers: { 'Accept': 'application/json' },
+        headers: { 'Accept': 'application/json', ...(COURT_API_KEY && { 'Authorization': `Bearer ${COURT_API_KEY}` }) },
     });
 
     if (cacheKey) cache.set(cacheKey, res.data);
@@ -89,7 +102,7 @@ async function postECI(endpoint, body, cacheKey) {
 
     const res = await axios.post(`${ECIAPI_BASE}${endpoint}`, body, {
         timeout: 15000,
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...(COURT_API_KEY && { 'Authorization': `Bearer ${COURT_API_KEY}` }) },
     });
 
     if (cacheKey) cache.set(cacheKey, res.data);
@@ -216,8 +229,6 @@ app.post('/api/advocate', async (req, res) => {
 
 app.use((err, req, res, next) => {
     console.error(err.message);
-    const origin = req.get('Origin');
-    if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
     res.status(500).json({ success: false, error: 'Internal server error.' });
 });
 
@@ -228,3 +239,4 @@ app.use((err, req, res, next) => {
 app.listen(PORT, () => {
     console.log(`vaad.in backend running on port ${PORT}`);
 });
+
