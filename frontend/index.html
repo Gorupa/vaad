@@ -11,7 +11,6 @@
             --bg: #ffffff;
             --bg-alt: #f9fafb;
             --border: #e5e7eb;
-            --border-hover: #d1d5db;
             --text-main: #111827;
             --text-muted: #6b7280;
             --primary: #2563eb;
@@ -64,7 +63,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
-            font-size: 0.875rem;
+            font-size: 0.8rem;
         }
         .nav-badge {
             color: var(--text-muted);
@@ -74,12 +73,17 @@
             padding: 4px 12px;
             font-weight: 500;
         }
+        .nav-badge a {
+            color: inherit;
+            text-decoration: underline;
+            text-underline-offset: 2px;
+        }
 
         /* ── Hero ── */
         .hero {
             max-width: var(--max-w);
             margin: 0 auto;
-            padding: 64px 24px 40px;
+            padding: 56px 24px 32px;
             text-align: center;
         }
         .hero h1 {
@@ -94,13 +98,25 @@
             color: var(--text-muted);
             line-height: 1.5;
             max-width: 480px;
-            margin: 0 auto;
+            margin: 0 auto 16px;
         }
+        .hero-source {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            max-width: 480px;
+            margin: 0 auto;
+            padding: 10px 14px;
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            line-height: 1.6;
+        }
+        .hero-source a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
 
-        /* ── Search Area ── */
+        /* ── Search ── */
         .search-card {
             max-width: var(--max-w);
-            margin: 0 auto 32px;
+            margin: 24px auto 32px;
             width: 100%;
             padding: 0 24px;
         }
@@ -111,8 +127,6 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
             overflow: hidden;
         }
-
-        /* Tabs */
         .tabs {
             display: flex;
             border-bottom: 1px solid var(--border);
@@ -128,23 +142,15 @@
             cursor: pointer;
             transition: all 0.2s;
             border-bottom: 2px solid transparent;
+            user-select: none;
         }
         .tab:hover { color: var(--text-main); }
-        .tab.active {
-            color: var(--primary);
-            border-bottom-color: var(--primary);
-            background: var(--bg);
-        }
+        .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg); }
 
-        /* Forms */
         .search-form { padding: 24px; }
         .form-panel { display: none; }
-        .form-panel.active { display: block; animation: fadeIn 0.3s ease; }
-
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(4px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+        .form-panel.active { display: block; animation: fadeIn 0.25s ease; }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 
         .field { margin-bottom: 16px; }
         .field:last-of-type { margin-bottom: 0; }
@@ -178,22 +184,16 @@
             border-color: var(--primary);
             box-shadow: 0 0 0 3px var(--primary-bg);
         }
-
         select {
             cursor: pointer;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 12px center;
             background-size: 16px;
             padding-right: 36px;
         }
         select:disabled { background-color: var(--bg-alt); cursor: not-allowed; }
-
-        .cnr-hint {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 8px;
-        }
+        .cnr-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; }
 
         .btn-search {
             width: 100%;
@@ -216,6 +216,22 @@
         .btn-search:hover { background: var(--primary-hover); }
         .btn-search:disabled { opacity: 0.7; cursor: not-allowed; }
 
+        .source-note {
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            margin-top: 12px;
+            font-size: 0.72rem;
+            color: var(--text-muted);
+        }
+        .source-dot {
+            width: 6px; height: 6px;
+            border-radius: 50%;
+            background: #10b981;
+            flex-shrink: 0;
+        }
+        .source-note a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+
         .spinner {
             width: 16px; height: 16px;
             border: 2px solid rgba(255,255,255,0.3);
@@ -225,7 +241,7 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Results Area ── */
+        /* ── Results ── */
         .results {
             max-width: var(--max-w);
             margin: 0 auto;
@@ -233,8 +249,6 @@
             padding: 0 24px 64px;
             flex: 1;
         }
-
-        /* Messages */
         .error-box {
             background: var(--error-bg);
             border: 1px solid #fecaca;
@@ -244,15 +258,9 @@
             font-size: 0.875rem;
             display: flex;
             gap: 12px;
+            align-items: flex-start;
         }
-
-        /* Case List */
-        .case-list-header {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-        }
+        .case-list-header { font-size: 0.875rem; font-weight: 500; color: var(--text-muted); margin-bottom: 12px; }
         .case-list { display: flex; flex-direction: column; gap: 12px; }
         .case-item {
             background: var(--bg);
@@ -266,11 +274,10 @@
             transition: all 0.2s;
         }
         .case-item:hover { border-color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .case-item-title { font-weight: 600; color: var(--text-main); margin-bottom: 4px; font-size: 1rem; }
+        .case-item-title { font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
         .case-item-meta { font-size: 0.875rem; color: var(--text-muted); }
         .case-item-arrow { color: var(--text-muted); font-size: 1.25rem; }
 
-        /* Detail View */
         .detail-back {
             display: inline-block;
             font-size: 0.875rem;
@@ -280,7 +287,6 @@
             font-weight: 500;
         }
         .detail-back:hover { color: var(--text-main); }
-        
         .detail-header { margin-bottom: 24px; }
         .detail-title { font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.2; margin-bottom: 8px; }
         .detail-cnr { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); }
@@ -296,135 +302,107 @@
         .nh-date { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
         .nh-purpose { font-size: 0.875rem; color: var(--text-muted); margin-top: 4px; }
 
-        .info-grid {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            margin-bottom: 24px;
-        }
-        .info-row {
-            display: flex;
-            padding: 14px 20px;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.875rem;
-        }
+        .info-grid { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; }
+        .info-row { display: flex; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
         .info-row:last-child { border-bottom: none; }
         .info-key { width: 140px; font-weight: 500; color: var(--text-muted); flex-shrink: 0; }
         .info-val { color: var(--text-main); flex: 1; }
 
-        .status-badge {
-            display: inline-block;
-            padding: 2px 10px;
-            border-radius: 999px;
-            font-size: 0.75rem;
-            font-weight: 600;
-        }
-        .status-pending { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #fef3c7; }
+        .status-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+        .status-pending  { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #fef3c7; }
         .status-disposed { background: var(--success-bg); color: var(--success-text); border: 1px solid #d1fae5; }
-        .status-fresh { background: var(--primary-bg); color: var(--primary); border: 1px solid #dbeafe; }
+        .status-fresh    { background: var(--primary-bg); color: var(--primary);       border: 1px solid #dbeafe; }
 
-        .history-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-        }
-        .history-header {
-            padding: 16px 20px;
-            font-weight: 600;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.95rem;
-        }
-        .history-item {
-            padding: 16px 20px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            gap: 24px;
-        }
+        .history-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; }
+        .history-header { padding: 16px 20px; font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
+        .history-item { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 24px; }
         .history-item:last-child { border-bottom: none; }
         .history-date { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); width: 90px; flex-shrink: 0; }
         .history-text { font-size: 0.875rem; color: var(--text-main); margin-bottom: 4px; }
         .history-purpose { font-size: 0.75rem; color: var(--text-muted); }
 
         /* ── Placeholder ── */
-        .placeholder {
-            display: flex;
-            flex-direction: column;
-            gap: 16px;
-        }
-        .placeholder-card {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-        }
-        .placeholder-label {
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            margin-bottom: 12px;
-        }
-        .placeholder-item {
-            font-size: 0.875rem;
-            color: var(--text-main);
-            padding: 8px 0;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            border-bottom: 1px solid var(--border);
-        }
+        .placeholder { display: flex; flex-direction: column; gap: 16px; }
+        .placeholder-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+        .placeholder-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
+        .placeholder-item { font-size: 0.875rem; color: var(--text-main); padding: 8px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
         .placeholder-item:last-child { border-bottom: none; padding-bottom: 0; }
-        .placeholder-icon { color: var(--text-muted); font-size: 1rem; }
 
         /* ── Footer ── */
         .footer {
             border-top: 1px solid var(--border);
-            padding: 24px;
+            padding: 20px 24px;
             display: flex;
-            justify-content: center;
+            flex-direction: column;
             align-items: center;
+            gap: 10px;
             font-size: 0.8rem;
             color: var(--text-muted);
             background: var(--bg);
             margin-top: auto;
         }
-        .footer a {
+        .footer-top {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 4px;
+        }
+        .footer-top a {
             color: var(--text-muted);
             text-decoration: none;
             font-weight: 500;
             display: inline-flex;
             align-items: center;
-            gap: 6px;
+            gap: 4px;
             transition: color 0.2s;
         }
-        .footer a:hover { color: var(--text-main); }
-        .fsep { margin: 0 10px; opacity: 0.5; }
+        .footer-top a:hover { color: var(--text-main); }
+        .footer-top svg { fill: currentColor; }
+        .footer-disclaimer {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-align: center;
+            line-height: 1.6;
+            max-width: 560px;
+            padding-top: 10px;
+            border-top: 1px solid var(--border);
+            width: 100%;
+        }
+        .footer-disclaimer a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+        .fsep { margin: 0 6px; opacity: 0.4; }
 
+        /* ── Responsive ── */
         @media (max-width: 600px) {
             .field-row { flex-direction: column; gap: 16px; }
             .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; }
             .history-item { flex-direction: column; gap: 8px; }
             .nav-badge { display: none; }
-            .hero { padding: 40px 20px 32px; }
+            .hero { padding: 40px 20px 28px; }
             .hero h1 { font-size: 1.75rem; }
         }
     </style>
 </head>
 <body>
 
+<!-- Nav -->
 <nav class="nav">
     <a class="nav-brand" href="#">vaad<span>.in</span></a>
     <div class="nav-right">
-        <span class="nav-badge">eCourts Tracker</span>
+        <span class="nav-badge">Powered by <a href="https://ecourts.gov.in" target="_blank" rel="noopener">eCourts India</a></span>
     </div>
 </nav>
 
+<!-- Hero -->
 <div class="hero">
     <h1>Track court cases simply.</h1>
     <p>Search Indian court cases by CNR number, party name, or advocate. Clean interface, instant results.</p>
+    <div class="hero-source">
+        Data sourced directly from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> — official eCourts portal by the eCommittee, Supreme Court of India. vaad.in is an independent open source interface, not affiliated with NIC or the judiciary.
+    </div>
 </div>
 
+<!-- Search -->
 <div class="search-card">
     <div class="search-container">
         <div class="tabs">
@@ -432,12 +410,13 @@
             <div class="tab" data-tab="party" onclick="switchTab('party')">Party Name</div>
             <div class="tab" data-tab="advocate" onclick="switchTab('advocate')">Advocate</div>
         </div>
-
         <div class="search-form">
+
             <div class="form-panel active" id="panel-cnr">
                 <div class="field">
                     <label class="field-label" for="cnr-input">CNR Number</label>
-                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
+                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023"
+                        autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
                     <div class="cnr-hint">16-character alphanumeric case number</div>
                 </div>
             </div>
@@ -487,42 +466,62 @@
             <button class="btn-search" id="search-btn" onclick="handleSearch()">
                 <span id="btn-text">Search Cases</span>
             </button>
+
+            <div class="source-note">
+                <span class="source-dot"></span>
+                Data fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> · vaad.in does not store your search queries
+            </div>
+
         </div>
     </div>
 </div>
 
+<!-- Results -->
 <div class="results" id="results"></div>
 
+<!-- Placeholder -->
 <div class="results" id="placeholder">
     <div class="placeholder">
         <div class="placeholder-card">
             <div class="placeholder-label">Information Provided</div>
-            <div class="placeholder-item"><span class="placeholder-icon">📅</span> Next hearing date and purpose</div>
-            <div class="placeholder-item"><span class="placeholder-icon">📋</span> Case type, court, and current stage</div>
-            <div class="placeholder-item"><span class="placeholder-icon">👥</span> Party and advocate details</div>
-            <div class="placeholder-item"><span class="placeholder-icon">⏱️</span> Complete case history log</div>
+            <div class="placeholder-item"><span>📅</span> Next hearing date and purpose</div>
+            <div class="placeholder-item"><span>📋</span> Case type, court, and current stage</div>
+            <div class="placeholder-item"><span>👥</span> Party and advocate details</div>
+            <div class="placeholder-item"><span>⏱️</span> Complete case history log</div>
+        </div>
+        <div class="placeholder-card">
+            <div class="placeholder-label">How to find your CNR</div>
+            <div class="placeholder-item"><span>📄</span> Printed on your cause list or case notice</div>
+            <div class="placeholder-item"><span>🌐</span> Available on ecourts.gov.in after registration</div>
+            <div class="placeholder-item"><span>⚖️</span> Ask your advocate — they have it on file</div>
         </div>
     </div>
 </div>
 
+<!-- Footer -->
 <footer class="footer">
-    <span>vaad.in</span>
-    <span class="fsep">·</span>
-    <a href="https://github.com/Gorupa/vaad?tab=readme-ov-file" target="_blank" rel="noopener">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-        gorupa
-    </a>
-    <span class="fsep">·</span>
-    <span>AGPL 3.0 License</span>
-    <a href="https://github.com/Gorupa/vaad?tab=readme-ov-file" target="_blank" rel="noopener">
+    <div class="footer-top">
+        <span>vaad.in · © 2026 gorupa / Gaurav Kalal</span>
+        <span class="fsep">·</span>
+        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">
+            <svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
+            gorupa
+        </a>
+        <span class="fsep">·</span>
+        <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a>
+        <span class="fsep">·</span>
+        <span>AGPL-3.0 · No ads · No tracking</span>
+    </div>
+    <div class="footer-disclaimer">
+        vaad.in is an independent open source project and is <strong>not affiliated</strong> with the eCommittee of the Supreme Court of India, NIC, or any government body. All case data is fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> and is the property of the respective courts. vaad.in does not store, modify or claim ownership of any case data.
+    </div>
 </footer>
 
 <script>
-/* ── CONFIG ── */
+/* ── CONFIG — update this to your Railway backend URL ── */
 const API = 'https://backend-production-72e6.up.railway.app/api';
 
-let activeTab    = 'cnr';
-let lastResults  = null;
+let activeTab = 'cnr';
 
 /* ── Tab switcher ── */
 function switchTab(tab) {
@@ -533,7 +532,7 @@ function switchTab(tab) {
     clearResults();
 }
 
-/* ── Load states on page load ── */
+/* ── Load states ── */
 async function loadStates() {
     try {
         const res  = await fetch(`${API}/states`);
@@ -553,26 +552,21 @@ async function loadStates() {
     }
 }
 
-/* ── Load districts when state changes ── */
+/* ── Load districts ── */
 async function loadDistricts(type) {
-    const stateEl    = document.getElementById(type === 'party' ? 'party-state' : 'adv-state');
+    const stateEl    = document.getElementById(type === 'party' ? 'party-state'    : 'adv-state');
     const districtEl = document.getElementById(type === 'party' ? 'party-district' : 'adv-district');
     const stateCode  = stateEl.value;
 
     districtEl.innerHTML = '<option value="">Loading…</option>';
     districtEl.disabled  = true;
-
-    if (!stateCode) {
-        districtEl.innerHTML = '<option value="">Select district…</option>';
-        return;
-    }
+    if (!stateCode) { districtEl.innerHTML = '<option value="">Select district…</option>'; return; }
 
     try {
         const res  = await fetch(`${API}/districts?state_code=${stateCode}`);
         const json = await res.json();
-        const districts = json.data || [];
         districtEl.innerHTML = '<option value="">Select district…</option>';
-        districts.forEach(d => {
+        (json.data || []).forEach(d => {
             const opt = document.createElement('option');
             opt.value = d.district_code || d.code;
             opt.textContent = d.district_name || d.name;
@@ -586,9 +580,6 @@ async function loadDistricts(type) {
 
 /* ── Handle search ── */
 async function handleSearch() {
-    const btn     = document.getElementById('search-btn');
-    const btnText = document.getElementById('btn-text');
-
     if (activeTab === 'cnr') {
         const cnr = document.getElementById('cnr-input').value.trim();
         if (!cnr) return shake('cnr-input');
@@ -599,7 +590,7 @@ async function handleSearch() {
         const name     = document.getElementById('party-name').value.trim();
         if (!state || !district || !name) return;
         await searchParty(state, district, name);
-    } else if (activeTab === 'advocate') {
+    } else {
         const state    = document.getElementById('adv-state').value;
         const district = document.getElementById('adv-district').value;
         const name     = document.getElementById('adv-name').value.trim();
@@ -610,109 +601,61 @@ async function handleSearch() {
 
 /* ── Loading state ── */
 function setLoading(on) {
-    const btn  = document.getElementById('search-btn');
-    const text = document.getElementById('btn-text');
+    const btn = document.getElementById('search-btn');
     btn.disabled = on;
-    if (on) {
-        text.innerHTML = '';
-        btn.innerHTML  = '<div class="spinner"></div><span>Searching…</span>';
-    } else {
-        btn.innerHTML = '<span id="btn-text">Search Cases</span>';
-    }
+    btn.innerHTML = on
+        ? '<div class="spinner"></div><span>Searching…</span>'
+        : '<span id="btn-text">Search Cases</span>';
 }
 
-/* ── CNR search ── */
+/* ── API calls ── */
 async function searchCNR(cnr) {
-    setLoading(true);
-    clearResults();
+    setLoading(true); clearResults();
     try {
-        const res  = await fetch(`${API}/cnr`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cnr }),
-        });
+        const res  = await fetch(`${API}/cnr`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cnr}) });
         const json = await res.json();
         if (!json.success) return showError(json.error);
         renderCaseDetail(json.data);
-    } catch (e) {
-        showError('Could not connect to server. Please check your connection.');
-    } finally {
-        setLoading(false);
-    }
+    } catch (e) { showError('Could not connect to server. Please check your connection.'); }
+    finally { setLoading(false); }
 }
 
-/* ── Party search ── */
 async function searchParty(state_code, district_code, name) {
-    setLoading(true);
-    clearResults();
+    setLoading(true); clearResults();
     try {
-        const res  = await fetch(`${API}/party`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ state_code, district_code, name }),
-        });
+        const res  = await fetch(`${API}/party`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({state_code,district_code,name}) });
         const json = await res.json();
         if (!json.success) return showError(json.error);
         renderCaseList(json.data);
-    } catch (e) {
-        showError('Could not connect to server.');
-    } finally {
-        setLoading(false);
-    }
+    } catch (e) { showError('Could not connect to server.'); }
+    finally { setLoading(false); }
 }
 
-/* ── Advocate search ── */
 async function searchAdvocate(state_code, district_code, name) {
-    setLoading(true);
-    clearResults();
+    setLoading(true); clearResults();
     try {
-        const res  = await fetch(`${API}/advocate`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ state_code, district_code, name }),
-        });
+        const res  = await fetch(`${API}/advocate`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({state_code,district_code,name}) });
         const json = await res.json();
         if (!json.success) return showError(json.error);
         renderCaseList(json.data);
-    } catch (e) {
-        showError('Could not connect to server.');
-    } finally {
-        setLoading(false);
-    }
+    } catch (e) { showError('Could not connect to server.'); }
+    finally { setLoading(false); }
 }
 
-/* ── Render case list ── */
+/* ── Render helpers ── */
 function renderCaseList(cases) {
-    const el = document.getElementById('results');
     hidePlaceholder();
-
-    if (!cases || cases.length === 0) {
-        showError('No cases found. Try a different name or check the district.');
-        return;
-    }
-
-    let html = `
-        <div class="case-list-header">${cases.length} result${cases.length !== 1 ? 's' : ''} found</div>
-        <div class="case-list">`;
-
-    cases.forEach((c, i) => {
-        const title = c.case_title || c.title || `Case ${i + 1}`;
-        const meta  = [c.case_type, c.court_name, c.filing_date].filter(Boolean).join(' · ');
-        html += `
-            <div class="case-item" onclick="fetchCNR('${c.cnr_number || c.cnr}')">
-                <div>
-                    <div class="case-item-title">${title}</div>
-                    <div class="case-item-meta">${meta || c.cnr_number || ''}</div>
-                </div>
-                <span class="case-item-arrow">→</span>
-            </div>`;
+    if (!cases || cases.length === 0) { showError('No cases found. Try a different name or check the district.'); return; }
+    let html = `<div class="case-list-header">${cases.length} result${cases.length!==1?'s':''} found</div><div class="case-list">`;
+    cases.forEach((c,i) => {
+        const title = c.case_title||c.title||`Case ${i+1}`;
+        const meta  = [c.case_type,c.court_name,c.filing_date].filter(Boolean).join(' · ');
+        html += `<div class="case-item" onclick="fetchCNR('${c.cnr_number||c.cnr}')"><div><div class="case-item-title">${title}</div><div class="case-item-meta">${meta||c.cnr_number||''}</div></div><span class="case-item-arrow">→</span></div>`;
     });
-
     html += '</div>';
-    el.innerHTML = html;
+    document.getElementById('results').innerHTML = html;
 }
 
-/* ── Fetch CNR from case list click ── */
 async function fetchCNR(cnr) {
     if (!cnr) return;
     document.getElementById('cnr-input').value = cnr;
@@ -720,28 +663,25 @@ async function fetchCNR(cnr) {
     await searchCNR(cnr);
 }
 
-/* ── Render full case detail ── */
 function renderCaseDetail(data) {
-    const el = document.getElementById('results');
     hidePlaceholder();
-
     if (!data) { showError('No case data returned.'); return; }
 
-    const title       = data.case_title    || data.title       || 'Case Details';
-    const cnr         = data.cnr_number    || data.cnr          || '—';
-    const caseType    = data.case_type     || '—';
-    const courtName   = data.court_name    || '—';
-    const district    = data.district_name || data.district     || '—';
-    const filingDate  = data.filing_date   || '—';
-    const status      = data.case_status   || data.status       || 'Pending';
-    const stage       = data.case_stage    || data.stage        || '—';
-    const petitioner  = data.petitioner    || data.petitioner_name || '—';
-    const respondent  = data.respondent    || data.respondent_name || '—';
-    const petAdv      = data.petitioner_advocate || '—';
-    const resAdv      = data.respondent_advocate || '—';
-    const nextHearing = data.next_hearing_date   || data.next_date || null;
-    const nextPurpose = data.next_hearing_purpose || '';
-    const history     = data.case_history || data.history || [];
+    const title       = data.case_title||data.title||'Case Details';
+    const cnr         = data.cnr_number||data.cnr||'—';
+    const caseType    = data.case_type||'—';
+    const courtName   = data.court_name||'—';
+    const district    = data.district_name||data.district||'—';
+    const filingDate  = data.filing_date||'—';
+    const status      = data.case_status||data.status||'Pending';
+    const stage       = data.case_stage||data.stage||'—';
+    const petitioner  = data.petitioner||data.petitioner_name||'—';
+    const respondent  = data.respondent||data.respondent_name||'—';
+    const petAdv      = data.petitioner_advocate||'—';
+    const resAdv      = data.respondent_advocate||'—';
+    const nextHearing = data.next_hearing_date||data.next_date||null;
+    const nextPurpose = data.next_hearing_purpose||'';
+    const history     = data.case_history||data.history||[];
 
     const statusClass = status.toLowerCase().includes('dispos') ? 'status-disposed'
                       : status.toLowerCase().includes('fresh')  ? 'status-fresh'
@@ -754,70 +694,45 @@ function renderCaseDetail(data) {
             <div class="detail-cnr">CNR: ${cnr}</div>
         </div>`;
 
-    if (nextHearing) {
-        html += `
-            <div class="next-hearing">
-                <div class="nh-label">Next Hearing Date</div>
-                <div class="nh-date">${nextHearing}</div>
-                ${nextPurpose ? `<div class="nh-purpose">${nextPurpose}</div>` : ''}
-            </div>`;
-    }
+    if (nextHearing) html += `<div class="next-hearing"><div class="nh-label">Next Hearing Date</div><div class="nh-date">${nextHearing}</div>${nextPurpose?`<div class="nh-purpose">${nextPurpose}</div>`:''}</div>`;
 
-    html += `
-        <div class="info-grid">
-            <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
-            <div class="info-row"><span class="info-key">Case Type</span><span class="info-val">${caseType}</span></div>
-            <div class="info-row"><span class="info-key">Court</span><span class="info-val">${courtName}</span></div>
-            <div class="info-row"><span class="info-key">District</span><span class="info-val">${district}</span></div>
-            <div class="info-row"><span class="info-key">Filing Date</span><span class="info-val">${filingDate}</span></div>
-            <div class="info-row"><span class="info-key">Stage</span><span class="info-val">${stage}</span></div>
-            <div class="info-row"><span class="info-key">Petitioner</span><span class="info-val">${petitioner}</span></div>
-            <div class="info-row"><span class="info-key">Respondent</span><span class="info-val">${respondent}</span></div>
-            <div class="info-row"><span class="info-key">Pet. Advocate</span><span class="info-val">${petAdv}</span></div>
-            <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
-        </div>`;
+    html += `<div class="info-grid">
+        <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
+        <div class="info-row"><span class="info-key">Case Type</span><span class="info-val">${caseType}</span></div>
+        <div class="info-row"><span class="info-key">Court</span><span class="info-val">${courtName}</span></div>
+        <div class="info-row"><span class="info-key">District</span><span class="info-val">${district}</span></div>
+        <div class="info-row"><span class="info-key">Filing Date</span><span class="info-val">${filingDate}</span></div>
+        <div class="info-row"><span class="info-key">Stage</span><span class="info-val">${stage}</span></div>
+        <div class="info-row"><span class="info-key">Petitioner</span><span class="info-val">${petitioner}</span></div>
+        <div class="info-row"><span class="info-key">Respondent</span><span class="info-val">${respondent}</span></div>
+        <div class="info-row"><span class="info-key">Pet. Advocate</span><span class="info-val">${petAdv}</span></div>
+        <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
+    </div>`;
 
     if (history.length > 0) {
         html += `<div class="history-card"><div class="history-header">Case History</div>`;
-        history.forEach((h) => {
-            const date     = h.hearing_date || h.date || '—';
-            const text     = h.order_details || h.details || h.order || '—';
-            const purpose  = h.purpose || h.next_purpose || '';
-            html += `
-                <div class="history-item">
-                    <div class="history-date">${date}</div>
-                    <div>
-                        <div class="history-text">${text}</div>
-                        ${purpose ? `<div class="history-purpose">Next: ${purpose}</div>` : ''}
-                    </div>
-                </div>`;
+        history.forEach(h => {
+            const date    = h.hearing_date||h.date||'—';
+            const text    = h.order_details||h.details||h.order||'—';
+            const purpose = h.purpose||h.next_purpose||'';
+            html += `<div class="history-item"><div class="history-date">${date}</div><div><div class="history-text">${text}</div>${purpose?`<div class="history-purpose">Next: ${purpose}</div>`:''}</div></div>`;
         });
         html += `</div>`;
     }
 
-    el.innerHTML = html;
-    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('results').innerHTML = html;
+    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
-/* ── Helpers ── */
 function showError(msg) {
     hidePlaceholder();
-    document.getElementById('results').innerHTML = `
-        <div class="error-box">
-            <span>⚠</span>
-            <span>${msg}</span>
-        </div>`;
+    document.getElementById('results').innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
 }
-
 function clearResults() {
     document.getElementById('results').innerHTML = '';
     document.getElementById('placeholder').style.display = 'block';
 }
-
-function hidePlaceholder() {
-    document.getElementById('placeholder').style.display = 'none';
-}
-
+function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
 function shake(id) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -826,10 +741,12 @@ function shake(id) {
     setTimeout(() => { el.style.borderColor = ''; }, 1500);
 }
 
-document.addEventListener('keydown', e => {
-    if (e.key === 'Enter') handleSearch();
-});
+document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
 
+// Wake up Railway backend on page load
+fetch(`${API}/health`).catch(() => {});
+
+// Init
 loadStates();
 </script>
 </body>
