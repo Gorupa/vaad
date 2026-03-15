@@ -43,42 +43,6 @@ backend/           ← Node.js + Express (Render free tier)
 
 The backend proxies requests to the eCourts API, adds caching and rate limiting, and returns clean JSON to the frontend.
 
----
-
-## Setup
-
-### Backend
-
-```bash
-cd backend
-npm install
-npm start
-```
-
-Runs on `http://localhost:3000`
-
-For production, deploy to **Render** (free tier):
-1. Create new Web Service on render.com
-2. Connect `gorupa/vaad` repo
-3. Root directory: `backend`
-4. Build command: `npm install`
-5. Start command: `node server.js`
-
-### Frontend
-
-Update the `API` constant in `frontend/index.html`:
-
-```js
-// Development
-const API = 'http://localhost:3000/api';
-
-// Production — replace with your Render URL
-const API = 'https://vaad-backend.onrender.com/api';
-```
-
-Deploy `frontend/` to Cloudflare Pages — root directory `frontend`, no build command.
-
----
 
 ## API Endpoints
 
