@@ -1,6 +1,6 @@
 {
   "name": "vaad-backend",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "vaad.in — eCourts case tracker backend",
   "main": "server.js",
   "scripts": {
@@ -8,7 +8,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "axios": "^1.6.0",
+    "@bullpenm/legal-case-scraper": "^0.1.0",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
