@@ -32,10 +32,16 @@ const app   = express();
 const cache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache
 
 /* ─────────────────────────────────────────────
-   CONFIG
+   CONFIG & PROXY
 ───────────────────────────────────────────── */
 
 const PORT = process.env.PORT || 3000;
+
+// FREE INDIAN PROXIES (Update if the government blocks one)
+// 103.122.60.229:8080
+// 4.213.98.253:80
+// 27.34.242.98:80
+const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.122.60.229:8080';
 
 /* ─────────────────────────────────────────────
    SESSION MANAGEMENT
@@ -46,17 +52,17 @@ let _session = null;
 
 async function getSession() {
     if (!_session) {
-        console.log('Creating eCourts session...');
-        _session = await ecourts.createSession();
+        console.log('Creating eCourts session via proxy...');
+        _session = await ecourts.createSession(INDIAN_PROXY);
         console.log('Session ready. Token:', _session.appToken || 'none');
     }
     return _session;
 }
 
 async function refreshSession() {
-    console.log('Refreshing session...');
+    console.log('Refreshing session via proxy...');
     try {
-        _session = await ecourts.createSession();
+        _session = await ecourts.createSession(INDIAN_PROXY);
     } catch (e) {
         _session = null;
         console.error('Session refresh failed:', e.message);
@@ -90,6 +96,7 @@ app.get('/api/health', (req, res) => {
         status:    'ok',
         version:   '0.2.0',
         source:    'ecourts.gov.in (via @bullpenm/legal-case-scraper)',
+        proxy:     'active',
         timestamp: new Date().toISOString(),
     });
 });
