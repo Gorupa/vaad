@@ -1,48 +1,67 @@
- /**
+/**
  * vaad.in — backend/server.js
  * Node.js + Express backend for eCourts data
  *
  * Author : gorupa (https://github.com/gorupa)
- * License: MIT
+ * License: AGPL-3.0
+ *
+ * Data source: ecourts.gov.in (via @bullpenm/legal-case-scraper)
  *
  * Endpoints:
- *   GET  /api/health
- *   GET  /api/states
- *   GET  /api/districts?state_code=...
- *   POST /api/cnr          { cnr }
- *   POST /api/party        { state_code, district_code, name, case_type }
- *   POST /api/advocate     { state_code, district_code, name }
+ * GET  /api/health
+ * GET  /api/states
+ * GET  /api/districts?state_code=...
+ * POST /api/cnr       { cnr }
+ * POST /api/party     { state_code, district_code, name }
+ * POST /api/advocate  { state_code, district_code, name }
  */
 
 'use strict';
 
-const express    = require('express');
-const cors       = require('cors');
-const helmet     = require('helmet');
-const rateLimit  = require('express-rate-limit');
-const NodeCache  = require('node-cache');
-const axios      = require('axios');
+const express   = require('express');
+const cors      = require('cors');
+const helmet    = require('helmet');
+const rateLimit = require('express-rate-limit');
+const NodeCache = require('node-cache');
+
+// ── Published NPM module ─────────────────────────────────────
+const ecourts = require('@bullpenm/legal-case-scraper');
+// ─────────────────────────────────────────────────────────────
 
 const app   = express();
-const cache = new NodeCache({ stdTTL: 3600 }); // cache 1 hour
+const cache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache
 
 /* ─────────────────────────────────────────────
    CONFIG
 ───────────────────────────────────────────── */
 
-const PORT         = process.env.PORT || 3000;
-// API moved from eciapi.akshit.me → court-api.kleopatra.io
-// Free for non-commercial/educational use — register at court-api.kleopatra.io
-const ECIAPI_BASE   = process.env.COURT_API_BASE || 'https://court-api.kleopatra.io';
-const COURT_API_KEY = process.env.COURT_API_KEY || '';
-const ALLOWED_ORIGINS = [
-    'https://vaad.in',
-    'https://www.vaad.in',
-    'https://vaad.pages.dev',
-    'http://localhost:5500',
-    'http://127.0.0.1:5500',
-    'http://localhost:3000',
-];
+const PORT = process.env.PORT || 3000;
+
+/* ─────────────────────────────────────────────
+   SESSION MANAGEMENT
+   Single shared session, refreshed on error
+───────────────────────────────────────────── */
+
+let _session = null;
+
+async function getSession() {
+    if (!_session) {
+        console.log('Creating eCourts session...');
+        _session = await ecourts.createSession();
+        console.log('Session ready. Token:', _session.appToken || 'none');
+    }
+    return _session;
+}
+
+async function refreshSession() {
+    console.log('Refreshing session...');
+    try {
+        _session = await ecourts.createSession();
+    } catch (e) {
+        _session = null;
+        console.error('Session refresh failed:', e.message);
+    }
+}
 
 /* ─────────────────────────────────────────────
    MIDDLEWARE
@@ -51,14 +70,11 @@ const ALLOWED_ORIGINS = [
 app.use(helmet());
 app.use(express.json());
 app.use(cors({
-    origin: (origin, cb) => {
-        if (!origin || ALLOWED_ORIGINS.includes(origin)) return cb(null, true);
-        cb(new Error('Not allowed by CORS'));
-    },
-    methods: ['GET', 'POST'],
+    origin:         true,
+    methods:        ['GET', 'POST'],
+    allowedHeaders: ['Content-Type', 'Accept'],
 }));
 
-// Rate limiting — 30 requests per minute per IP
 app.use(rateLimit({
     windowMs: 60 * 1000,
     max:      30,
@@ -66,123 +82,96 @@ app.use(rateLimit({
 }));
 
 /* ─────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────── */
-
-/**
- * Fetch from ECIAPI with cache
- * @param {string} endpoint
- * @param {object} params
- * @param {string} cacheKey
- */
-async function fetchECI(endpoint, params = {}, cacheKey) {
-    if (cacheKey) {
-        const cached = cache.get(cacheKey);
-        if (cached) return cached;
-    }
-
-    const res = await axios.get(`${ECIAPI_BASE}${endpoint}`, {
-        params,
-        timeout: 15000,
-        headers: { 'Accept': 'application/json', ...(COURT_API_KEY && { 'Authorization': `Bearer ${COURT_API_KEY}` }) },
-    });
-
-    if (cacheKey) cache.set(cacheKey, res.data);
-    return res.data;
-}
-
-/**
- * POST to ECIAPI with cache
- */
-async function postECI(endpoint, body, cacheKey) {
-    if (cacheKey) {
-        const cached = cache.get(cacheKey);
-        if (cached) return cached;
-    }
-
-    const res = await axios.post(`${ECIAPI_BASE}${endpoint}`, body, {
-        timeout: 15000,
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', ...(COURT_API_KEY && { 'Authorization': `Bearer ${COURT_API_KEY}` }) },
-    });
-
-    if (cacheKey) cache.set(cacheKey, res.data);
-    return res.data;
-}
-
-/* ─────────────────────────────────────────────
    ROUTES
 ───────────────────────────────────────────── */
 
-/** Health check */
 app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', version: '0.1.0', timestamp: new Date().toISOString() });
+    res.json({
+        status:    'ok',
+        version:   '0.2.0',
+        source:    'ecourts.gov.in (via @bullpenm/legal-case-scraper)',
+        timestamp: new Date().toISOString(),
+    });
 });
 
-/**
- * GET /api/states
- * Returns list of all states with codes
- */
 app.get('/api/states', async (req, res) => {
+    const cached = cache.get('states');
+    if (cached) return res.json({ success: true, data: cached });
+
     try {
-        const data = await fetchECI('/states', {}, 'states');
-        res.json({ success: true, data });
+        const session = await getSession();
+        const states  = await ecourts.getStates(session);
+
+        if (!states || states.length === 0) {
+            return res.status(500).json({ success: false, error: 'No states returned.' });
+        }
+
+        cache.set('states', states);
+        res.json({ success: true, data: states });
+
     } catch (err) {
         console.error('States error:', err.message);
+        await refreshSession();
         res.status(500).json({ success: false, error: 'Failed to fetch states.' });
     }
 });
 
-/**
- * GET /api/districts?state_code=24
- * Returns districts for a given state
- */
 app.get('/api/districts', async (req, res) => {
     const { state_code } = req.query;
-    if (!state_code) return res.status(400).json({ success: false, error: 'state_code is required.' });
+    if (!state_code) {
+        return res.status(400).json({ success: false, error: 'state_code is required.' });
+    }
+
+    const cacheKey = `districts_${state_code}`;
+    const cached   = cache.get(cacheKey);
+    if (cached) return res.json({ success: true, data: cached });
 
     try {
-        const data = await fetchECI('/districts', { state_code }, `districts_${state_code}`);
-        res.json({ success: true, data });
+        const session   = await getSession();
+        const districts = await ecourts.getDistricts(session, state_code);
+        cache.set(cacheKey, districts);
+        res.json({ success: true, data: districts });
+
     } catch (err) {
         console.error('Districts error:', err.message);
         res.status(500).json({ success: false, error: 'Failed to fetch districts.' });
     }
 });
 
-/**
- * POST /api/cnr
- * Body: { cnr: "MHAU010012342023" }
- * Returns full case details by CNR number
- */
 app.post('/api/cnr', async (req, res) => {
     const { cnr } = req.body;
     if (!cnr) return res.status(400).json({ success: false, error: 'CNR number is required.' });
 
-    // Basic CNR format validation — 16 alphanumeric chars
     const cleanCNR = cnr.replace(/[\s\-]/g, '').toUpperCase();
     if (!/^[A-Z0-9]{16}$/.test(cleanCNR)) {
-        return res.status(400).json({ success: false, error: 'Invalid CNR format. CNR must be 16 alphanumeric characters.' });
+        return res.status(400).json({ success: false, error: 'Invalid CNR. Must be 16 alphanumeric characters.' });
     }
 
+    const cacheKey = `cnr_${cleanCNR}`;
+    const cached   = cache.get(cacheKey);
+    if (cached) return res.json({ success: true, data: cached });
+
     try {
-        const data = await postECI('/cnr', { cnr: cleanCNR }, `cnr_${cleanCNR}`);
-        res.json({ success: true, data });
-    } catch (err) {
-        console.error('CNR error:', err.message);
-        if (err.response?.status === 404) {
+        const session = await getSession();
+        const data    = await ecourts.getCaseByCNR(session, cleanCNR);
+
+        if (!data) {
             return res.status(404).json({ success: false, error: 'Case not found. Please check the CNR number.' });
         }
-        res.status(500).json({ success: false, error: 'Failed to fetch case details.' });
+
+        cache.set(cacheKey, data);
+        res.json({ success: true, data });
+
+    } catch (err) {
+        console.error('CNR error:', err.message);
+        await refreshSession();
+        res.status(500).json({ success: false, error: 'Failed to fetch case. Please try again.' });
     }
 });
 
-/**
- * POST /api/party
- * Body: { state_code, district_code, name, case_type? }
- * Returns cases matching party name
- */
 app.post('/api/party', async (req, res) => {
     const { state_code, district_code, name, case_type } = req.body;
+
     if (!state_code || !district_code || !name) {
         return res.status(400).json({ success: false, error: 'state_code, district_code and name are required.' });
     }
@@ -191,22 +180,26 @@ app.post('/api/party', async (req, res) => {
     }
 
     try {
-        const body = { state_code, district_code, name: name.trim(), ...(case_type && { case_type }) };
-        const data = await postECI('/party', body);
+        const session = await getSession();
+        const data    = await ecourts.searchByParty(session, {
+            stateCode:    state_code,
+            districtCode: district_code,
+            name:         name.trim(),
+            caseType:     case_type || '',
+        });
+
         res.json({ success: true, data });
+
     } catch (err) {
         console.error('Party error:', err.message);
-        res.status(500).json({ success: false, error: 'Failed to fetch cases.' });
+        await refreshSession();
+        res.status(500).json({ success: false, error: 'Failed to search. Please try again.' });
     }
 });
 
-/**
- * POST /api/advocate
- * Body: { state_code, district_code, name }
- * Returns cases for an advocate
- */
 app.post('/api/advocate', async (req, res) => {
     const { state_code, district_code, name } = req.body;
+
     if (!state_code || !district_code || !name) {
         return res.status(400).json({ success: false, error: 'state_code, district_code and name are required.' });
     }
@@ -215,11 +208,19 @@ app.post('/api/advocate', async (req, res) => {
     }
 
     try {
-        const data = await postECI('/advocate', { state_code, district_code, name: name.trim() });
+        const session = await getSession();
+        const data    = await ecourts.searchByAdvocate(session, {
+            stateCode:    state_code,
+            districtCode: district_code,
+            name:         name.trim(),
+        });
+
         res.json({ success: true, data });
+
     } catch (err) {
         console.error('Advocate error:', err.message);
-        res.status(500).json({ success: false, error: 'Failed to fetch advocate cases.' });
+        await refreshSession();
+        res.status(500).json({ success: false, error: 'Failed to search. Please try again.' });
     }
 });
 
@@ -236,7 +237,9 @@ app.use((err, req, res, next) => {
    START
 ───────────────────────────────────────────── */
 
-app.listen(PORT, () => {
-    console.log(`vaad.in backend running on port ${PORT}`);
+app.listen(PORT, async () => {
+    console.log(`vaad.in backend v0.2.0 running on port ${PORT}`);
+    console.log('Data source: ecourts.gov.in (via NPM module)');
+    // Warm up session on startup
+    getSession().catch(err => console.warn('Session warmup failed:', err.message));
 });
-
