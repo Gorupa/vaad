@@ -74,7 +74,7 @@ vaad.in fetches publicly available data from eCourts India (ecourts.gov.in). It 
 
 ---
 
-## License 1
+## License 
 
 [AGPL-3.0](LICENSE) © 2026 [gorupa](https://github.com/gorupa) / Gaurav Kalal
 
