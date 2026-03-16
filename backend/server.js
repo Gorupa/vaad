@@ -6,17 +6,12 @@
  * License: AGPL-3.0
  *
  * Data source: ecourts.gov.in (via @bullpenm/legal-case-scraper)
- *
- * Endpoints:
- * GET  /api/health
- * GET  /api/states
- * GET  /api/districts?state_code=...
- * POST /api/cnr       { cnr }
- * POST /api/party     { state_code, district_code, name }
- * POST /api/advocate  { state_code, district_code, name }
  */
 
 'use strict';
+
+// FIX FOR zkTLS "self is not defined" error in Node.js
+global.self = global;
 
 const express   = require('express');
 const cors      = require('cors');
@@ -38,9 +33,6 @@ const cache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache
 const PORT = process.env.PORT || 3000;
 
 // FREE INDIAN PROXIES (Update if the government blocks one)
-// 103.122.60.229:8080
-// 4.213.98.253:80
-// 27.34.242.98:80
 const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.122.60.229:8080';
 
 /* ─────────────────────────────────────────────
