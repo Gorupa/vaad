@@ -8,7 +8,7 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "@bullpenm/legal-case-scraper": "^0.1.0",
+    "@bullpenm/legal-case-scraper": "github:gorupa/ecourts-js",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
