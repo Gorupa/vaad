@@ -1,140 +1,81 @@
 /**
- * vaad.in — backend/server.js
- * Node.js + Express backend for eCourts data
- *
- * Author : gorupa (https://github.com/gorupa)
- * License: AGPL-3.0
- *
- * Data source: ecourts.gov.in (via @bullpenm/legal-case-scraper)
+ * court-api — backend/server.js
+ * Node.js + Express backend for eCourts data with zkTLS polyfills
  */
 
 'use strict';
 
-// FIX FOR zkTLS "self is not defined" error in Node.js
+// --- BROWSER POLYFILLS FOR zkTLS (tlsn-js) ---
+// 1. Define 'self' so web worker libraries don't crash
 global.self = global;
 
-const express   = require('express');
-const cors      = require('cors');
-const helmet    = require('helmet');
+// 2. Tell tlsn-js to use our 'ws' package as the global browser WebSocket
+const WebSocket = require('ws');
+global.WebSocket = WebSocket;
+
+// 3. Tell tlsn-js to use Node's native webcrypto API
+const crypto = require('crypto');
+if (!global.crypto) {
+    global.crypto = crypto.webcrypto;
+}
+// ---------------------------------------------
+
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const NodeCache = require('node-cache');
 
-// ── Published NPM module ─────────────────────────────────────
+// Your open-source scraper/engine
 const ecourts = require('@bullpenm/legal-case-scraper');
-// ─────────────────────────────────────────────────────────────
 
-const app   = express();
+const app = express();
 const cache = new NodeCache({ stdTTL: 3600 }); // 1 hour cache
-
-/* ─────────────────────────────────────────────
-   CONFIG & PROXY
-───────────────────────────────────────────── */
-
 const PORT = process.env.PORT || 3000;
 
 // FREE INDIAN PROXIES (Update if the government blocks one)
 const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.122.60.229:8080';
-
-/* ─────────────────────────────────────────────
-   SESSION MANAGEMENT
-   Single shared session, refreshed on error
-───────────────────────────────────────────── */
 
 let _session = null;
 
 async function getSession() {
     if (!_session) {
         console.log('Creating eCourts session via proxy...');
-        _session = await ecourts.createSession(INDIAN_PROXY);
-        console.log('Session ready. Token:', _session.appToken || 'none');
+        try {
+            _session = await ecourts.createSession(INDIAN_PROXY);
+            console.log('Session ready.');
+        } catch (err) {
+            console.error('Session creation failed:', err.message);
+            throw err;
+        }
     }
     return _session;
 }
 
-async function refreshSession() {
-    console.log('Refreshing session via proxy...');
-    try {
-        _session = await ecourts.createSession(INDIAN_PROXY);
-    } catch (e) {
-        _session = null;
-        console.error('Session refresh failed:', e.message);
-    }
-}
-
-/* ─────────────────────────────────────────────
-   MIDDLEWARE
-───────────────────────────────────────────── */
-
+// --- MIDDLEWARE ---
 app.use(helmet());
 app.use(express.json());
 app.use(cors({
-    origin:         true,
-    methods:        ['GET', 'POST'],
+    origin: true,
+    methods: ['GET', 'POST'],
     allowedHeaders: ['Content-Type', 'Accept'],
 }));
 
 app.use(rateLimit({
     windowMs: 60 * 1000,
-    max:      30,
-    message:  { error: 'Too many requests. Please wait a minute.' },
+    max: 30,
+    message: { error: 'Too many requests. Please wait a minute.' },
 }));
 
-/* ─────────────────────────────────────────────
-   ROUTES
-───────────────────────────────────────────── */
+// --- ROUTES ---
 
 app.get('/api/health', (req, res) => {
     res.json({
-        status:    'ok',
-        version:   '0.2.0',
-        source:    'ecourts.gov.in (via @bullpenm/legal-case-scraper)',
-        proxy:     'active',
-        timestamp: new Date().toISOString(),
+        status: 'ok',
+        version: '1.0.0',
+        proxy: 'active',
+        zkTLS: 'ready'
     });
-});
-
-app.get('/api/states', async (req, res) => {
-    const cached = cache.get('states');
-    if (cached) return res.json({ success: true, data: cached });
-
-    try {
-        const session = await getSession();
-        const states  = await ecourts.getStates(session);
-
-        if (!states || states.length === 0) {
-            return res.status(500).json({ success: false, error: 'No states returned.' });
-        }
-
-        cache.set('states', states);
-        res.json({ success: true, data: states });
-
-    } catch (err) {
-        console.error('States error:', err.message);
-        await refreshSession();
-        res.status(500).json({ success: false, error: 'Failed to fetch states.' });
-    }
-});
-
-app.get('/api/districts', async (req, res) => {
-    const { state_code } = req.query;
-    if (!state_code) {
-        return res.status(400).json({ success: false, error: 'state_code is required.' });
-    }
-
-    const cacheKey = `districts_${state_code}`;
-    const cached   = cache.get(cacheKey);
-    if (cached) return res.json({ success: true, data: cached });
-
-    try {
-        const session   = await getSession();
-        const districts = await ecourts.getDistricts(session, state_code);
-        cache.set(cacheKey, districts);
-        res.json({ success: true, data: districts });
-
-    } catch (err) {
-        console.error('Districts error:', err.message);
-        res.status(500).json({ success: false, error: 'Failed to fetch districts.' });
-    }
 });
 
 app.post('/api/cnr', async (req, res) => {
@@ -147,98 +88,34 @@ app.post('/api/cnr', async (req, res) => {
     }
 
     const cacheKey = `cnr_${cleanCNR}`;
-    const cached   = cache.get(cacheKey);
+    const cached = cache.get(cacheKey);
     if (cached) return res.json({ success: true, data: cached });
 
     try {
         const session = await getSession();
-        const data    = await ecourts.getCaseByCNR(session, cleanCNR);
+        
+        // Calls your library, which handles the zkTLS proofs under the hood
+        const data = await ecourts.getCaseByCNR(session, cleanCNR);
 
         if (!data) {
-            return res.status(404).json({ success: false, error: 'Case not found. Please check the CNR number.' });
+            return res.status(404).json({ success: false, error: 'Case not found.' });
         }
 
         cache.set(cacheKey, data);
         res.json({ success: true, data });
 
-    } catch (err) {
-        console.error('CNR error:', err.message);
-        await refreshSession();
-        res.status(500).json({ success: false, error: 'Failed to fetch case. Please try again.' });
+    } catch (error) {
+        console.error('CNR error:', error.message);
+        _session = null; // Reset session on error so it generates a fresh one next time
+        res.status(500).json({ success: false, error: 'Failed to fetch case. Proxy or eCourts server may be down.' });
     }
 });
 
-app.post('/api/party', async (req, res) => {
-    const { state_code, district_code, name, case_type } = req.body;
-
-    if (!state_code || !district_code || !name) {
-        return res.status(400).json({ success: false, error: 'state_code, district_code and name are required.' });
-    }
-    if (name.trim().length < 3) {
-        return res.status(400).json({ success: false, error: 'Name must be at least 3 characters.' });
-    }
-
-    try {
-        const session = await getSession();
-        const data    = await ecourts.searchByParty(session, {
-            stateCode:    state_code,
-            districtCode: district_code,
-            name:         name.trim(),
-            caseType:     case_type || '',
-        });
-
-        res.json({ success: true, data });
-
-    } catch (err) {
-        console.error('Party error:', err.message);
-        await refreshSession();
-        res.status(500).json({ success: false, error: 'Failed to search. Please try again.' });
-    }
-});
-
-app.post('/api/advocate', async (req, res) => {
-    const { state_code, district_code, name } = req.body;
-
-    if (!state_code || !district_code || !name) {
-        return res.status(400).json({ success: false, error: 'state_code, district_code and name are required.' });
-    }
-    if (name.trim().length < 3) {
-        return res.status(400).json({ success: false, error: 'Name must be at least 3 characters.' });
-    }
-
-    try {
-        const session = await getSession();
-        const data    = await ecourts.searchByAdvocate(session, {
-            stateCode:    state_code,
-            districtCode: district_code,
-            name:         name.trim(),
-        });
-
-        res.json({ success: true, data });
-
-    } catch (err) {
-        console.error('Advocate error:', err.message);
-        await refreshSession();
-        res.status(500).json({ success: false, error: 'Failed to search. Please try again.' });
-    }
-});
-
-/* ─────────────────────────────────────────────
-   ERROR HANDLER
-───────────────────────────────────────────── */
-
-app.use((err, req, res, next) => {
-    console.error(err.message);
-    res.status(500).json({ success: false, error: 'Internal server error.' });
-});
-
-/* ─────────────────────────────────────────────
-   START
-───────────────────────────────────────────── */
-
+// --- START SERVER ---
 app.listen(PORT, async () => {
-    console.log(`vaad.in backend v0.2.0 running on port ${PORT}`);
-    console.log('Data source: ecourts.gov.in (via NPM module)');
+    console.log(`Vaad Backend running on port ${PORT}`);
+    console.log('zkTLS Polyfills initialized successfully.');
+    
     // Warm up session on startup
-    getSession().catch(err => console.warn('Session warmup failed:', err.message));
+    getSession().catch(() => console.log('Will retry session on first request.'));
 });
