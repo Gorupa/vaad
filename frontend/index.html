@@ -39,288 +39,99 @@
             flex-direction: column;
         }
 
-        /* ── Nav ── */
+        /* ── Nav & Auth ── */
         .nav {
-            background: var(--bg);
-            border-bottom: 1px solid var(--border);
-            padding: 16px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 10;
+            background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px 24px;
+            display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;
         }
-        .nav-brand {
-            font-size: 1.5rem;
-            font-weight: 800;
-            text-decoration: none;
-            color: var(--primary);
-            letter-spacing: -0.02em;
-        }
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 0.8rem;
-        }
-        .nav-badge {
-            color: var(--text-main);
-            background: #e0f2fe;
-            border: 1px solid #bae6fd;
-            border-radius: 999px;
-            padding: 6px 14px;
-            font-weight: 600;
-        }
-        .nav-badge a {
-            color: #0284c7;
-            text-decoration: none;
-        }
+        .nav-brand { font-size: 1.5rem; font-weight: 800; text-decoration: none; color: var(--primary); letter-spacing: -0.02em; }
+        .nav-right { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; }
+        .nav-badge { color: var(--text-main); background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 999px; padding: 6px 14px; font-weight: 600; }
+        .nav-badge a { color: #0284c7; text-decoration: none; }
         .nav-badge a:hover { text-decoration: underline; }
 
+        .btn-auth {
+            background: white; border: 1px solid var(--border); padding: 6px 14px; border-radius: 999px; 
+            font-weight: 600; cursor: pointer; color: var(--text-main); transition: all 0.2s; display: flex; align-items: center; gap: 6px;
+        }
+        .btn-auth:hover { background: var(--bg-alt); border-color: #d1d5db; }
+        .user-profile { display: none; align-items: center; gap: 8px; font-weight: 600; }
+        .user-profile img { width: 24px; height: 24px; border-radius: 50%; }
+
         /* ── Hero ── */
-        .hero {
-            max-width: var(--max-w);
-            margin: 0 auto;
-            padding: 56px 24px 32px;
-            text-align: center;
-        }
-        .hero h1 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--text-main);
-            margin-bottom: 12px;
-        }
-        .hero p {
-            font-size: 1rem;
-            color: var(--text-muted);
-            line-height: 1.5;
-            max-width: 480px;
-            margin: 0 auto 16px;
-        }
-        .hero-source {
-            font-size: 0.85rem;
-            color: var(--text-main);
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 12px 16px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            line-height: 1.6;
-            font-weight: 500;
-        }
+        .hero { max-width: var(--max-w); margin: 0 auto; padding: 56px 24px 32px; text-align: center; }
+        .hero h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.03em; color: var(--text-main); margin-bottom: 12px; }
+        .hero p { font-size: 1rem; color: var(--text-muted); line-height: 1.5; max-width: 480px; margin: 0 auto 16px; }
+        .hero-source { font-size: 0.85rem; color: var(--text-main); max-width: 480px; margin: 0 auto; padding: 12px 16px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); line-height: 1.6; font-weight: 500; }
         .hero-source a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
 
         /* ── Search ── */
-        .search-card {
-            max-width: var(--max-w);
-            margin: 24px auto 32px;
-            width: 100%;
-            padding: 0 24px;
-        }
-        .search-container {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            overflow: hidden;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-alt);
-        }
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 14px 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            border-bottom: 2px solid transparent;
-            user-select: none;
-        }
+        .search-card { max-width: var(--max-w); margin: 24px auto 32px; width: 100%; padding: 0 24px; }
+        .search-container { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: 0 1px 2px rgba(0,0,0,0.05); overflow: hidden; }
+        .tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-alt); }
+        .tab { flex: 1; text-align: center; padding: 14px 8px; font-size: 0.875rem; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: all 0.2s; border-bottom: 2px solid transparent; user-select: none; }
         .tab:hover { color: var(--text-main); }
         .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg); }
-
         .search-form { padding: 24px; }
         .form-panel { display: none; }
         .form-panel.active { display: block; animation: fadeIn 0.25s ease; }
         @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
 
         .field { margin-bottom: 16px; }
-        .field:last-of-type { margin-bottom: 0; }
-        .field-row { display: flex; gap: 16px; }
-        .field-row .field { flex: 1; margin-bottom: 0; }
-        .field-label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-main);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
-
-        input[type="text"], select {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            color: var(--text-main);
-            outline: none;
-            transition: all 0.2s;
-            appearance: none;
-        }
+        .field-label { display: block; font-size: 0.75rem; font-weight: 600; color: var(--text-main); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
+        input[type="text"] { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-family: inherit; font-size: 0.95rem; color: var(--text-main); outline: none; transition: all 0.2s; }
         input[type="text"]::placeholder { color: #9ca3af; }
-        input[type="text"]:focus, select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-bg);
-        }
-        select {
-            cursor: pointer;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-            padding-right: 36px;
-        }
-        select:disabled { background-color: var(--bg-alt); cursor: not-allowed; }
+        input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
         .cnr-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; }
 
-        .btn-search {
-            width: 100%;
-            margin-top: 24px;
-            padding: 12px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
+        .btn-search { width: 100%; margin-top: 24px; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-family: inherit; font-size: 0.95rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; }
         .btn-search:hover { background: var(--primary-hover); }
         .btn-search:disabled { opacity: 0.7; cursor: not-allowed; }
+        
+        .free-limits { text-align: center; font-size: 0.75rem; margin-top: 12px; color: var(--text-muted); font-weight: 500; }
 
-        .source-note {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            margin-top: 12px;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-        .source-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: #10b981;
-            flex-shrink: 0;
-        }
-
-        .spinner {
-            width: 16px; height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
+        .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* ── Results ── */
-        .results {
-            max-width: var(--max-w);
-            margin: 0 auto;
-            width: 100%;
-            padding: 0 24px 64px;
-            flex: 1;
-        }
-        .error-box {
-            background: var(--error-bg);
-            border: 1px solid #fecaca;
-            color: var(--error-text);
-            padding: 16px;
-            border-radius: var(--radius);
-            font-size: 0.875rem;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-        .case-list-header { font-size: 0.875rem; font-weight: 500; color: var(--text-muted); margin-bottom: 12px; }
-        .case-list { display: flex; flex-direction: column; gap: 12px; }
-        .case-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s;
-        }
-        .case-item:hover { border-color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .case-item-title { font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
-        .case-item-meta { font-size: 0.875rem; color: var(--text-muted); }
-        .case-item-arrow { color: var(--text-muted); font-size: 1.25rem; }
+        /* ── Modal (Upgrade / UPI) ── */
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); z-index: 50; justify-content: center; align-items: center; padding: 20px; }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
+        .modal-box { background: var(--bg); width: 100%; max-width: 420px; border-radius: 12px; padding: 32px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); position: relative; }
+        .modal-close { position: absolute; top: 16px; right: 16px; cursor: pointer; font-size: 1.2rem; color: var(--text-muted); border: none; background: none; }
+        .modal-close:hover { color: var(--text-main); }
+        .pricing-title { font-size: 1.5rem; font-weight: 700; margin-bottom: 8px; text-align: center; }
+        .pricing-subtitle { font-size: 0.9rem; color: var(--text-muted); text-align: center; margin-bottom: 24px; line-height: 1.5; }
+        .price-tag { font-size: 2.5rem; font-weight: 800; color: var(--primary); text-align: center; margin-bottom: 24px; }
+        .price-tag span { font-size: 1rem; color: var(--text-muted); font-weight: 500; }
+        .feature-list { list-style: none; margin-bottom: 24px; }
+        .feature-list li { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; margin-bottom: 12px; color: var(--text-main); }
+        .feature-list li::before { content: '✓'; color: var(--success-text); font-weight: bold; background: var(--success-bg); border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; }
+        .upi-box { background: var(--bg-alt); border: 1px dashed var(--border); padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 16px; }
+        .upi-id { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin: 8px 0; user-select: all; }
+        .upi-note { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; }
 
-        .detail-back {
-            display: inline-block;
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
+        /* ── Results & Placeholders ── */
+        .results { max-width: var(--max-w); margin: 0 auto; width: 100%; padding: 0 24px 64px; flex: 1; }
+        .error-box { background: var(--error-bg); border: 1px solid #fecaca; color: var(--error-text); padding: 16px; border-radius: var(--radius); font-size: 0.875rem; display: flex; gap: 12px; align-items: flex-start; }
+        .detail-back { display: inline-block; font-size: 0.875rem; color: var(--text-muted); cursor: pointer; margin-bottom: 20px; font-weight: 500; }
         .detail-back:hover { color: var(--text-main); }
         .detail-header { margin-bottom: 24px; }
         .detail-title { font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.2; margin-bottom: 8px; }
         .detail-cnr { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); }
-
-        .next-hearing {
-            background: var(--primary-bg);
-            border: 1px solid #bfdbfe;
-            border-radius: var(--radius);
-            padding: 20px;
-            margin-bottom: 24px;
-        }
+        .next-hearing { background: var(--primary-bg); border: 1px solid #bfdbfe; border-radius: var(--radius); padding: 20px; margin-bottom: 24px; }
         .nh-label { font-size: 0.75rem; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
         .nh-date { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
         .nh-purpose { font-size: 0.875rem; color: var(--text-muted); margin-top: 4px; }
-
         .info-grid { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; }
         .info-row { display: flex; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
         .info-row:last-child { border-bottom: none; }
         .info-key { width: 140px; font-weight: 500; color: var(--text-muted); flex-shrink: 0; }
         .info-val { color: var(--text-main); flex: 1; }
-
         .status-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
         .status-pending  { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #fef3c7; }
         .status-disposed { background: var(--success-bg); color: var(--success-text); border: 1px solid #d1fae5; }
-        .status-fresh    { background: var(--primary-bg); color: var(--primary);       border: 1px solid #dbeafe; }
+        .status-fresh    { background: var(--primary-bg); color: var(--primary); border: 1px solid #dbeafe; }
 
-        .history-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; }
-        .history-header { padding: 16px 20px; font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
-        .history-item { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 24px; }
-        .history-item:last-child { border-bottom: none; }
-        .history-date { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); width: 90px; flex-shrink: 0; }
-        .history-text { font-size: 0.875rem; color: var(--text-main); margin-bottom: 4px; }
-        .history-purpose { font-size: 0.75rem; color: var(--text-muted); }
-
-        /* ── Placeholder ── */
         .placeholder { display: flex; flex-direction: column; gap: 16px; }
         .placeholder-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
         .placeholder-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
@@ -328,56 +139,13 @@
         .placeholder-item:last-child { border-bottom: none; padding-bottom: 0; }
 
         /* ── Footer ── */
-        .footer {
-            border-top: 1px solid var(--border);
-            padding: 20px 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            background: var(--bg);
-            margin-top: auto;
-        }
-        .footer-top {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 4px;
-        }
-        .footer-top a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: color 0.2s;
-        }
+        .footer { border-top: 1px solid var(--border); padding: 20px 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 0.8rem; color: var(--text-muted); background: var(--bg); margin-top: auto; }
+        .footer-top { display: flex; align-items: center; flex-wrap: wrap; justify-content: center; gap: 4px; }
+        .footer-top a { color: var(--text-muted); text-decoration: none; font-weight: 500; display: inline-flex; align-items: center; gap: 4px; transition: color 0.2s; }
         .footer-top a:hover { color: var(--text-main); }
-        .footer-top svg { fill: currentColor; }
-        .footer-disclaimer {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            text-align: center;
-            line-height: 1.6;
-            max-width: 560px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border);
-            width: 100%;
-        }
+        .footer-disclaimer { font-size: 0.72rem; color: var(--text-muted); text-align: center; line-height: 1.6; max-width: 560px; padding-top: 10px; border-top: 1px solid var(--border); width: 100%; }
         .fsep { margin: 0 6px; opacity: 0.4; }
-
-        /* ── Responsive ── */
-        @media (max-width: 600px) {
-            .field-row { flex-direction: column; gap: 16px; }
-            .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; }
-            .history-item { flex-direction: column; gap: 8px; }
-            .hero { padding: 40px 20px 28px; }
-            .hero h1 { font-size: 1.75rem; }
-        }
+        @media (max-width: 600px) { .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; } }
     </style>
 </head>
 <body>
@@ -385,7 +153,17 @@
 <nav class="nav">
     <a class="nav-brand" href="#">Vaad</a>
     <div class="nav-right">
-        <span class="nav-badge">Powered by <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">our own engine ecourt.js</a></span>
+        <span class="nav-badge">Powered by <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">ecourt.js</a></span>
+        
+        <button id="login-btn" class="btn-auth">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+            Sign In
+        </button>
+        <div id="user-menu" class="user-profile">
+            <img id="user-avatar" src="" alt="Avatar">
+            <span id="user-name">User</span>
+            <button id="logout-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; text-decoration:underline; padding: 0 4px;">Log Out</button>
+        </div>
     </div>
 </nav>
 
@@ -400,37 +178,29 @@
 <div class="search-card">
     <div class="search-container">
         <div class="tabs">
-            <div class="tab active" data-tab="cnr" onclick="switchTab('cnr')">CNR Number</div>
-            <div class="tab" data-tab="party" onclick="switchTab('party')">Party Name</div>
-            <div class="tab" data-tab="advocate" onclick="switchTab('advocate')">Advocate</div>
+            <div class="tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number</div>
+            <div class="tab" data-tab="party" onclick="window.switchTab('party')">Party Name</div>
+            <div class="tab" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
         </div>
         <div class="search-form">
-
             <div class="form-panel active" id="panel-cnr">
                 <div class="field">
                     <label class="field-label" for="cnr-input">CNR Number</label>
-                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023"
-                        autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
+                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
                     <div class="cnr-hint">16-character alphanumeric case number</div>
                 </div>
             </div>
-
             <div class="form-panel" id="panel-party">
-                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">
-                    🚧 Party Search is currently being integrated into the core engine. <br>Please use CNR search.
-                </div>
+                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">🚧 Party Search is currently being integrated.<br>Please use CNR search.</div>
             </div>
-
             <div class="form-panel" id="panel-advocate">
-                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">
-                    🚧 Advocate Search is currently being integrated into the core engine. <br>Please use CNR search.
-                </div>
+                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">🚧 Advocate Search is currently being integrated.<br>Please use CNR search.</div>
             </div>
 
-            <button class="btn-search" id="search-btn" onclick="handleSearch()">
+            <button class="btn-search" id="search-btn" onclick="window.handleSearch()">
                 <span id="btn-text">Search Cases</span>
             </button>
-
+            <div id="limit-text" class="free-limits">Free searches remaining: 5/5</div>
         </div>
     </div>
 </div>
@@ -449,13 +219,32 @@
     </div>
 </div>
 
+<div id="upgrade-modal" class="modal-overlay">
+    <div class="modal-box">
+        <button class="modal-close" onclick="window.closeModal()">×</button>
+        <div class="pricing-title">Upgrade to Vaad Pro</div>
+        <div class="pricing-subtitle">You have used your 5 free searches. Upgrade to continue tracking cases instantly.</div>
+        <div class="price-tag">₹99<span> / month</span></div>
+        <ul class="feature-list">
+            <li>Unlimited live case tracking</li>
+            <li>Priority access to premium proxy engines</li>
+            <li>No captchas, no waiting</li>
+        </ul>
+        <div class="upi-box">
+            <div class="upi-note">Pay directly via UPI to activate Pro:</div>
+            <div class="upi-id">gauravkalal@ybl</div> 
+            <div class="upi-note">Send payment and email screenshot to <b>contact@yourdomain.com</b>.<br>Your account will be upgraded within 2 hours.</div>
+        </div>
+        <button id="modal-login-btn" class="btn-auth" style="width: 100%; justify-content: center; margin-top: 12px;">
+            Log in with Google to Link Account
+        </button>
+    </div>
+</div>
+
 <footer class="footer">
     <div class="footer-top">
-        <span class="fsep">·</span>
-        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">gorupa</a>
-        <span class="fsep">·</span>
-        <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a>
-        <span class="fsep">·</span>
+        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">gorupa</a><span class="fsep">·</span>
+        <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a><span class="fsep">·</span>
         <span>AGPL-3.0</span>
     </div>
     <div class="footer-disclaimer">
@@ -463,141 +252,198 @@
     </div>
 </footer>
 
-<script>
-/* ── API CONNECTION ── */
-const API = 'https://vaad-wnul.onrender.com/api';
+<script type="module">
+    // ── FIREBASE V12.10.0 SETUP ──
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
+    import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
 
-let activeTab = 'cnr';
+    const firebaseConfig = {
+        apiKey: "AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU",
+        authDomain: "vaad-87fed.firebaseapp.com",
+        projectId: "vaad-87fed",
+        storageBucket: "vaad-87fed.firebasestorage.app",
+        messagingSenderId: "649989985981",
+        appId: "1:649989985981:web:6dcbcdd0babd45f2cb09d4",
+        measurementId: "G-36J186LSR4"
+    };
 
-/* ── Tab switcher ── */
-function switchTab(tab) {
-    activeTab = tab;
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('panel-' + tab).classList.add('active');
-    clearResults();
-    
-    // Disable button if not on CNR tab (since we haven't built backend routes for them yet)
-    document.getElementById('search-btn').disabled = (tab !== 'cnr');
-}
+    const app = initializeApp(firebaseConfig);
+    const analytics = getAnalytics(app);
+    const auth = getAuth(app);
+    const provider = new GoogleAuthProvider();
 
-/* ── Handle search ── */
-async function handleSearch() {
-    if (activeTab === 'cnr') {
+    // ── STATE ──
+    const API = 'https://vaad-wnul.onrender.com/api';
+    let currentUser = null;
+    let isPro = false; // Manually update this logic later from a DB check
+    const maxFreeSearches = 5;
+    let activeTab = 'cnr';
+
+    // ── AUTH LISTENERS ──
+    onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (user) {
+            document.getElementById('login-btn').style.display = 'none';
+            document.getElementById('modal-login-btn').style.display = 'none';
+            document.getElementById('user-menu').style.display = 'flex';
+            document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
+            document.getElementById('user-avatar').src = user.photoURL;
+        } else {
+            document.getElementById('login-btn').style.display = 'flex';
+            document.getElementById('modal-login-btn').style.display = 'flex';
+            document.getElementById('user-menu').style.display = 'none';
+        }
+        updateSearchLimitUI();
+    });
+
+    document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
+    document.getElementById('modal-login-btn').onclick = () => signInWithPopup(auth, provider);
+    document.getElementById('logout-btn').onclick = () => signOut(auth);
+
+    // ── UI LOGIC (ATTACHED TO WINDOW FOR HTML ACCESS) ──
+    window.switchTab = function(tab) {
+        activeTab = tab;
+        document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+        document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
+        document.getElementById('panel-' + tab).classList.add('active');
+        clearResults();
+        document.getElementById('search-btn').disabled = (tab !== 'cnr');
+    };
+
+    window.closeModal = function() {
+        document.getElementById('upgrade-modal').classList.remove('active');
+    };
+
+    window.handleSearch = async function() {
+        if (activeTab !== 'cnr') return;
+        
         const cnr = document.getElementById('cnr-input').value.trim();
         if (!cnr) return shake('cnr-input');
-        await searchCNR(cnr);
-    }
-}
 
-/* ── Loading state ── */
-function setLoading(on) {
-    const btn = document.getElementById('search-btn');
-    btn.disabled = on;
-    btn.innerHTML = on
-        ? '<div class="spinner"></div><span>Engine Fetching...</span>'
-        : '<span id="btn-text">Search Cases</span>';
-}
+        let searchesUsed = parseInt(localStorage.getItem('vaad_searches') || 0);
 
-/* ── API calls ── */
-async function searchCNR(cnr) {
-    setLoading(true); 
-    clearResults();
-    try {
-        const res = await fetch(`${API}/cnr`, { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({cnr}) 
-        });
-        
-        const json = await res.json();
-        
-        if (!res.ok || !json.success) {
-            return showError(json.error || 'The ecourt.js engine failed to fetch this case. The government proxy might be blocking the request.');
+        // Check Limit
+        if (searchesUsed >= maxFreeSearches && !isPro) {
+            document.getElementById('upgrade-modal').classList.add('active');
+            return;
         }
+
+        // Increment usage
+        if (!isPro) {
+            searchesUsed++;
+            localStorage.setItem('vaad_searches', searchesUsed);
+            updateSearchLimitUI();
+        }
+
+        // Execute Search
+        await searchCNR(cnr);
+    };
+
+    function updateSearchLimitUI() {
+        let searchesUsed = parseInt(localStorage.getItem('vaad_searches') || 0);
+        let remaining = Math.max(0, maxFreeSearches - searchesUsed);
         
-        renderCaseDetail(json.data);
-    } catch (e) { 
-        showError(`Network Error: Cannot connect to the Render backend. Engine might be sleeping. (${e.message})`); 
+        if (isPro) {
+            document.getElementById('limit-text').innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - Unlimited Searches</span>';
+        } else {
+            document.getElementById('limit-text').innerText = `Free searches remaining: ${remaining}/${maxFreeSearches}`;
+        }
     }
-    finally { 
-        setLoading(false); 
+
+    // ── API LOGIC ──
+    function setLoading(on) {
+        const btn = document.getElementById('search-btn');
+        btn.disabled = on;
+        btn.innerHTML = on ? '<div class="spinner"></div><span>Engine Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
     }
-}
 
-/* ── Render helpers ── */
-function renderCaseDetail(data) {
-    hidePlaceholder();
-    if (!data) { showError('No case data returned from engine.'); return; }
+    async function searchCNR(cnr) {
+        setLoading(true); 
+        clearResults();
+        try {
+            const res = await fetch(`${API}/cnr`, { 
+                method: 'POST', 
+                headers: {'Content-Type': 'application/json'}, 
+                body: JSON.stringify({cnr}) 
+            });
+            const json = await res.json();
+            
+            if (!res.ok || !json.success) {
+                return showError(json.error || 'The ecourt.js engine failed to fetch this case. The government proxy might be blocking the request.');
+            }
+            renderCaseDetail(json.data);
+        } catch (e) { 
+            showError(`Network Error: Cannot connect to the Render backend. Engine might be sleeping. (${e.message})`); 
+        } finally { 
+            setLoading(false); 
+        }
+    }
 
-    const title       = data.case_title||data.title||'Case Details';
-    const cnr         = data.cnr_number||data.cnr||'—';
-    const caseType    = data.case_type||'—';
-    const courtName   = data.court_name||'—';
-    const district    = data.district_name||data.district||'—';
-    const filingDate  = data.filing_date||'—';
-    const status      = data.case_status||data.status||'Pending';
-    const stage       = data.case_stage||data.stage||'—';
-    const petitioner  = data.petitioner||data.petitioner_name||'—';
-    const respondent  = data.respondent||data.respondent_name||'—';
-    const petAdv      = data.petitioner_advocate||'—';
-    const resAdv      = data.respondent_advocate||'—';
-    const nextHearing = data.next_hearing_date||data.next_date||null;
-    const nextPurpose = data.next_hearing_purpose||'';
-    const history     = data.case_history||data.history||[];
+    // ── RENDER HELPERS ──
+    function renderCaseDetail(data) {
+        hidePlaceholder();
+        if (!data) { showError('No case data returned from engine.'); return; }
 
-    const statusClass = status.toLowerCase().includes('dispos') ? 'status-disposed'
-                      : status.toLowerCase().includes('fresh')  ? 'status-fresh'
-                      : 'status-pending';
+        const title       = data.case_title||data.title||'Case Details';
+        const cnr         = data.cnr_number||data.cnr||'—';
+        const caseType    = data.case_type||'—';
+        const courtName   = data.court_name||'—';
+        const district    = data.district_name||data.district||'—';
+        const filingDate  = data.filing_date||'—';
+        const status      = data.case_status||data.status||'Pending';
+        const stage       = data.case_stage||data.stage||'—';
+        const petitioner  = data.petitioner||data.petitioner_name||'—';
+        const respondent  = data.respondent||data.respondent_name||'—';
+        const petAdv      = data.petitioner_advocate||'—';
+        const resAdv      = data.respondent_advocate||'—';
+        const nextHearing = data.next_hearing_date||data.next_date||null;
+        const nextPurpose = data.next_hearing_purpose||'';
 
-    let html = `
-        <span class="detail-back" onclick="clearResults()">← Back to search</span>
-        <div class="detail-header">
-            <div class="detail-title">${title}</div>
-            <div class="detail-cnr">CNR: ${cnr}</div>
+        const statusClass = status.toLowerCase().includes('dispos') ? 'status-disposed' : status.toLowerCase().includes('fresh') ? 'status-fresh' : 'status-pending';
+
+        let html = `<span class="detail-back" onclick="clearResults()">← Back to search</span>
+            <div class="detail-header"><div class="detail-title">${title}</div><div class="detail-cnr">CNR: ${cnr}</div></div>`;
+
+        if (nextHearing) html += `<div class="next-hearing"><div class="nh-label">Next Hearing Date</div><div class="nh-date">${nextHearing}</div>${nextPurpose?`<div class="nh-purpose">${nextPurpose}</div>`:''}</div>`;
+
+        html += `<div class="info-grid">
+            <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
+            <div class="info-row"><span class="info-key">Case Type</span><span class="info-val">${caseType}</span></div>
+            <div class="info-row"><span class="info-key">Court</span><span class="info-val">${courtName}</span></div>
+            <div class="info-row"><span class="info-key">District</span><span class="info-val">${district}</span></div>
+            <div class="info-row"><span class="info-key">Filing Date</span><span class="info-val">${filingDate}</span></div>
+            <div class="info-row"><span class="info-key">Stage</span><span class="info-val">${stage}</span></div>
+            <div class="info-row"><span class="info-key">Petitioner</span><span class="info-val">${petitioner}</span></div>
+            <div class="info-row"><span class="info-key">Respondent</span><span class="info-val">${respondent}</span></div>
+            <div class="info-row"><span class="info-key">Pet. Advocate</span><span class="info-val">${petAdv}</span></div>
+            <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
         </div>`;
 
-    if (nextHearing) html += `<div class="next-hearing"><div class="nh-label">Next Hearing Date</div><div class="nh-date">${nextHearing}</div>${nextPurpose?`<div class="nh-purpose">${nextPurpose}</div>`:''}</div>`;
+        document.getElementById('results').innerHTML = html;
+        document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
+    }
 
-    html += `<div class="info-grid">
-        <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
-        <div class="info-row"><span class="info-key">Case Type</span><span class="info-val">${caseType}</span></div>
-        <div class="info-row"><span class="info-key">Court</span><span class="info-val">${courtName}</span></div>
-        <div class="info-row"><span class="info-key">District</span><span class="info-val">${district}</span></div>
-        <div class="info-row"><span class="info-key">Filing Date</span><span class="info-val">${filingDate}</span></div>
-        <div class="info-row"><span class="info-key">Stage</span><span class="info-val">${stage}</span></div>
-        <div class="info-row"><span class="info-key">Petitioner</span><span class="info-val">${petitioner}</span></div>
-        <div class="info-row"><span class="info-key">Respondent</span><span class="info-val">${respondent}</span></div>
-        <div class="info-row"><span class="info-key">Pet. Advocate</span><span class="info-val">${petAdv}</span></div>
-        <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
-    </div>`;
+    function showError(msg) {
+        hidePlaceholder();
+        document.getElementById('results').innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
+    }
+    function clearResults() { document.getElementById('results').innerHTML = ''; document.getElementById('placeholder').style.display = 'block'; }
+    function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
+    function shake(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.style.borderColor = 'var(--error-text)'; el.focus();
+        setTimeout(() => { el.style.borderColor = ''; }, 1500);
+    }
 
-    document.getElementById('results').innerHTML = html;
-    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
-}
+    document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
 
-function showError(msg) {
-    hidePlaceholder();
-    document.getElementById('results').innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
-}
-function clearResults() {
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('placeholder').style.display = 'block';
-}
-function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
-function shake(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.borderColor = 'var(--error-text)';
-    el.focus();
-    setTimeout(() => { el.style.borderColor = ''; }, 1500);
-}
-
-document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
-
-// Wake up Render backend on page load
-fetch(`${API}/health`).catch(() => {});
-
+    // Wake up Render backend on page load
+    fetch(`${API}/health`).catch(() => {});
+    
+    // Init UI
+    updateSearchLimitUI();
 </script>
 </body>
 </html>
