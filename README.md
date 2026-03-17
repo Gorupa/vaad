@@ -1,6 +1,4 @@
 # vaad
-
-[![AGPL-3.0 License](https://img.shields.io/badge/License-AGPL--3.0-red?style=for-the-badge)](LICENSE)
 [![Live Demo](https://img.shields.io/badge/Live-vaad.pages.dev-brightgreen?style=for-the-badge)](https://vaad.pages.dev)
 [![Open Source](https://img.shields.io/badge/Open%20Source-Yes-6d28d9?style=for-the-badge&logo=github)](https://github.com/Gorupa/vaad)
 [![Data](https://img.shields.io/badge/Data-eCourts%20India-blue?style=for-the-badge)](https://ecourts.gov.in)
