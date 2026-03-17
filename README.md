@@ -1,6 +1,6 @@
 # vaad
 [![Live Demo](https://img.shields.io/badge/Live-vaad.pages.dev-brightgreen?style=for-the-badge)](https://vaad.pages.dev)
-[![Open Source](https://img.shields.io/badge/Open%20Source-Yes-6d28d9?style=for-the-badge&logo=github)](https://github.com/Gorupa/vaad)
+[![Open Source](https://img.shields.io/badge/Open%20Source-NO-6d28d9?style=for-the-badge&logo=github)](https://github.com/Gorupa/vaad)
 [![Data](https://img.shields.io/badge/Data-eCourts%20India-blue?style=for-the-badge)](https://ecourts.gov.in)
 
 > Track Indian court cases instantly. Search by CNR number, party name or advocate name. Clean results, next hearing date front and centre. Free, no ads, open source.
@@ -31,7 +31,7 @@ vaad.in shows it in 3 seconds.
 ## Architecture
 
 ```
-frontend/          ← Static HTML/CSS/JS (Cloudflare Pages)
+frontend/          ← Static HTML/CSS/JS 
   index.html
 
 backend/           ← Node.js + Express (Render free tier)
@@ -72,8 +72,3 @@ vaad.in fetches publicly available data from eCourts India (ecourts.gov.in). It 
 
 ---
 
-## License 
-
-[AGPL-3.0](LICENSE) © 2026 [gorupa](https://github.com/gorupa) / Gaurav Kalal
-
-This means: anyone who runs a modified version of vaad.in as a public service must also release their source code. Free forever for individuals, lawyers, students and NGOs.
