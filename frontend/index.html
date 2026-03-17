@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>vaad — Court Case Tracker</title>
-    <meta name="description" content="Track Indian court cases instantly. Search by CNR number, party name or advocate name. Free, fast, no ads.">
+    <title>Vaad — Court Case Tracker</title>
+    <meta name="description" content="Track Indian court cases instantly. Powered by ecourt.js.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -52,10 +52,10 @@
             z-index: 10;
         }
         .nav-brand {
-            font-size: 1.25rem;
-            font-weight: 700;
+            font-size: 1.5rem;
+            font-weight: 800;
             text-decoration: none;
-            color: var(--text-main);
+            color: var(--primary);
             letter-spacing: -0.02em;
         }
         .nav-right {
@@ -65,18 +65,18 @@
             font-size: 0.8rem;
         }
         .nav-badge {
-            color: var(--text-muted);
-            background: var(--bg-alt);
-            border: 1px solid var(--border);
+            color: var(--text-main);
+            background: #e0f2fe;
+            border: 1px solid #bae6fd;
             border-radius: 999px;
-            padding: 4px 12px;
-            font-weight: 500;
+            padding: 6px 14px;
+            font-weight: 600;
         }
         .nav-badge a {
-            color: inherit;
-            text-decoration: underline;
-            text-underline-offset: 2px;
+            color: #0284c7;
+            text-decoration: none;
         }
+        .nav-badge a:hover { text-decoration: underline; }
 
         /* ── Hero ── */
         .hero {
@@ -100,17 +100,18 @@
             margin: 0 auto 16px;
         }
         .hero-source {
-            font-size: 0.75rem;
-            color: var(--text-muted);
+            font-size: 0.85rem;
+            color: var(--text-main);
             max-width: 480px;
             margin: 0 auto;
-            padding: 10px 14px;
+            padding: 12px 16px;
             background: var(--bg);
             border: 1px solid var(--border);
             border-radius: var(--radius);
             line-height: 1.6;
+            font-weight: 500;
         }
-        .hero-source a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
+        .hero-source a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
 
         /* ── Search ── */
         .search-card {
@@ -229,7 +230,6 @@
             background: #10b981;
             flex-shrink: 0;
         }
-        .source-note a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
 
         .spinner {
             width: 16px; height: 16px;
@@ -368,7 +368,6 @@
             border-top: 1px solid var(--border);
             width: 100%;
         }
-        .footer-disclaimer a { color: var(--text-muted); text-decoration: underline; text-underline-offset: 2px; }
         .fsep { margin: 0 6px; opacity: 0.4; }
 
         /* ── Responsive ── */
@@ -376,7 +375,6 @@
             .field-row { flex-direction: column; gap: 16px; }
             .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; }
             .history-item { flex-direction: column; gap: 8px; }
-            .nav-badge { display: none; }
             .hero { padding: 40px 20px 28px; }
             .hero h1 { font-size: 1.75rem; }
         }
@@ -385,7 +383,7 @@
 <body>
 
 <nav class="nav">
-    <a class="nav-brand" href="#">vaad</a>
+    <a class="nav-brand" href="#">Vaad</a>
     <div class="nav-right">
         <span class="nav-badge">Powered by <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">our own engine ecourt.js</a></span>
     </div>
@@ -393,9 +391,9 @@
 
 <div class="hero">
     <h1>Track court cases simply.</h1>
-    <p>Search Indian court cases by CNR number, party name, or advocate. Clean interface, instant results.</p>
+    <p>Search Indian court cases by CNR number. Clean interface, instant results.</p>
     <div class="hero-source">
-        Data sourced directly from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> — official eCourts portal by the eCommittee, Supreme Court of India. vaad is an independent open source interface, not affiliated with NIC or the judiciary.
+        ⚡ Powered securely by the open-source <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">ecourt.js core engine</a>.
     </div>
 </div>
 
@@ -418,55 +416,20 @@
             </div>
 
             <div class="form-panel" id="panel-party">
-                <div class="field-row">
-                    <div class="field">
-                        <label class="field-label" for="party-state">State</label>
-                        <select id="party-state" onchange="loadDistricts('party')">
-                            <option value="">Select state…</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label class="field-label" for="party-district">District</label>
-                        <select id="party-district" disabled>
-                            <option value="">Select district…</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field" style="margin-top:16px;">
-                    <label class="field-label" for="party-name">Party Name</label>
-                    <input type="text" id="party-name" placeholder="Petitioner or respondent name" autocomplete="off">
+                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    🚧 Party Search is currently being integrated into the core engine. <br>Please use CNR search.
                 </div>
             </div>
 
             <div class="form-panel" id="panel-advocate">
-                <div class="field-row">
-                    <div class="field">
-                        <label class="field-label" for="adv-state">State</label>
-                        <select id="adv-state" onchange="loadDistricts('advocate')">
-                            <option value="">Select state…</option>
-                        </select>
-                    </div>
-                    <div class="field">
-                        <label class="field-label" for="adv-district">District</label>
-                        <select id="adv-district" disabled>
-                            <option value="">Select district…</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="field" style="margin-top:16px;">
-                    <label class="field-label" for="adv-name">Advocate Name</label>
-                    <input type="text" id="adv-name" placeholder="Enter advocate name" autocomplete="off">
+                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">
+                    🚧 Advocate Search is currently being integrated into the core engine. <br>Please use CNR search.
                 </div>
             </div>
 
             <button class="btn-search" id="search-btn" onclick="handleSearch()">
                 <span id="btn-text">Search Cases</span>
             </button>
-
-            <div class="source-note">
-                <span class="source-dot"></span>
-                Data fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> · vaad does not store your search queries
-            </div>
 
         </div>
     </div>
@@ -483,34 +446,25 @@
             <div class="placeholder-item"><span>👥</span> Party and advocate details</div>
             <div class="placeholder-item"><span>⏱️</span> Complete case history log</div>
         </div>
-        <div class="placeholder-card">
-            <div class="placeholder-label">How to find your CNR</div>
-            <div class="placeholder-item"><span>📄</span> Printed on your cause list or case notice</div>
-            <div class="placeholder-item"><span>🌐</span> Available on ecourts.gov.in after registration</div>
-            <div class="placeholder-item"><span>⚖️</span> Ask your advocate — they have it on file</div>
-        </div>
     </div>
 </div>
 
 <footer class="footer">
     <div class="footer-top">
         <span class="fsep">·</span>
-        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">
-            <svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/></svg>
-            gorupa
-        </a>
+        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">gorupa</a>
         <span class="fsep">·</span>
         <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a>
         <span class="fsep">·</span>
-        <span>AGPL-3.0 · No ads · No tracking</span>
+        <span>AGPL-3.0</span>
     </div>
     <div class="footer-disclaimer">
-        vaad is an independent open source project and is <strong>not affiliated</strong> with the eCommittee of the Supreme Court of India, NIC, or any government body. All case data is fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> and is the property of the respective courts. vaad does not store, modify or claim ownership of any case data.
+        Vaad is an independent open source project. Case data is fetched live from ecourts.gov.in using the ecourt.js engine. Vaad does not store, modify or claim ownership of any case data.
     </div>
 </footer>
 
 <script>
-/* ── CONFIG — update this to your Railway backend URL ── */
+/* ── API CONNECTION ── */
 const API = 'https://vaad-production-bb69.up.railway.app/api';
 
 let activeTab = 'cnr';
@@ -522,52 +476,9 @@ function switchTab(tab) {
     document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-' + tab).classList.add('active');
     clearResults();
-}
-
-/* ── Load states ── */
-async function loadStates() {
-    try {
-        const res  = await fetch(`${API}/states`);
-        const json = await res.json();
-        const states = json.data || [];
-        ['party-state', 'adv-state'].forEach(id => {
-            const sel = document.getElementById(id);
-            states.forEach(s => {
-                const opt = document.createElement('option');
-                opt.value = s.state_code || s.code;
-                opt.textContent = s.state_name || s.name;
-                sel.appendChild(opt);
-            });
-        });
-    } catch (e) {
-        console.warn('Could not load states:', e.message);
-    }
-}
-
-/* ── Load districts ── */
-async function loadDistricts(type) {
-    const stateEl    = document.getElementById(type === 'party' ? 'party-state'    : 'adv-state');
-    const districtEl = document.getElementById(type === 'party' ? 'party-district' : 'adv-district');
-    const stateCode  = stateEl.value;
-
-    districtEl.innerHTML = '<option value="">Loading…</option>';
-    districtEl.disabled  = true;
-    if (!stateCode) { districtEl.innerHTML = '<option value="">Select district…</option>'; return; }
-
-    try {
-        const res  = await fetch(`${API}/districts?state_code=${stateCode}`);
-        const json = await res.json();
-        districtEl.innerHTML = '<option value="">Select district…</option>';
-        (json.data || []).forEach(d => {
-            const opt = document.createElement('option');
-            opt.value = d.district_code || d.code;
-            opt.textContent = d.district_name || d.name;
-            districtEl.appendChild(opt);
-        });
-        districtEl.disabled = false;
-    } catch (e) {
-        districtEl.innerHTML = '<option value="">Failed to load</option>';
-    }
+    
+    // Disable button if not on CNR tab (since we haven't built backend routes for them yet)
+    document.getElementById('search-btn').disabled = (tab !== 'cnr');
 }
 
 /* ── Handle search ── */
@@ -576,18 +487,6 @@ async function handleSearch() {
         const cnr = document.getElementById('cnr-input').value.trim();
         if (!cnr) return shake('cnr-input');
         await searchCNR(cnr);
-    } else if (activeTab === 'party') {
-        const state    = document.getElementById('party-state').value;
-        const district = document.getElementById('party-district').value;
-        const name     = document.getElementById('party-name').value.trim();
-        if (!state || !district || !name) return;
-        await searchParty(state, district, name);
-    } else {
-        const state    = document.getElementById('adv-state').value;
-        const district = document.getElementById('adv-district').value;
-        const name     = document.getElementById('adv-name').value.trim();
-        if (!state || !district || !name) return;
-        await searchAdvocate(state, district, name);
     }
 }
 
@@ -596,68 +495,40 @@ function setLoading(on) {
     const btn = document.getElementById('search-btn');
     btn.disabled = on;
     btn.innerHTML = on
-        ? '<div class="spinner"></div><span>Searching…</span>'
+        ? '<div class="spinner"></div><span>Engine Fetching...</span>'
         : '<span id="btn-text">Search Cases</span>';
 }
 
 /* ── API calls ── */
 async function searchCNR(cnr) {
-    setLoading(true); clearResults();
+    setLoading(true); 
+    clearResults();
     try {
-        const res  = await fetch(`${API}/cnr`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({cnr}) });
+        const res = await fetch(`${API}/cnr`, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({cnr}) 
+        });
+        
         const json = await res.json();
-        if (!json.success) return showError(json.error);
+        
+        if (!res.ok || !json.success) {
+            return showError(json.error || 'The ecourt.js engine failed to fetch this case. The government proxy might be blocking the request.');
+        }
+        
         renderCaseDetail(json.data);
-    } catch (e) { showError('Could not connect to server. Please check your connection.'); }
-    finally { setLoading(false); }
-}
-
-async function searchParty(state_code, district_code, name) {
-    setLoading(true); clearResults();
-    try {
-        const res  = await fetch(`${API}/party`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({state_code,district_code,name}) });
-        const json = await res.json();
-        if (!json.success) return showError(json.error);
-        renderCaseList(json.data);
-    } catch (e) { showError('Could not connect to server.'); }
-    finally { setLoading(false); }
-}
-
-async function searchAdvocate(state_code, district_code, name) {
-    setLoading(true); clearResults();
-    try {
-        const res  = await fetch(`${API}/advocate`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({state_code,district_code,name}) });
-        const json = await res.json();
-        if (!json.success) return showError(json.error);
-        renderCaseList(json.data);
-    } catch (e) { showError('Could not connect to server.'); }
-    finally { setLoading(false); }
+    } catch (e) { 
+        showError(`Network Error: Cannot connect to the Railway backend. Engine might be sleeping. (${e.message})`); 
+    }
+    finally { 
+        setLoading(false); 
+    }
 }
 
 /* ── Render helpers ── */
-function renderCaseList(cases) {
-    hidePlaceholder();
-    if (!cases || cases.length === 0) { showError('No cases found. Try a different name or check the district.'); return; }
-    let html = `<div class="case-list-header">${cases.length} result${cases.length!==1?'s':''} found</div><div class="case-list">`;
-    cases.forEach((c,i) => {
-        const title = c.case_title||c.title||`Case ${i+1}`;
-        const meta  = [c.case_type,c.court_name,c.filing_date].filter(Boolean).join(' · ');
-        html += `<div class="case-item" onclick="fetchCNR('${c.cnr_number||c.cnr}')"><div><div class="case-item-title">${title}</div><div class="case-item-meta">${meta||c.cnr_number||''}</div></div><span class="case-item-arrow">→</span></div>`;
-    });
-    html += '</div>';
-    document.getElementById('results').innerHTML = html;
-}
-
-async function fetchCNR(cnr) {
-    if (!cnr) return;
-    document.getElementById('cnr-input').value = cnr;
-    switchTab('cnr');
-    await searchCNR(cnr);
-}
-
 function renderCaseDetail(data) {
     hidePlaceholder();
-    if (!data) { showError('No case data returned.'); return; }
+    if (!data) { showError('No case data returned from engine.'); return; }
 
     const title       = data.case_title||data.title||'Case Details';
     const cnr         = data.cnr_number||data.cnr||'—';
@@ -701,17 +572,6 @@ function renderCaseDetail(data) {
         <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
     </div>`;
 
-    if (history.length > 0) {
-        html += `<div class="history-card"><div class="history-header">Case History</div>`;
-        history.forEach(h => {
-            const date    = h.hearing_date||h.date||'—';
-            const text    = h.order_details||h.details||h.order||'—';
-            const purpose = h.purpose||h.next_purpose||'';
-            html += `<div class="history-item"><div class="history-date">${date}</div><div><div class="history-text">${text}</div>${purpose?`<div class="history-purpose">Next: ${purpose}</div>`:''}</div></div>`;
-        });
-        html += `</div>`;
-    }
-
     document.getElementById('results').innerHTML = html;
     document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -738,8 +598,6 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(
 // Wake up Railway backend on page load
 fetch(`${API}/health`).catch(() => {});
 
-// Init
-loadStates();
 </script>
 </body>
 </html>
