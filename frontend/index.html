@@ -58,7 +58,6 @@
             color: var(--text-main);
             letter-spacing: -0.02em;
         }
-        .nav-brand span { color: var(--primary); }
         .nav-right {
             display: flex;
             align-items: center;
@@ -385,24 +384,21 @@
 </head>
 <body>
 
-<!-- Nav -->
 <nav class="nav">
-    <a class="nav-brand" href="#">vaad<span>.in</span></a>
+    <a class="nav-brand" href="#">vaad</a>
     <div class="nav-right">
-        <span class="nav-badge">Powered by <a href="https://ecourts.gov.in" target="_blank" rel="noopener">eCourts India</a></span>
+        <span class="nav-badge">Powered by <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">our own engine ecourt.js</a></span>
     </div>
 </nav>
 
-<!-- Hero -->
 <div class="hero">
     <h1>Track court cases simply.</h1>
     <p>Search Indian court cases by CNR number, party name, or advocate. Clean interface, instant results.</p>
     <div class="hero-source">
-        Data sourced directly from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> — official eCourts portal by the eCommittee, Supreme Court of India. vaad.in is an independent open source interface, not affiliated with NIC or the judiciary.
+        Data sourced directly from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> — official eCourts portal by the eCommittee, Supreme Court of India. vaad is an independent open source interface, not affiliated with NIC or the judiciary.
     </div>
 </div>
 
-<!-- Search -->
 <div class="search-card">
     <div class="search-container">
         <div class="tabs">
@@ -469,17 +465,15 @@
 
             <div class="source-note">
                 <span class="source-dot"></span>
-                Data fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> · vaad.in does not store your search queries
+                Data fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> · vaad does not store your search queries
             </div>
 
         </div>
     </div>
 </div>
 
-<!-- Results -->
 <div class="results" id="results"></div>
 
-<!-- Placeholder -->
 <div class="results" id="placeholder">
     <div class="placeholder">
         <div class="placeholder-card">
@@ -498,7 +492,6 @@
     </div>
 </div>
 
-<!-- Footer -->
 <footer class="footer">
     <div class="footer-top">
         <span class="fsep">·</span>
@@ -512,13 +505,13 @@
         <span>AGPL-3.0 · No ads · No tracking</span>
     </div>
     <div class="footer-disclaimer">
-        vaad is an independent open source project and is <strong>not affiliated</strong> with the eCommittee of the Supreme Court of India, NIC, or any government body. All case data is fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> and is the property of the respective courts. vaad.in does not store, modify or claim ownership of any case data.
+        vaad is an independent open source project and is <strong>not affiliated</strong> with the eCommittee of the Supreme Court of India, NIC, or any government body. All case data is fetched live from <a href="https://ecourts.gov.in" target="_blank" rel="noopener">ecourts.gov.in</a> and is the property of the respective courts. vaad does not store, modify or claim ownership of any case data.
     </div>
 </footer>
 
 <script>
 /* ── CONFIG — update this to your Railway backend URL ── */
-const API = 'vaad-production-bb69.up.railway.app';
+const API = 'https://vaad-production-bb69.up.railway.app/api';
 
 let activeTab = 'cnr';
 
