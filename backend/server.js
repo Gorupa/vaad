@@ -13,7 +13,7 @@ global.self = global;
 global.document = { baseURI: 'http://localhost/' };
 global.location = { href: 'http://localhost/' };
 global.self.location = global.location;
-global.navigator = { userAgent: 'Node.js' };
+
 
 // Map WebSockets
 const WebSocket = require('ws');
