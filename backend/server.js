@@ -79,7 +79,7 @@ app.use(rateLimit({
 
 // --- ROUTES ---
 
-// Root route for Railway health checks
+// Root route for Render health checks
 app.get('/', (req, res) => {
     res.send('Vaad backend running');
 });
@@ -96,6 +96,10 @@ app.get('/api/health', (req, res) => {
 // Case lookup
 app.post('/api/cnr', async (req, res) => {
     const { cnr } = req.body;
+
+    console.log('-----------------------------------');
+    console.log(`FRONTEND REQUEST RECEIVED FOR CNR: ${cnr}`);
+    console.log('-----------------------------------');
 
     if (!cnr) {
         return res.status(400).json({ success: false, error: 'CNR number is required.' });
@@ -135,9 +139,11 @@ app.post('/api/cnr', async (req, res) => {
     } catch (error) {
         console.error('CNR error:', error.response?.data || error.message);
         _session = null;
+        
+        // Pass the EXACT error message to the frontend UI
         res.status(500).json({
             success: false,
-            error: 'Failed to fetch case. Proxy or eCourts server may be down.',
+            error: `Engine Error: ${error.message}`,
         });
     }
 });
