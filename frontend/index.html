@@ -1,603 +1,129 @@
-<!DOCTYPE html>
-<html lang="en">
+<!DOCTYPE html><html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vaad — Court Case Tracker</title>
-    <meta name="description" content="Track Indian court cases instantly. Powered by ecourt.js.">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --bg: #ffffff;
-            --bg-alt: #f9fafb;
-            --border: #e5e7eb;
-            --text-main: #111827;
-            --text-muted: #6b7280;
-            --primary: #2563eb;
-            --primary-hover: #1d4ed8;
-            --primary-bg: #eff6ff;
-            --success-text: #047857;
-            --success-bg: #ecfdf5;
-            --warning-text: #b45309;
-            --warning-bg: #fffbeb;
-            --error-text: #b91c1c;
-            --error-bg: #fef2f2;
-            --radius: 8px;
-            --max-w: 640px;
-        }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vaad — Court Case Tracker</title>
+<meta name="description" content="Track Indian court cases instantly. Powered by ecourt.js."><style>
+body{
+font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu;
+background:#f9fafb;
+margin:0;
+padding:40px;
+text-align:center;
+}
 
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
+.container{
+max-width:700px;
+margin:auto;
+background:white;
+padding:30px;
+border-radius:10px;
+box-shadow:0 2px 10px rgba(0,0,0,.08);
+}
 
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-            background: var(--bg-alt);
-            color: var(--text-main);
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-            display: flex;
-            flex-direction: column;
-        }
+input{
+width:100%;
+padding:12px;
+font-size:16px;
+border:1px solid #ddd;
+border-radius:6px;
+margin-top:10px;
+}
 
-        /* ── Nav ── */
-        .nav {
-            background: var(--bg);
-            border-bottom: 1px solid var(--border);
-            padding: 16px 24px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
-            z-index: 10;
-        }
-        .nav-brand {
-            font-size: 1.5rem;
-            font-weight: 800;
-            text-decoration: none;
-            color: var(--primary);
-            letter-spacing: -0.02em;
-        }
-        .nav-right {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            font-size: 0.8rem;
-        }
-        .nav-badge {
-            color: var(--text-main);
-            background: #e0f2fe;
-            border: 1px solid #bae6fd;
-            border-radius: 999px;
-            padding: 6px 14px;
-            font-weight: 600;
-        }
-        .nav-badge a {
-            color: #0284c7;
-            text-decoration: none;
-        }
-        .nav-badge a:hover { text-decoration: underline; }
+button{
+margin-top:15px;
+padding:12px 20px;
+background:#2563eb;
+color:white;
+border:none;
+border-radius:6px;
+font-size:16px;
+cursor:pointer;
+}
 
-        /* ── Hero ── */
-        .hero {
-            max-width: var(--max-w);
-            margin: 0 auto;
-            padding: 56px 24px 32px;
-            text-align: center;
-        }
-        .hero h1 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            letter-spacing: -0.03em;
-            color: var(--text-main);
-            margin-bottom: 12px;
-        }
-        .hero p {
-            font-size: 1rem;
-            color: var(--text-muted);
-            line-height: 1.5;
-            max-width: 480px;
-            margin: 0 auto 16px;
-        }
-        .hero-source {
-            font-size: 0.85rem;
-            color: var(--text-main);
-            max-width: 480px;
-            margin: 0 auto;
-            padding: 12px 16px;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            line-height: 1.6;
-            font-weight: 500;
-        }
-        .hero-source a { color: var(--primary); text-decoration: underline; text-underline-offset: 2px; }
+button:hover{
+background:#1d4ed8;
+}
 
-        /* ── Search ── */
-        .search-card {
-            max-width: var(--max-w);
-            margin: 24px auto 32px;
-            width: 100%;
-            padding: 0 24px;
-        }
-        .search-container {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
-            overflow: hidden;
-        }
-        .tabs {
-            display: flex;
-            border-bottom: 1px solid var(--border);
-            background: var(--bg-alt);
-        }
-        .tab {
-            flex: 1;
-            text-align: center;
-            padding: 14px 8px;
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--text-muted);
-            cursor: pointer;
-            transition: all 0.2s;
-            border-bottom: 2px solid transparent;
-            user-select: none;
-        }
-        .tab:hover { color: var(--text-main); }
-        .tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg); }
+.result{
+margin-top:30px;
+text-align:left;
+}
 
-        .search-form { padding: 24px; }
-        .form-panel { display: none; }
-        .form-panel.active { display: block; animation: fadeIn 0.25s ease; }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+.error{
+color:#b91c1c;
+background:#fef2f2;
+padding:12px;
+border-radius:6px;
+margin-top:20px;
+}
 
-        .field { margin-bottom: 16px; }
-        .field:last-of-type { margin-bottom: 0; }
-        .field-row { display: flex; gap: 16px; }
-        .field-row .field { flex: 1; margin-bottom: 0; }
-        .field-label {
-            display: block;
-            font-size: 0.75rem;
-            font-weight: 600;
-            color: var(--text-main);
-            margin-bottom: 8px;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+.success{
+background:#ecfdf5;
+padding:15px;
+border-radius:6px;
+}
+</style></head><body><div class="container"><h1>Vaad</h1>
+<p>Track Indian court cases instantly</p><input id="cnr" placeholder="Enter CNR Number (example: MHAU010012342023)" /><button onclick="search()">Search Case</button>
 
-        input[type="text"], select {
-            width: 100%;
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: 6px;
-            padding: 10px 12px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            color: var(--text-main);
-            outline: none;
-            transition: all 0.2s;
-            appearance: none;
-        }
-        input[type="text"]::placeholder { color: #9ca3af; }
-        input[type="text"]:focus, select:focus {
-            border-color: var(--primary);
-            box-shadow: 0 0 0 3px var(--primary-bg);
-        }
-        select {
-            cursor: pointer;
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 12px center;
-            background-size: 16px;
-            padding-right: 36px;
-        }
-        select:disabled { background-color: var(--bg-alt); cursor: not-allowed; }
-        .cnr-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; }
+<div id="output" class="result"></div></div><script>
 
-        .btn-search {
-            width: 100%;
-            margin-top: 24px;
-            padding: 12px;
-            background: var(--primary);
-            color: white;
-            border: none;
-            border-radius: 6px;
-            font-family: inherit;
-            font-size: 0.95rem;
-            font-weight: 500;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-            transition: background 0.2s;
-        }
-        .btn-search:hover { background: var(--primary-hover); }
-        .btn-search:disabled { opacity: 0.7; cursor: not-allowed; }
+/* BACKEND API */
+const API="https://vaad-wnul.onrender.com";
 
-        .source-note {
-            display: flex;
-            align-items: center;
-            gap: 7px;
-            margin-top: 12px;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-        }
-        .source-dot {
-            width: 6px; height: 6px;
-            border-radius: 50%;
-            background: #10b981;
-            flex-shrink: 0;
-        }
+/* Wake server (Render free tier sleeps) */
+fetch(`${API}/api/health`).catch(()=>{});
 
-        .spinner {
-            width: 16px; height: 16px;
-            border: 2px solid rgba(255,255,255,0.3);
-            border-top-color: white;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+/* Search function */
+async function search(){
 
-        /* ── Results ── */
-        .results {
-            max-width: var(--max-w);
-            margin: 0 auto;
-            width: 100%;
-            padding: 0 24px 64px;
-            flex: 1;
-        }
-        .error-box {
-            background: var(--error-bg);
-            border: 1px solid #fecaca;
-            color: var(--error-text);
-            padding: 16px;
-            border-radius: var(--radius);
-            font-size: 0.875rem;
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-        }
-        .case-list-header { font-size: 0.875rem; font-weight: 500; color: var(--text-muted); margin-bottom: 12px; }
-        .case-list { display: flex; flex-direction: column; gap: 12px; }
-        .case-item {
-            background: var(--bg);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 16px;
-            cursor: pointer;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            transition: all 0.2s;
-        }
-        .case-item:hover { border-color: var(--primary); box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
-        .case-item-title { font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
-        .case-item-meta { font-size: 0.875rem; color: var(--text-muted); }
-        .case-item-arrow { color: var(--text-muted); font-size: 1.25rem; }
+const cnr=document.getElementById("cnr").value.trim();
+const output=document.getElementById("output");
 
-        .detail-back {
-            display: inline-block;
-            font-size: 0.875rem;
-            color: var(--text-muted);
-            cursor: pointer;
-            margin-bottom: 20px;
-            font-weight: 500;
-        }
-        .detail-back:hover { color: var(--text-main); }
-        .detail-header { margin-bottom: 24px; }
-        .detail-title { font-size: 1.5rem; font-weight: 700; color: var(--text-main); line-height: 1.2; margin-bottom: 8px; }
-        .detail-cnr { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); }
+if(!cnr){
+output.innerHTML='<div class="error">Please enter a CNR number</div>';
+return;
+}
 
-        .next-hearing {
-            background: var(--primary-bg);
-            border: 1px solid #bfdbfe;
-            border-radius: var(--radius);
-            padding: 20px;
-            margin-bottom: 24px;
-        }
-        .nh-label { font-size: 0.75rem; font-weight: 600; color: var(--primary); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; }
-        .nh-date { font-size: 1.25rem; font-weight: 700; color: var(--text-main); }
-        .nh-purpose { font-size: 0.875rem; color: var(--text-muted); margin-top: 4px; }
+output.innerHTML="Fetching case details...";
 
-        .info-grid { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; }
-        .info-row { display: flex; padding: 14px 20px; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
-        .info-row:last-child { border-bottom: none; }
-        .info-key { width: 140px; font-weight: 500; color: var(--text-muted); flex-shrink: 0; }
-        .info-val { color: var(--text-main); flex: 1; }
+try{
 
-        .status-badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
-        .status-pending  { background: var(--warning-bg); color: var(--warning-text); border: 1px solid #fef3c7; }
-        .status-disposed { background: var(--success-bg); color: var(--success-text); border: 1px solid #d1fae5; }
-        .status-fresh    { background: var(--primary-bg); color: var(--primary);       border: 1px solid #dbeafe; }
+const res=await fetch(`${API}/api/cnr`,{
+method:"POST",
+headers:{
+"Content-Type":"application/json"
+},
+body:JSON.stringify({cnr})
+});
 
-        .history-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 24px; }
-        .history-header { padding: 16px 20px; font-weight: 600; border-bottom: 1px solid var(--border); font-size: 0.95rem; }
-        .history-item { padding: 16px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 24px; }
-        .history-item:last-child { border-bottom: none; }
-        .history-date { font-family: 'JetBrains Mono', monospace; font-size: 0.875rem; color: var(--text-muted); width: 90px; flex-shrink: 0; }
-        .history-text { font-size: 0.875rem; color: var(--text-main); margin-bottom: 4px; }
-        .history-purpose { font-size: 0.75rem; color: var(--text-muted); }
+const json=await res.json();
 
-        /* ── Placeholder ── */
-        .placeholder { display: flex; flex-direction: column; gap: 16px; }
-        .placeholder-card { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
-        .placeholder-label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 12px; }
-        .placeholder-item { font-size: 0.875rem; color: var(--text-main); padding: 8px 0; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
-        .placeholder-item:last-child { border-bottom: none; padding-bottom: 0; }
+if(!json.success){
+output.innerHTML=`<div class="error">${json.error}</div>`;
+return;
+}
 
-        /* ── Footer ── */
-        .footer {
-            border-top: 1px solid var(--border);
-            padding: 20px 24px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            font-size: 0.8rem;
-            color: var(--text-muted);
-            background: var(--bg);
-            margin-top: auto;
-        }
-        .footer-top {
-            display: flex;
-            align-items: center;
-            flex-wrap: wrap;
-            justify-content: center;
-            gap: 4px;
-        }
-        .footer-top a {
-            color: var(--text-muted);
-            text-decoration: none;
-            font-weight: 500;
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            transition: color 0.2s;
-        }
-        .footer-top a:hover { color: var(--text-main); }
-        .footer-top svg { fill: currentColor; }
-        .footer-disclaimer {
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            text-align: center;
-            line-height: 1.6;
-            max-width: 560px;
-            padding-top: 10px;
-            border-top: 1px solid var(--border);
-            width: 100%;
-        }
-        .fsep { margin: 0 6px; opacity: 0.4; }
+const data=json.data;
 
-        /* ── Responsive ── */
-        @media (max-width: 600px) {
-            .field-row { flex-direction: column; gap: 16px; }
-            .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; }
-            .history-item { flex-direction: column; gap: 8px; }
-            .hero { padding: 40px 20px 28px; }
-            .hero h1 { font-size: 1.75rem; }
-        }
-    </style>
-</head>
-<body>
-
-<nav class="nav">
-    <a class="nav-brand" href="#">Vaad</a>
-    <div class="nav-right">
-        <span class="nav-badge">Powered by <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">our own engine ecourt.js</a></span>
-    </div>
-</nav>
-
-<div class="hero">
-    <h1>Track court cases simply.</h1>
-    <p>Search Indian court cases by CNR number. Clean interface, instant results.</p>
-    <div class="hero-source">
-        ⚡ Powered securely by the open-source <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">ecourt.js core engine</a>.
-    </div>
+output.innerHTML=`
+<div class="success">
+<h3>${data.case_title || "Case Details"}</h3>
+<p><b>CNR:</b> ${data.cnr_number || data.cnr}</p>
+<p><b>Status:</b> ${data.case_status || data.status}</p>
+<p><b>Next Hearing:</b> ${data.next_hearing_date || "Not available"}</p>
 </div>
+`;
 
-<div class="search-card">
-    <div class="search-container">
-        <div class="tabs">
-            <div class="tab active" data-tab="cnr" onclick="switchTab('cnr')">CNR Number</div>
-            <div class="tab" data-tab="party" onclick="switchTab('party')">Party Name</div>
-            <div class="tab" data-tab="advocate" onclick="switchTab('advocate')">Advocate</div>
-        </div>
-        <div class="search-form">
+}catch(err){
 
-            <div class="form-panel active" id="panel-cnr">
-                <div class="field">
-                    <label class="field-label" for="cnr-input">CNR Number</label>
-                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023"
-                        autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
-                    <div class="cnr-hint">16-character alphanumeric case number</div>
-                </div>
-            </div>
+output.innerHTML=`<div class="error">
+Network error: ${err.message}
+</div>`;
 
-            <div class="form-panel" id="panel-party">
-                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">
-                    🚧 Party Search is currently being integrated into the core engine. <br>Please use CNR search.
-                </div>
-            </div>
-
-            <div class="form-panel" id="panel-advocate">
-                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">
-                    🚧 Advocate Search is currently being integrated into the core engine. <br>Please use CNR search.
-                </div>
-            </div>
-
-            <button class="btn-search" id="search-btn" onclick="handleSearch()">
-                <span id="btn-text">Search Cases</span>
-            </button>
-
-        </div>
-    </div>
-</div>
-
-<div class="results" id="results"></div>
-
-<div class="results" id="placeholder">
-    <div class="placeholder">
-        <div class="placeholder-card">
-            <div class="placeholder-label">Information Provided</div>
-            <div class="placeholder-item"><span>📅</span> Next hearing date and purpose</div>
-            <div class="placeholder-item"><span>📋</span> Case type, court, and current stage</div>
-            <div class="placeholder-item"><span>👥</span> Party and advocate details</div>
-            <div class="placeholder-item"><span>⏱️</span> Complete case history log</div>
-        </div>
-    </div>
-</div>
-
-<footer class="footer">
-    <div class="footer-top">
-        <span class="fsep">·</span>
-        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">gorupa</a>
-        <span class="fsep">·</span>
-        <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a>
-        <span class="fsep">·</span>
-        <span>AGPL-3.0</span>
-    </div>
-    <div class="footer-disclaimer">
-        Vaad is an independent open source project. Case data is fetched live from ecourts.gov.in using the ecourt.js engine. Vaad does not store, modify or claim ownership of any case data.
-    </div>
-</footer>
-
-<script>
-/* ── API CONNECTION ── */
-const API = 'https://vaad-wnul.onrender.com';
-
-let activeTab = 'cnr';
-
-/* ── Tab switcher ── */
-function switchTab(tab) {
-    activeTab = tab;
-    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
-    document.getElementById('panel-' + tab).classList.add('active');
-    clearResults();
-    
-    // Disable button if not on CNR tab (since we haven't built backend routes for them yet)
-    document.getElementById('search-btn').disabled = (tab !== 'cnr');
 }
 
-/* ── Handle search ── */
-async function handleSearch() {
-    if (activeTab === 'cnr') {
-        const cnr = document.getElementById('cnr-input').value.trim();
-        if (!cnr) return shake('cnr-input');
-        await searchCNR(cnr);
-    }
 }
 
-/* ── Loading state ── */
-function setLoading(on) {
-    const btn = document.getElementById('search-btn');
-    btn.disabled = on;
-    btn.innerHTML = on
-        ? '<div class="spinner"></div><span>Engine Fetching...</span>'
-        : '<span id="btn-text">Search Cases</span>';
-}
-
-/* ── API calls ── */
-async function searchCNR(cnr) {
-    setLoading(true); 
-    clearResults();
-    try {
-        const res = await fetch(`${API}/cnr`, { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({cnr}) 
-        });
-        
-        const json = await res.json();
-        
-        if (!res.ok || !json.success) {
-            return showError(json.error || 'The ecourt.js engine failed to fetch this case. The government proxy might be blocking the request.');
-        }
-        
-        renderCaseDetail(json.data);
-    } catch (e) { 
-        showError(`Network Error: Cannot connect to the Railway backend. Engine might be sleeping. (${e.message})`); 
-    }
-    finally { 
-        setLoading(false); 
-    }
-}
-
-/* ── Render helpers ── */
-function renderCaseDetail(data) {
-    hidePlaceholder();
-    if (!data) { showError('No case data returned from engine.'); return; }
-
-    const title       = data.case_title||data.title||'Case Details';
-    const cnr         = data.cnr_number||data.cnr||'—';
-    const caseType    = data.case_type||'—';
-    const courtName   = data.court_name||'—';
-    const district    = data.district_name||data.district||'—';
-    const filingDate  = data.filing_date||'—';
-    const status      = data.case_status||data.status||'Pending';
-    const stage       = data.case_stage||data.stage||'—';
-    const petitioner  = data.petitioner||data.petitioner_name||'—';
-    const respondent  = data.respondent||data.respondent_name||'—';
-    const petAdv      = data.petitioner_advocate||'—';
-    const resAdv      = data.respondent_advocate||'—';
-    const nextHearing = data.next_hearing_date||data.next_date||null;
-    const nextPurpose = data.next_hearing_purpose||'';
-    const history     = data.case_history||data.history||[];
-
-    const statusClass = status.toLowerCase().includes('dispos') ? 'status-disposed'
-                      : status.toLowerCase().includes('fresh')  ? 'status-fresh'
-                      : 'status-pending';
-
-    let html = `
-        <span class="detail-back" onclick="clearResults()">← Back to search</span>
-        <div class="detail-header">
-            <div class="detail-title">${title}</div>
-            <div class="detail-cnr">CNR: ${cnr}</div>
-        </div>`;
-
-    if (nextHearing) html += `<div class="next-hearing"><div class="nh-label">Next Hearing Date</div><div class="nh-date">${nextHearing}</div>${nextPurpose?`<div class="nh-purpose">${nextPurpose}</div>`:''}</div>`;
-
-    html += `<div class="info-grid">
-        <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
-        <div class="info-row"><span class="info-key">Case Type</span><span class="info-val">${caseType}</span></div>
-        <div class="info-row"><span class="info-key">Court</span><span class="info-val">${courtName}</span></div>
-        <div class="info-row"><span class="info-key">District</span><span class="info-val">${district}</span></div>
-        <div class="info-row"><span class="info-key">Filing Date</span><span class="info-val">${filingDate}</span></div>
-        <div class="info-row"><span class="info-key">Stage</span><span class="info-val">${stage}</span></div>
-        <div class="info-row"><span class="info-key">Petitioner</span><span class="info-val">${petitioner}</span></div>
-        <div class="info-row"><span class="info-key">Respondent</span><span class="info-val">${respondent}</span></div>
-        <div class="info-row"><span class="info-key">Pet. Advocate</span><span class="info-val">${petAdv}</span></div>
-        <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
-    </div>`;
-
-    document.getElementById('results').innerHTML = html;
-    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
-}
-
-function showError(msg) {
-    hidePlaceholder();
-    document.getElementById('results').innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
-}
-function clearResults() {
-    document.getElementById('results').innerHTML = '';
-    document.getElementById('placeholder').style.display = 'block';
-}
-function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
-function shake(id) {
-    const el = document.getElementById(id);
-    if (!el) return;
-    el.style.borderColor = 'var(--error-text)';
-    el.focus();
-    setTimeout(() => { el.style.borderColor = ''; }, 1500);
-}
-
-document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
-
-// Wake up Railway backend on page load
-fetch(`${API}/health`).catch(() => {});
-
-</script>
-</body>
+</script></body>
 </html>
