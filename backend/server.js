@@ -1,24 +1,30 @@
 /**
  * court-api — backend/server.js
- * Node.js + Express backend for eCourts data with zkTLS polyfills
+ * Node.js + Express backend for eCourts data with ultimate zkTLS polyfills
  */
 
 'use strict';
 
-// --- BROWSER POLYFILLS FOR zkTLS (tlsn-js) ---
-// 1. Define 'self' so web worker libraries don't crash
+// --- ULTIMATE BROWSER POLYFILLS FOR zkTLS (WASM) ---
+global.window = global;
 global.self = global;
 
-// 2. Tell tlsn-js to use our 'ws' package as the global browser WebSocket
+// Fake the browser's URL and document so the WASM file can "find" itself
+global.document = { baseURI: 'http://localhost/' };
+global.location = { href: 'http://localhost/' };
+global.self.location = global.location;
+global.navigator = { userAgent: 'Node.js' };
+
+// Map WebSockets
 const WebSocket = require('ws');
 global.WebSocket = WebSocket;
 
-// 3. Tell tlsn-js to use Node's native webcrypto API
+// Map Web Crypto
 const crypto = require('crypto');
 if (!global.crypto) {
     global.crypto = crypto.webcrypto;
 }
-// ---------------------------------------------
+// ---------------------------------------------------
 
 const express = require('express');
 const cors = require('cors');
@@ -114,7 +120,7 @@ app.post('/api/cnr', async (req, res) => {
 // --- START SERVER ---
 app.listen(PORT, async () => {
     console.log(`Vaad Backend running on port ${PORT}`);
-    console.log('zkTLS Polyfills initialized successfully.');
+    console.log('Ultimate zkTLS Polyfills initialized successfully.');
     
     // Warm up session on startup
     getSession().catch(() => console.log('Will retry session on first request.'));
