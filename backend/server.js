@@ -35,15 +35,18 @@ const cache = new NodeCache({ stdTTL: 3600 });
 
 const PORT = process.env.PORT || 3000;
 
+// --- PROXY CONFIGURATION ---
+// Pulls from Render Environment Variables, or uses a fallback free proxy
+const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.137.64.214:80';
+
 let _session = null;
 
 // --- SESSION HANDLER ---
 async function getSession() {
     if (!_session) {
-        console.log('Creating eCourts session directly (no proxy)...');
+        console.log(`Creating eCourts session via proxy: ${INDIAN_PROXY}...`);
         try {
-            // REMOVED PROXY: Connecting directly to eCourts
-            _session = await ecourts.createSession();
+            _session = await ecourts.createSession(INDIAN_PROXY);
             console.log('Session ready.');
         } catch (err) {
             console.error('Session creation failed:', err.message);
@@ -62,7 +65,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Accept'],
 }));
 
-// 2. Security Headers (Configured to allow your frontend to read it)
+// 2. Security Headers
 app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
@@ -81,14 +84,14 @@ app.use(rateLimit({
 
 // Root route for Render health checks
 app.get('/', (req, res) => {
-    res.send('Vaad backend running');
+    res.send('Vaad backend running on Render');
 });
 
 app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         version: '1.0.0',
-        proxy: 'inactive',
+        proxy: INDIAN_PROXY ? 'active' : 'inactive',
         zkTLS: 'ready',
     });
 });
