@@ -133,7 +133,7 @@ app.post('/api/cnr', async (req, res) => {
         });
 
     } catch (error) {
-        console.error('CNR error:', error.message);
+        console.error('CNR error:', error.response?.data || error.message);
         _session = null;
         res.status(500).json({
             success: false,
