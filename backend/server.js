@@ -35,15 +35,17 @@ const cache = new NodeCache({ stdTTL: 3600 });
 
 const PORT = process.env.PORT || 3000;
 
+// PROXY ADDED BACK HERE
+const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.47.67.122:8080';
+
 let _session = null;
 
 // --- SESSION HANDLER ---
 async function getSession() {
     if (!_session) {
-        console.log('Creating eCourts session directly (no proxy)...');
+        console.log(`Creating eCourts session via proxy: ${INDIAN_PROXY}...`);
         try {
-            // REMOVED PROXY: Connecting directly to eCourts
-            _session = await ecourts.createSession();
+            _session = await ecourts.createSession(INDIAN_PROXY);
             console.log('Session ready.');
         } catch (err) {
             console.error('Session creation failed:', err.message);
@@ -62,7 +64,7 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'Accept'],
 }));
 
-// 2. Security Headers (Configured to allow your frontend to read it)
+// 2. Security Headers
 app.use(helmet({
     crossOriginResourcePolicy: false,
 }));
@@ -88,7 +90,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         version: '1.0.0',
-        proxy: 'inactive',
+        proxy: 'active',
         zkTLS: 'ready',
     });
 });
@@ -96,6 +98,10 @@ app.get('/api/health', (req, res) => {
 // Case lookup
 app.post('/api/cnr', async (req, res) => {
     const { cnr } = req.body;
+
+    console.log('-----------------------------------');
+    console.log(`FRONTEND REQUEST RECEIVED FOR CNR: ${cnr}`);
+    console.log('-----------------------------------');
 
     if (!cnr) {
         return res.status(400).json({ success: false, error: 'CNR number is required.' });
