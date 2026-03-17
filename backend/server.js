@@ -35,17 +35,15 @@ const cache = new NodeCache({ stdTTL: 3600 });
 
 const PORT = process.env.PORT || 3000;
 
-// Indian proxy (optional)
-const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.122.60.229:8080';
-
 let _session = null;
 
 // --- SESSION HANDLER ---
 async function getSession() {
     if (!_session) {
-        console.log('Creating eCourts session via proxy...');
+        console.log('Creating eCourts session directly (no proxy)...');
         try {
-            _session = await ecourts.createSession(INDIAN_PROXY);
+            // REMOVED PROXY: Connecting directly to eCourts
+            _session = await ecourts.createSession();
             console.log('Session ready.');
         } catch (err) {
             console.error('Session creation failed:', err.message);
@@ -90,7 +88,7 @@ app.get('/api/health', (req, res) => {
     res.json({
         status: 'ok',
         version: '1.0.0',
-        proxy: 'active',
+        proxy: 'inactive',
         zkTLS: 'ready',
     });
 });
@@ -112,7 +110,6 @@ app.post('/api/cnr', async (req, res) => {
         });
     }
 
-    // FIXED: Using backticks for template literals
     const cacheKey = `cnr_${cleanCNR}`;
     const cached = cache.get(cacheKey);
 
@@ -148,7 +145,6 @@ app.post('/api/cnr', async (req, res) => {
 // --- START SERVER ---
 
 app.listen(PORT, async () => {
-    // FIXED: Using backticks for template literals
     console.log(`Vaad Backend running on port ${PORT}`);
     console.log('zkTLS Polyfills initialized successfully.');
 
