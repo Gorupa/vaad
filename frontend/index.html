@@ -465,7 +465,7 @@
 
 <script>
 /* ── API CONNECTION ── */
-const API = 'https://vaad-wnul.onrender.com';
+const API = 'https://vaad-wnul.onrender.com/api';
 
 let activeTab = 'cnr';
 
@@ -518,7 +518,7 @@ async function searchCNR(cnr) {
         
         renderCaseDetail(json.data);
     } catch (e) { 
-        showError(`Network Error: Cannot connect to the Railway backend. Engine might be sleeping. (${e.message})`); 
+        showError(`Network Error: Cannot connect to the Render backend. Engine might be sleeping. (${e.message})`); 
     }
     finally { 
         setLoading(false); 
@@ -595,7 +595,7 @@ function shake(id) {
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSearch(); });
 
-// Wake up Railway backend on page load
+// Wake up Render backend on page load
 fetch(`${API}/health`).catch(() => {});
 
 </script>
