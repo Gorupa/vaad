@@ -1,69 +1,33 @@
 :root {
-    --bg: #ffffff;
-    --bg-alt: #f9fafb;
-    --border: #e5e7eb;
-    --text-main: #111827;
-    --text-muted: #6b7280;
-    --primary: #2563eb;
-    --primary-hover: #1d4ed8;
-    --primary-bg: #eff6ff;
-    --success-text: #047857;
-    --success-bg: #ecfdf5;
-    --warning-text: #b45309;
-    --warning-bg: #fffbeb;
-    --error-text: #b91c1c;
-    --error-bg: #fef2f2;
-    --radius: 8px;
-    --max-w: 640px;
+    --bg: #ffffff; --bg-alt: #f9fafb; --border: #e5e7eb;
+    --text-main: #111827; --text-muted: #6b7280;
+    --primary: #2563eb; --primary-hover: #1d4ed8; --primary-bg: #eff6ff;
+    --success-text: #047857; --success-bg: #ecfdf5;
+    --warning-text: #b45309; --warning-bg: #fffbeb;
+    --error-text: #b91c1c; --error-bg: #fef2f2;
+    --radius: 8px; --max-w: 640px;
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 html { scroll-behavior: smooth; }
 
-body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-    background: var(--bg-alt);
-    color: var(--text-main);
-    min-height: 100vh;
-    -webkit-font-smoothing: antialiased;
-    display: flex;
-    flex-direction: column;
-}
+body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-alt); color: var(--text-main); min-height: 100vh; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; }
 
 /* ── Nav & Auth ── */
-.nav {
-    background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px 24px;
-    display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10;
-}
+.nav { background: var(--bg); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
 .nav-brand { font-size: 1.5rem; font-weight: 800; text-decoration: none; color: var(--primary); letter-spacing: -0.02em; }
 .nav-right { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; }
 .nav-badge { color: var(--text-main); background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 999px; padding: 6px 14px; font-weight: 600; }
 .nav-badge a { color: #0284c7; text-decoration: none; }
 .nav-badge a:hover { text-decoration: underline; }
 
-.btn-auth {
-    background: white; border: 1px solid var(--border); padding: 6px 14px; border-radius: 999px; 
-    font-weight: 600; cursor: pointer; color: var(--text-main); transition: all 0.2s; display: flex; align-items: center; gap: 6px;
-}
+.btn-auth { background: white; border: 1px solid var(--border); padding: 6px 14px; border-radius: 999px; font-weight: 600; cursor: pointer; color: var(--text-main); transition: all 0.2s; display: flex; align-items: center; gap: 6px; }
 .btn-auth:hover { background: var(--bg-alt); border-color: #d1d5db; }
 .user-profile { display: none; align-items: center; gap: 8px; font-weight: 600; }
 .user-profile img { width: 24px; height: 24px; border-radius: 50%; }
 
 /* ── Proactive Upgrade Button ── */
-.btn-upgrade {
-    background: #f59e0b;
-    color: white;
-    border: none;
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: background 0.2s;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-}
+.btn-upgrade { background: #f59e0b; color: white; border: none; padding: 6px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 4px; }
 .btn-upgrade:hover { background: #d97706; }
 
 /* ── Hero ── */
@@ -95,9 +59,7 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px v
 .btn-search { width: 100%; margin-top: 24px; padding: 12px; background: var(--primary); color: white; border: none; border-radius: 6px; font-family: inherit; font-size: 0.95rem; font-weight: 500; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s; }
 .btn-search:hover { background: var(--primary-hover); }
 .btn-search:disabled { opacity: 0.7; cursor: not-allowed; }
-
 .free-limits { text-align: center; font-size: 0.75rem; margin-top: 12px; color: var(--text-muted); font-weight: 500; }
-
 .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
@@ -117,6 +79,13 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px v
 .upi-box { background: var(--bg-alt); border: 1px dashed var(--border); padding: 16px; border-radius: 8px; text-align: center; margin-bottom: 16px; }
 .upi-id { font-family: 'JetBrains Mono', monospace; font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin: 8px 0; user-select: all; }
 .upi-note { font-size: 0.75rem; color: var(--text-muted); line-height: 1.5; }
+
+/* ── UPI Flow Elements ── */
+.desktop-qr { margin: 16px 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.desktop-qr img { border-radius: 8px; border: 1px solid var(--border); padding: 4px; background: white; }
+.mobile-upi-btn { display: none; margin: 16px 0; }
+.btn-primary-intent { display: block; background: #059669; color: white; padding: 12px 16px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.95rem; transition: background 0.2s; }
+.btn-primary-intent:hover { background: #047857; }
 
 /* ── Results & Placeholders ── */
 .results { max-width: var(--max-w); margin: 0 auto; width: 100%; padding: 0 24px 64px; flex: 1; }
@@ -170,6 +139,10 @@ input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px v
     
     .modal-box { padding: 24px 16px; max-width: 95%; }
     .price-tag { font-size: 2rem; }
+    
+    /* Toggle UPI display for Mobile */
+    .desktop-qr { display: none; }
+    .mobile-upi-btn { display: block; }
     
     .info-row { flex-direction: column; gap: 4px; padding: 12px 16px; }
     .info-key { width: 100%; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; }
