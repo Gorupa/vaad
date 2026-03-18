@@ -3,127 +3,87 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Vaad — Court Case Tracker</title>
-    <meta name="description" content="Track Indian court cases instantly. Powered by ecourt.js.">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="style.css">
+    <title>Vaad - Instant Court Case Tracker</title>
+    <link rel="stylesheet" href="style.css"> 
 </head>
 <body>
-
-<nav class="nav">
-    <a class="nav-brand" href="#">Vaad</a>
-    <div class="nav-right">
-        <span class="nav-badge">Powered by <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">ecourt.js</a></span>
-        
-        <button id="login-btn" class="btn-auth">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-            Sign In
-        </button>
-
-        <div id="user-menu" class="user-profile">
-            <button id="nav-upgrade-btn" class="btn-upgrade" onclick="window.openModal()" style="display: none;">⚡ Upgrade</button>
+    <nav class="navbar">
+        <div class="logo">Vaad.</div>
+        <div class="nav-right">
+            <button id="nav-upgrade-btn" style="display: none;" class="btn-outline" onclick="window.openModal()">Upgrade to Pro</button>
+            <button id="login-btn" class="btn-primary">Sign in with Google</button>
             
-            <img id="user-avatar" src="" alt="Avatar">
-            <span id="user-name">User</span>
-            <button id="logout-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; text-decoration:underline; padding: 0 4px;">Log Out</button>
+            <div id="user-menu" style="display: none; align-items: center; gap: 12px;">
+                <img id="user-avatar" src="" alt="User Avatar" style="width: 32px; height: 32px; border-radius: 50%;">
+                <span id="user-name" style="font-weight: 600; color: var(--text-primary);"></span>
+                <button id="logout-btn" class="btn-outline" style="padding: 6px 12px; font-size: 12px;">Logout</button>
+            </div>
         </div>
-    </div>
-</nav>
+    </nav>
 
-<div class="hero">
-    <h1>Track court cases simply.</h1>
-    <p>Search Indian court cases by CNR number. Clean interface, instant results.</p>
-    <div class="hero-source">
-        ⚡ Powered securely by the open-source <a href="https://gorupa.github.io/vaad-explainer/#" target="_blank" rel="noopener">ecourt.js core engine</a>.
-    </div>
-</div>
-
-<div class="search-card">
-    <div class="search-container">
+    <main class="container">
+        
         <div class="tabs">
             <div class="tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number</div>
-            <div class="tab" data-tab="party" onclick="window.switchTab('party')">Party Name</div>
-            <div class="tab" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
+            <div class="tab" data-tab="party" onclick="window.openModal()">Party Name 🔒</div>
+            <div class="tab" data-tab="fir" onclick="window.openModal()">FIR Number 🔒</div>
+            <div class="tab" data-tab="advocate" onclick="window.openModal()">Advocate 🔒</div>
         </div>
-        <div class="search-form">
-            <div class="form-panel active" id="panel-cnr">
-                <div class="field">
-                    <label class="field-label" for="cnr-input">CNR Number</label>
-                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
-                    <div class="cnr-hint">16-character alphanumeric case number</div>
-                </div>
-            </div>
-            <div class="form-panel" id="panel-party">
-                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">🚧 Party Search is currently being integrated.<br>Please use CNR search.</div>
-            </div>
-            <div class="form-panel" id="panel-advocate">
-                <div class="field" style="text-align: center; color: var(--text-muted); padding: 20px;">🚧 Advocate Search is currently being integrated.<br>Please use CNR search.</div>
+
+        <div id="panel-cnr" class="form-panel active">
+            <h2 style="margin-bottom: 15px;">Search by CNR</h2>
+            <input type="text" id="cnr-input" placeholder="Enter 16-digit CNR Number (e.g., DLCT120000382024)">
+            
+            <div id="limit-text" class="free-limits" style="margin-top: 12px; font-size: 14px; color: var(--text-secondary); text-align: center;">
+                Sign in with Google to get 1 free search
             </div>
 
-            <button class="btn-search" id="search-btn" onclick="window.handleSearch()">
+            <button id="search-btn" class="btn-primary" onclick="window.handleSearch()" style="margin-top: 15px; width: 100%; padding: 14px; font-size: 16px;">
                 <span id="btn-text">Search Cases</span>
             </button>
-            <div id="limit-text" class="free-limits">Free searches remaining: 1/1</div>
         </div>
-    </div>
-</div>
 
-<div class="results" id="results"></div>
-
-<div class="results" id="placeholder">
-    <div class="placeholder">
-        <div class="placeholder-card">
-            <div class="placeholder-label">Information Provided</div>
-            <div class="placeholder-item"><span>📅</span> Next hearing date and purpose</div>
-            <div class="placeholder-item"><span>📋</span> Case type, court, and current stage</div>
-            <div class="placeholder-item"><span>👥</span> Party and advocate details</div>
-            <div class="placeholder-item"><span>⏱️</span> Complete case history log</div>
+        <div class="results-container" style="margin-top: 30px;">
+            <div id="placeholder" style="text-align: center; color: var(--text-secondary); padding: 40px; background: var(--bg-secondary); border-radius: 8px;">
+                Enter a CNR number above to securely fetch official court records.
+            </div>
+            <div id="results"></div>
         </div>
-    </div>
-</div>
+    </main>
 
-<div id="upgrade-modal" class="modal-overlay">
-    <div class="modal-box">
-        <button class="modal-close" onclick="window.closeModal()">×</button>
-        <div class="pricing-title">Upgrade to Vaad Pro</div>
-        <div class="pricing-subtitle">Upgrade to continue tracking cases instantly and unlock premium features.</div>
-        <div class="price-tag">₹99<span> / month</span></div>
-        <ul class="feature-list">
-            <li>Unlimited live case tracking</li>
-            <li>Priority access to premium proxy engines</li>
-            <li>No captchas, no waiting</li>
-        </ul>
-        <div class="upi-box">
-            <div class="upi-note">Pay directly via UPI to activate Pro:</div>
-            <div class="upi-id">gauravkalal@ybl</div> 
+    <div id="upgrade-modal" class="modal">
+        <div class="modal-content" style="max-width: 400px;">
+            <span class="close-btn" onclick="window.closeModal()" style="cursor: pointer; float: right; font-size: 24px;">&times;</span>
+            <h2 style="margin-bottom: 5px;">Upgrade to Vaad Pro</h2>
+            <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 14px;">Unlock the full power of the eCourtsIndia API.</p>
             
-            <div class="desktop-qr">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=gauravkalal@ybl%26pn=Vaad%20Pro%26am=99.00%26cu=INR" alt="UPI QR Code" width="120" height="120">
-                <div class="upi-note">Scan with PhonePe, GPay, or Paytm</div>
+            <div class="pricing-card" style="border: 1px solid var(--primary); padding: 20px; border-radius: 8px; margin-bottom: 15px;">
+                <h3 style="margin: 0; color: var(--primary);">Pro Plan</h3>
+                <div class="price" style="font-size: 24px; font-weight: bold; margin: 10px 0;">₹99 <span style="font-size: 14px; font-weight: normal; color: gray;">/ month</span></div>
+                <ul style="list-style: none; padding: 0; margin: 0 0 15px 0; font-size: 14px; line-height: 1.8;">
+                    <li>✓ 30 Official API Searches</li>
+                    <li>✓ Instant Data Loading</li>
+                    <li>✓ Zero Captcha Interruptions</li>
+                </ul>
+                <button class="btn-primary" style="width: 100%;" onclick="alert('Razorpay Gateway Pending Approval. Check back soon!')">Subscribe to Pro</button>
+            </div>
+            
+            <div class="pricing-card" style="border: 1px solid #d4af37; padding: 15px; border-radius: 8px; background: rgba(212, 175, 55, 0.05);">
+                <h3 style="margin: 0; color: #d4af37; font-size: 16px;">Pro Max <span style="font-size: 12px; font-weight: normal;">(Coming Soon)</span></h3>
+                <div class="price" style="font-size: 18px; font-weight: bold; margin: 5px 0;">₹199 <span style="font-size: 12px; font-weight: normal; color: gray;">/ month</span></div>
+                <div style="font-size: 12px; color: var(--text-secondary);">Unlocks 100 searches, plus Party Name, FIR, and Advocate search filters.</div>
             </div>
 
-            <div class="mobile-upi-btn">
-                <a href="upi://pay?pa=gauravkalal@ybl&pn=Vaad%20Pro&am=99.00&cu=INR" class="btn-primary-intent">Pay ₹99 via UPI App</a>
+            <div style="font-size: 11px; color: var(--text-secondary); text-align: center; margin-top: 20px;">
+                *Subject to Fair Usage Policy (30 cases/month on Pro). Resets on the 1st of every month.
             </div>
-
-            <div class="upi-note" style="margin-top: 16px;">Send payment and email screenshot to <b>gauravkalal1719@gmail.com</b>.<br>Your account will be upgraded within 2 hours.</div>
         </div>
     </div>
-</div>
 
-<footer class="footer">
-    <div class="footer-top">
-        <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">gorupa</a><span class="fsep">·</span>
-        <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a><span class="fsep">·</span>
-        <span>©2026</span>
-    </div>
-    <div class="footer-disclaimer">
-        Vaad is an independent  project. Case data is fetched live from ecourts.gov.in using the ecourt.js engine. Vaad does not store, modify or claim ownership of any case data.
-    </div>
-</footer>
+    <footer style="text-align: center; padding: 30px 20px; color: var(--text-secondary); font-size: 12px; margin-top: 40px; border-top: 1px solid var(--border-color);">
+        Powered by official eCourtsIndia API
+    </footer>
 
-<script type="module" src="app.js"></script>
-
+    <script type="module" src="app.js"></script>
 </body>
 </html>
