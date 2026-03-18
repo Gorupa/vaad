@@ -24,7 +24,7 @@ const db = getFirestore(app);
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let isPro = false; 
-const maxFreeSearches = 5;
+const maxFreeSearches = 1; // Updated to 1 free search
 let activeTab = 'cnr';
 
 // ── AUTH & DATABASE LISTENERS ──
@@ -63,7 +63,6 @@ onAuthStateChanged(auth, async (user) => {
         isPro = false;
     }
     
-    // Update the UI limits AFTER the database check finishes
     updateSearchLimitUI();
 });
 
@@ -102,13 +101,12 @@ window.handleSearch = async function() {
         return;
     }
 
-    // Deduction logic is safely inside searchCNR now
     await searchCNR(cnr);
 };
 
 function updateSearchLimitUI() {
     if (!currentUser) {
-        document.getElementById('limit-text').innerText = "Sign in with Google to get 5 free searches";
+        document.getElementById('limit-text').innerText = "Sign in with Google to get 1 free search";
         document.getElementById('nav-upgrade-btn').style.display = 'none';
         return;
     }
@@ -144,9 +142,8 @@ async function searchCNR(cnr) {
         });
         const json = await res.json();
         
-        // If it fails, show error and stop (search is NOT deducted)
         if (!res.ok || !json.success) {
-            return showError(json.error || 'The ecourt.js engine failed to fetch this case. The government proxy might be blocking the request.');
+            return showError(json.error || 'The official eCourts API failed to fetch this case. Please check the CNR number.');
         }
 
         // ONLY DEDUCT IF SUCCESSFUL
@@ -159,31 +156,42 @@ async function searchCNR(cnr) {
 
         renderCaseDetail(json.data);
     } catch (e) { 
-        showError(`Network Error: Cannot connect to the Render backend. Engine might be sleeping. (${e.message})`); 
+        showError(`Network Error: Cannot connect to the Render backend. (${e.message})`); 
     } finally { 
         setLoading(false); 
     }
 }
 
-// ── RENDER HELPERS ──
-function renderCaseDetail(data) {
+// ── RENDER HELPERS (Updated for Official API) ──
+function renderCaseDetail(payload) {
     hidePlaceholder();
-    if (!data) { showError('No case data returned from engine.'); return; }
+    if (!payload) { showError('No case data returned from engine.'); return; }
 
-    const title       = data.case_title||data.title||'Case Details';
-    const cnr         = data.cnr_number||data.cnr||'—';
-    const caseType    = data.case_type||'—';
-    const courtName   = data.court_name||'—';
-    const district    = data.district_name||data.district||'—';
-    const filingDate  = data.filing_date||'—';
-    const status      = data.case_status||data.status||'Pending';
-    const stage       = data.case_stage||data.stage||'—';
-    const petitioner  = data.petitioner||data.petitioner_name||'—';
-    const respondent  = data.respondent||data.respondent_name||'—';
-    const petAdv      = data.petitioner_advocate||'—';
-    const resAdv      = data.respondent_advocate||'—';
-    const nextHearing = data.next_hearing_date||data.next_date||null;
-    const nextPurpose = data.next_hearing_purpose||'';
+    // Unpack the official API's double-data wrapper
+    const data = payload.data || payload;
+
+    // Create a dynamic title if one isn't provided
+    const dynamicTitle = (data.petitioners && data.petitioners[0]) 
+        ? `${data.petitioners[0]} vs ${data.respondents ? data.respondents[0] : 'State'}` 
+        : 'Case Details';
+
+    const title       = data.title || dynamicTitle;
+    const cnr         = data.cnr || data.cnr_number || '—';
+    const caseType    = data.caseType || data.case_type || '—';
+    const courtName   = data.court || data.courtName || data.court_name || '—';
+    const district    = data.district || data.districtName || data.district_name || '—';
+    const filingDate  = data.filingDate || data.filing_date || '—';
+    const status      = data.caseStatus || data.case_status || data.status || 'Pending';
+    const stage       = data.caseStage || data.case_stage || data.stage || '—';
+    
+    // Safely join Arrays (lists of names) into comma-separated text
+    const petitioner  = Array.isArray(data.petitioners) ? data.petitioners.join(', ') : (data.petitioners || '—');
+    const respondent  = Array.isArray(data.respondents) ? data.respondents.join(', ') : (data.respondents || '—');
+    const petAdv      = Array.isArray(data.petitionerAdvocates) ? data.petitionerAdvocates.join(', ') : (data.petitionerAdvocates || '—');
+    const resAdv      = Array.isArray(data.respondentAdvocates) ? data.respondentAdvocates.join(', ') : (data.respondentAdvocates || '—');
+    
+    const nextHearing = data.nextHearingDate || data.next_hearing_date || null;
+    const nextPurpose = data.nextHearingPurpose || data.next_hearing_purpose || '';
 
     const statusClass = status.toLowerCase().includes('dispos') ? 'status-disposed' : status.toLowerCase().includes('fresh') ? 'status-fresh' : 'status-pending';
 
