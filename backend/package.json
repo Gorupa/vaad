@@ -1,18 +1,18 @@
 {
   "name": "court-api",
   "version": "1.0.0",
-  "description": "eCourts API Backend powered by zkTLS",
+  "description": "eCourts API Backend powered by Official API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
-    "@bullpenm/legal-case-scraper": "github:gorupa/ecourts-js",
     "cors": "^2.8.5",
     "express": "^4.18.2",
     "express-rate-limit": "^7.1.5",
     "helmet": "^7.1.0",
     "node-cache": "^5.1.2",
+    "node-fetch": "^2.7.0",
     "ws": "^8.16.0"
   }
 }
