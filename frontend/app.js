@@ -2,6 +2,7 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-app.js";
 import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-analytics.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/12.10.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU",
@@ -17,6 +18,7 @@ const app = initializeApp(firebaseConfig);
 const analytics = getAnalytics(app);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
+const db = getFirestore(app);
 
 // ── STATE ──
 const API = 'https://vaad-wnul.onrender.com/api';
@@ -25,18 +27,43 @@ let isPro = false;
 const maxFreeSearches = 5;
 let activeTab = 'cnr';
 
-// ── AUTH LISTENERS ──
-onAuthStateChanged(auth, (user) => {
+// ── AUTH & DATABASE LISTENERS ──
+onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
         document.getElementById('login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
         document.getElementById('user-avatar').src = user.photoURL;
+
+        // Check Firestore database for Pro status
+        try {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                isPro = userSnap.data().isPro === true;
+            } else {
+                // First time login! Create them in the database
+                await setDoc(userRef, {
+                    name: user.displayName,
+                    email: user.email,
+                    isPro: false,
+                    joinedAt: new Date().toISOString()
+                });
+                isPro = false;
+            }
+        } catch (error) {
+            console.error("Error fetching user data:", error);
+            isPro = false; // default to free on error
+        }
     } else {
         document.getElementById('login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
+        isPro = false;
     }
+    
+    // Update the UI limits AFTER the database check finishes
     updateSearchLimitUI();
 });
 
@@ -75,7 +102,7 @@ window.handleSearch = async function() {
         return;
     }
 
-    // Deduction logic removed from here, moved to successful API response!
+    // Deduction logic is safely inside searchCNR now
     await searchCNR(cnr);
 };
 
