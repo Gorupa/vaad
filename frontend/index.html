@@ -97,7 +97,17 @@
         <div class="upi-box">
             <div class="upi-note">Pay directly via UPI to activate Pro:</div>
             <div class="upi-id">gauravkalal@ybl</div> 
-            <div class="upi-note">Send payment and email screenshot to <b>contact@yourdomain.com</b>.<br>Your account will be upgraded within 2 hours.</div>
+            
+            <div class="desktop-qr">
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=gauravkalal@ybl%26pn=Vaad%20Pro%26am=99.00%26cu=INR" alt="UPI QR Code" width="120" height="120">
+                <div class="upi-note">Scan with PhonePe, GPay, or Paytm</div>
+            </div>
+
+            <div class="mobile-upi-btn">
+                <a href="upi://pay?pa=gauravkalal@ybl&pn=Vaad%20Pro&am=99.00&cu=INR" class="btn-primary-intent">Pay ₹99 via UPI App</a>
+            </div>
+
+            <div class="upi-note" style="margin-top: 16px;">Send payment and email screenshot to <b>gauravkalal1719@gmail.com</b>.<br>Your account will be upgraded within 2 hours.</div>
         </div>
     </div>
 </div>
@@ -106,10 +116,10 @@
     <div class="footer-top">
         <a href="https://github.com/Gorupa/vaad" target="_blank" rel="noopener">gorupa</a><span class="fsep">·</span>
         <a href="https://gorupa.github.io" target="_blank" rel="noopener">gorupa.github.io</a><span class="fsep">·</span>
-        <span>©2026</span>
+        <span>AGPL-3.0</span>
     </div>
     <div class="footer-disclaimer">
-        Vaad is an independent project. Case data is fetched live from ecourts.gov.in using the ecourt.js engine. Vaad does not store, modify or claim ownership of any case data.
+        Vaad is an independent open source project. Case data is fetched live from ecourts.gov.in using the ecourt.js engine. Vaad does not store, modify or claim ownership of any case data.
     </div>
 </footer>
 
