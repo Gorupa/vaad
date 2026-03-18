@@ -24,7 +24,8 @@ const db = getFirestore(app);
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let isPro = false; 
-const maxFreeSearches = 1; // Updated to 1 free search
+const maxFreeSearches = 1; 
+const maxProSearches = 30; // 🛑 The hidden stop-loss for Pro users
 let activeTab = 'cnr';
 
 // ── AUTH & DATABASE LISTENERS ──
@@ -36,7 +37,6 @@ onAuthStateChanged(auth, async (user) => {
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
         document.getElementById('user-avatar').src = user.photoURL;
 
-        // Check Firestore database for Pro status
         try {
             const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
@@ -44,7 +44,6 @@ onAuthStateChanged(auth, async (user) => {
             if (userSnap.exists()) {
                 isPro = userSnap.data().isPro === true;
             } else {
-                // First time login! Create them in the database
                 await setDoc(userRef, {
                     name: user.displayName,
                     email: user.email,
@@ -55,7 +54,7 @@ onAuthStateChanged(auth, async (user) => {
             }
         } catch (error) {
             console.error("Error fetching user data:", error);
-            isPro = false; // default to free on error
+            isPro = false; 
         }
     } else {
         document.getElementById('login-btn').style.display = 'flex';
@@ -93,15 +92,26 @@ window.handleSearch = async function() {
         return;
     }
 
-    let storageKey = `vaad_searches_${currentUser.uid}`;
+    // Create a key that automatically resets on the 1st of every month
+    const date = new Date();
+    const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
+    const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
+    
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
 
-    if (searchesUsed >= maxFreeSearches && !isPro) {
+    // Stop-loss for Free Users
+    if (!isPro && searchesUsed >= maxFreeSearches) {
         window.openModal();
         return;
     }
 
-    await searchCNR(cnr);
+    // Stop-loss for Pro Users (FUP limit reached)
+    if (isPro && searchesUsed >= maxProSearches) {
+        showError("Fair Usage Policy reached. You have used your 30 API searches for this month. Limits reset on the 1st.");
+        return;
+    }
+
+    await searchCNR(cnr, storageKey);
 };
 
 function updateSearchLimitUI() {
@@ -111,14 +121,17 @@ function updateSearchLimitUI() {
         return;
     }
 
-    let storageKey = `vaad_searches_${currentUser.uid}`;
+    const date = new Date();
+    const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
+    const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
-    let remaining = Math.max(0, maxFreeSearches - searchesUsed);
     
     if (isPro) {
-        document.getElementById('limit-text').innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - Unlimited Searches</span>';
+        // Keeps the premium feel on the UI
+        document.getElementById('limit-text').innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - Unlimited Searches*</span>';
         document.getElementById('nav-upgrade-btn').style.display = 'none';
     } else {
+        let remaining = Math.max(0, maxFreeSearches - searchesUsed);
         document.getElementById('limit-text').innerText = `Free searches remaining: ${remaining}/${maxFreeSearches}`;
         document.getElementById('nav-upgrade-btn').style.display = 'flex';
     }
@@ -131,7 +144,7 @@ function setLoading(on) {
     btn.innerHTML = on ? '<div class="spinner"></div><span>Engine Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
 }
 
-async function searchCNR(cnr) {
+async function searchCNR(cnr, storageKey) {
     setLoading(true); 
     window.clearResults();
     try {
@@ -147,8 +160,7 @@ async function searchCNR(cnr) {
         }
 
         // ONLY DEDUCT IF SUCCESSFUL
-        if (currentUser && !isPro) {
-            let storageKey = `vaad_searches_${currentUser.uid}`;
+        if (currentUser) {
             let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
             localStorage.setItem(storageKey, currentCount + 1);
             updateSearchLimitUI();
@@ -162,56 +174,21 @@ async function searchCNR(cnr) {
     }
 }
 
-// ── RENDER HELPERS (Updated for Official API) ──
+// ── RAW DATA DEBUGGER ──
 function renderCaseDetail(payload) {
     hidePlaceholder();
     if (!payload) { showError('No case data returned from engine.'); return; }
 
-    // Unpack the official API's double-data wrapper
-    const data = payload.data || payload;
+    // This dumps the raw JSON from the API onto your screen in a green hacker-style box
+    let rawJSON = JSON.stringify(payload, null, 2);
 
-    // Create a dynamic title if one isn't provided
-    const dynamicTitle = (data.petitioners && data.petitioners[0]) 
-        ? `${data.petitioners[0]} vs ${data.respondents ? data.respondents[0] : 'State'}` 
-        : 'Case Details';
-
-    const title       = data.title || dynamicTitle;
-    const cnr         = data.cnr || data.cnr_number || '—';
-    const caseType    = data.caseType || data.case_type || '—';
-    const courtName   = data.court || data.courtName || data.court_name || '—';
-    const district    = data.district || data.districtName || data.district_name || '—';
-    const filingDate  = data.filingDate || data.filing_date || '—';
-    const status      = data.caseStatus || data.case_status || data.status || 'Pending';
-    const stage       = data.caseStage || data.case_stage || data.stage || '—';
-    
-    // Safely join Arrays (lists of names) into comma-separated text
-    const petitioner  = Array.isArray(data.petitioners) ? data.petitioners.join(', ') : (data.petitioners || '—');
-    const respondent  = Array.isArray(data.respondents) ? data.respondents.join(', ') : (data.respondents || '—');
-    const petAdv      = Array.isArray(data.petitionerAdvocates) ? data.petitionerAdvocates.join(', ') : (data.petitionerAdvocates || '—');
-    const resAdv      = Array.isArray(data.respondentAdvocates) ? data.respondentAdvocates.join(', ') : (data.respondentAdvocates || '—');
-    
-    const nextHearing = data.nextHearingDate || data.next_hearing_date || null;
-    const nextPurpose = data.nextHearingPurpose || data.next_hearing_purpose || '';
-
-    const statusClass = status.toLowerCase().includes('dispos') ? 'status-disposed' : status.toLowerCase().includes('fresh') ? 'status-fresh' : 'status-pending';
-
-    let html = `<span class="detail-back" onclick="window.clearResults()">← Back to search</span>
-        <div class="detail-header"><div class="detail-title">${title}</div><div class="detail-cnr">CNR: ${cnr}</div></div>`;
-
-    if (nextHearing) html += `<div class="next-hearing"><div class="nh-label">Next Hearing Date</div><div class="nh-date">${nextHearing}</div>${nextPurpose?`<div class="nh-purpose">${nextPurpose}</div>`:''}</div>`;
-
-    html += `<div class="info-grid">
-        <div class="info-row"><span class="info-key">Status</span><span class="info-val"><span class="status-badge ${statusClass}">${status}</span></span></div>
-        <div class="info-row"><span class="info-key">Case Type</span><span class="info-val">${caseType}</span></div>
-        <div class="info-row"><span class="info-key">Court</span><span class="info-val">${courtName}</span></div>
-        <div class="info-row"><span class="info-key">District</span><span class="info-val">${district}</span></div>
-        <div class="info-row"><span class="info-key">Filing Date</span><span class="info-val">${filingDate}</span></div>
-        <div class="info-row"><span class="info-key">Stage</span><span class="info-val">${stage}</span></div>
-        <div class="info-row"><span class="info-key">Petitioner</span><span class="info-val">${petitioner}</span></div>
-        <div class="info-row"><span class="info-key">Respondent</span><span class="info-val">${respondent}</span></div>
-        <div class="info-row"><span class="info-key">Pet. Advocate</span><span class="info-val">${petAdv}</span></div>
-        <div class="info-row"><span class="info-key">Res. Advocate</span><span class="info-val">${resAdv}</span></div>
-    </div>`;
+    let html = `
+        <span class="detail-back" onclick="window.clearResults()">← Back to search</span>
+        <div class="detail-header"><div class="detail-title" style="color: #10b981;">RAW API DATA RECEIVED</div></div>
+        <div style="background: #111827; color: #10b981; padding: 16px; border-radius: 8px; overflow-x: auto; font-family: monospace; font-size: 12px; white-space: pre-wrap; word-break: break-all;">
+${rawJSON}
+        </div>
+    `;
 
     document.getElementById('results').innerHTML = html;
     document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
