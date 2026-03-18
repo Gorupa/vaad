@@ -30,20 +30,17 @@ onAuthStateChanged(auth, (user) => {
     currentUser = user;
     if (user) {
         document.getElementById('login-btn').style.display = 'none';
-        document.getElementById('modal-login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
         document.getElementById('user-avatar').src = user.photoURL;
     } else {
         document.getElementById('login-btn').style.display = 'flex';
-        document.getElementById('modal-login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
     }
     updateSearchLimitUI();
 });
 
 document.getElementById('login-btn').onclick = () => signInWithPopup(auth, provider);
-document.getElementById('modal-login-btn').onclick = () => signInWithPopup(auth, provider);
 document.getElementById('logout-btn').onclick = () => signOut(auth);
 
 // ── UI LOGIC ──
@@ -52,12 +49,16 @@ window.switchTab = function(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     document.querySelectorAll('.form-panel').forEach(p => p.classList.remove('active'));
     document.getElementById('panel-' + tab).classList.add('active');
-    clearResults();
+    window.clearResults();
     document.getElementById('search-btn').disabled = (tab !== 'cnr');
 };
 
 window.closeModal = function() {
     document.getElementById('upgrade-modal').classList.remove('active');
+};
+
+window.openModal = function() {
+    document.getElementById('upgrade-modal').classList.add('active');
 };
 
 window.handleSearch = async function() {
@@ -75,7 +76,7 @@ window.handleSearch = async function() {
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
 
     if (searchesUsed >= maxFreeSearches && !isPro) {
-        document.getElementById('upgrade-modal').classList.add('active');
+        window.openModal();
         return;
     }
 
@@ -91,6 +92,7 @@ window.handleSearch = async function() {
 function updateSearchLimitUI() {
     if (!currentUser) {
         document.getElementById('limit-text').innerText = "Sign in with Google to get 5 free searches";
+        document.getElementById('nav-upgrade-btn').style.display = 'none';
         return;
     }
 
@@ -100,8 +102,10 @@ function updateSearchLimitUI() {
     
     if (isPro) {
         document.getElementById('limit-text').innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - Unlimited Searches</span>';
+        document.getElementById('nav-upgrade-btn').style.display = 'none'; // Hide upgrade button for Pro users
     } else {
         document.getElementById('limit-text').innerText = `Free searches remaining: ${remaining}/${maxFreeSearches}`;
+        document.getElementById('nav-upgrade-btn').style.display = 'flex'; // Show upgrade button for Free users
     }
 }
 
@@ -114,7 +118,7 @@ function setLoading(on) {
 
 async function searchCNR(cnr) {
     setLoading(true); 
-    clearResults();
+    window.clearResults();
     try {
         const res = await fetch(`${API}/cnr`, { 
             method: 'POST', 
@@ -183,7 +187,6 @@ function showError(msg) {
     document.getElementById('results').innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
 }
 
-// Make clearResults available to the window object so the "Back to search" button can click it
 window.clearResults = function() { document.getElementById('results').innerHTML = ''; document.getElementById('placeholder').style.display = 'block'; }
 function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
 function shake(id) {
