@@ -53,13 +53,8 @@ window.switchTab = function(tab) {
     document.getElementById('search-btn').disabled = (tab !== 'cnr');
 };
 
-window.closeModal = function() {
-    document.getElementById('upgrade-modal').classList.remove('active');
-};
-
-window.openModal = function() {
-    document.getElementById('upgrade-modal').classList.add('active');
-};
+window.closeModal = function() { document.getElementById('upgrade-modal').classList.remove('active'); };
+window.openModal = function() { document.getElementById('upgrade-modal').classList.add('active'); };
 
 window.handleSearch = async function() {
     if (activeTab !== 'cnr') return;
@@ -80,12 +75,7 @@ window.handleSearch = async function() {
         return;
     }
 
-    if (!isPro) {
-        searchesUsed++;
-        localStorage.setItem(storageKey, searchesUsed);
-        updateSearchLimitUI();
-    }
-
+    // Deduction logic removed from here, moved to successful API response!
     await searchCNR(cnr);
 };
 
@@ -102,10 +92,10 @@ function updateSearchLimitUI() {
     
     if (isPro) {
         document.getElementById('limit-text').innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - Unlimited Searches</span>';
-        document.getElementById('nav-upgrade-btn').style.display = 'none'; // Hide upgrade button for Pro users
+        document.getElementById('nav-upgrade-btn').style.display = 'none';
     } else {
         document.getElementById('limit-text').innerText = `Free searches remaining: ${remaining}/${maxFreeSearches}`;
-        document.getElementById('nav-upgrade-btn').style.display = 'flex'; // Show upgrade button for Free users
+        document.getElementById('nav-upgrade-btn').style.display = 'flex';
     }
 }
 
@@ -127,9 +117,19 @@ async function searchCNR(cnr) {
         });
         const json = await res.json();
         
+        // If it fails, show error and stop (search is NOT deducted)
         if (!res.ok || !json.success) {
             return showError(json.error || 'The ecourt.js engine failed to fetch this case. The government proxy might be blocking the request.');
         }
+
+        // ONLY DEDUCT IF SUCCESSFUL
+        if (currentUser && !isPro) {
+            let storageKey = `vaad_searches_${currentUser.uid}`;
+            let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
+            localStorage.setItem(storageKey, currentCount + 1);
+            updateSearchLimitUI();
+        }
+
         renderCaseDetail(json.data);
     } catch (e) { 
         showError(`Network Error: Cannot connect to the Render backend. Engine might be sleeping. (${e.message})`); 
