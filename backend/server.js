@@ -1,163 +1,45 @@
-/**
- * court-api — backend/server.js
- * Node.js + Express backend for eCourts data with zkTLS polyfills
- */
-
-'use strict';
-
-// --- BROWSER POLYFILLS FOR zkTLS (WASM) ---
-global.window = global;
-global.self = global;
-
-global.document = { baseURI: 'http://localhost/' };
-global.location = { href: 'http://localhost/' };
-global.self.location = global.location;
-
-const WebSocket = require('ws');
-global.WebSocket = WebSocket;
-
-const crypto = require('crypto');
-if (!global.crypto) {
-    global.crypto = crypto.webcrypto;
-}
-// -----------------------------------------
-
 const express = require('express');
 const cors = require('cors');
-const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
-const NodeCache = require('node-cache');
-
-const ecourts = require('@bullpenm/legal-case-scraper');
+const fetch = require('node-fetch'); // Make sure node-fetch is in your package.json!
 
 const app = express();
-const cache = new NodeCache({ stdTTL: 3600 });
-
-const PORT = process.env.PORT || 3000;
-
-// --- PROXY CONFIGURATION ---
-// Pulls from Render Environment Variables, or uses a fallback free proxy
-const INDIAN_PROXY = process.env.INDIAN_PROXY || 'http://103.137.64.214:80';
-
-let _session = null;
-
-// --- SESSION HANDLER ---
-async function getSession() {
-    if (!_session) {
-        console.log(`Creating eCourts session via proxy: ${INDIAN_PROXY}...`);
-        try {
-            _session = await ecourts.createSession(INDIAN_PROXY);
-            console.log('Session ready.');
-        } catch (err) {
-            console.error('Session creation failed:', err.message);
-            throw err;
-        }
-    }
-    return _session;
-}
-
-// --- MIDDLEWARE MUST BE IN THIS EXACT ORDER ---
-
-// 1. CORS FIRST (Allowing all for now to guarantee it connects)
-app.use(cors({
-    origin: '*', 
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Accept'],
-}));
-
-// 2. Security Headers
-app.use(helmet({
-    crossOriginResourcePolicy: false,
-}));
-
-// 3. Body Parser
+app.use(cors());
 app.use(express.json());
 
-// 4. Rate Limiter
-app.use(rateLimit({
-    windowMs: 60 * 1000,
-    max: 30,
-    message: { error: 'Too many requests. Please wait a minute.' },
-}));
+const API_KEY = process.env.ECOURTS_API_KEY;
 
-// --- ROUTES ---
-
-// Root route for Render health checks
-app.get('/', (req, res) => {
-    res.send('Vaad backend running on Render');
-});
-
-app.get('/api/health', (req, res) => {
-    res.json({
-        status: 'ok',
-        version: '1.0.0',
-        proxy: INDIAN_PROXY ? 'active' : 'inactive',
-        zkTLS: 'ready',
-    });
-});
-
-// Case lookup
+// ── NEW OFFICIAL API ROUTE ──
 app.post('/api/cnr', async (req, res) => {
     const { cnr } = req.body;
-
-    console.log('-----------------------------------');
-    console.log(`FRONTEND REQUEST RECEIVED FOR CNR: ${cnr}`);
-    console.log('-----------------------------------');
-
-    if (!cnr) {
-        return res.status(400).json({ success: false, error: 'CNR number is required.' });
-    }
-
-    const cleanCNR = cnr.replace(/[\s-]/g, '').toUpperCase();
-
-    if (!/^[A-Z0-9]{16}$/.test(cleanCNR)) {
-        return res.status(400).json({
-            success: false,
-            error: 'Invalid CNR. Must be 16 alphanumeric characters.',
-        });
-    }
-
-    const cacheKey = `cnr_${cleanCNR}`;
-    const cached = cache.get(cacheKey);
-
-    if (cached) {
-        return res.json({ success: true, data: cached });
-    }
+    if (!cnr) return res.status(400).json({ success: false, error: 'CNR is required' });
 
     try {
-        const session = await getSession();
-        const data = await ecourts.getCaseByCNR(session, cleanCNR);
+        // Calling the official eCourtsIndia Partner API
+        const response = await fetch(`https://webapi.ecourtsindia.com/api/partner/case/${cnr}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${API_KEY}`,
+                'Content-Type': 'application/json'
+            }
+        });
 
-        if (!data) {
-            return res.status(404).json({ success: false, error: 'Case not found.' });
+        const data = await response.json();
+
+        // If the API returns an error (like invalid CNR)
+        if (!response.ok) {
+            return res.status(400).json({ success: false, error: data.message || 'Case not found in official database.' });
         }
 
-        cache.set(cacheKey, data);
-
-        res.json({
-            success: true,
-            data,
-        });
-
-    } catch (error) {
-        console.error('CNR error:', error.response?.data || error.message);
-        _session = null;
+        // Success! Send the data back to the frontend
+        return res.json({ success: true, data: data });
         
-        // Pass the EXACT error message to the frontend UI
-        res.status(500).json({
-            success: false,
-            error: `Engine Error: ${error.message}`,
-        });
+    } catch (error) {
+        console.error("API Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server connection error.' });
     }
 });
 
-// --- START SERVER ---
+app.get('/api/health', (req, res) => res.json({ status: 'Live with Official Partner API' }));
 
-app.listen(PORT, async () => {
-    console.log(`Vaad Backend running on port ${PORT}`);
-    console.log('zkTLS Polyfills initialized successfully.');
-
-    getSession().catch(() =>
-        console.log('Session will initialize on first request.')
-    );
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Vaad Server running on port ${PORT}`));
