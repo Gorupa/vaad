@@ -23,7 +23,7 @@ const db = getFirestore(app);
 
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
-let currentPlan = 'free'; // 'free', 'pro', or 'promax'
+let currentPlan = 'free'; 
 let isPro = false; 
 let isProMax = false; 
 
@@ -46,11 +46,8 @@ onAuthStateChanged(auth, async (user) => {
 
             if (userSnap.exists()) {
                 const data = userSnap.data();
-                // Smart fallback: Check for 'plan', if not, look at old 'isPro' data
                 currentPlan = data.plan || (data.isPro ? 'pro' : 'free');
-                
             } else {
-                // New user registration
                 await setDoc(userRef, {
                     name: user.displayName,
                     email: user.email,
@@ -60,7 +57,6 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = 'free';
             }
             
-            // Set logic flags based on the single 'plan' string
             isProMax = (currentPlan === 'promax');
             isPro = (currentPlan === 'pro' || currentPlan === 'promax');
 
@@ -152,20 +148,52 @@ window.handleSearch = async function() {
     const date = new Date();
     const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
     const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
-    
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
 
     if (!isPro && searchesUsed >= maxFreeSearches) { window.openModal('both'); return; }
-    if (isPro && !isProMax && searchesUsed >= maxProSearches) { showError("Fair Usage Policy reached for Pro plan. Limits reset on the 1st."); return; }
-    if (isProMax && searchesUsed >= maxProMaxSearches) { showError("Fair Usage Policy reached for Pro Max plan. Limits reset on the 1st."); return; }
+    if (isPro && !isProMax && searchesUsed >= maxProSearches) { showError("Fair Usage Policy reached for Pro plan."); return; }
+    if (isProMax && searchesUsed >= maxProMaxSearches) { showError("Fair Usage Policy reached for Pro Max plan."); return; }
 
-    if (activeTab !== 'cnr') {
-        showError(`The ${activeTab} search filter is unlocked! (Next step: Update server.js to connect to the official API).`);
-        return;
+    // Route search to correct endpoint
+    if (activeTab === 'cnr') {
+        await performSearch(`${API}/cnr`, { cnr: query }, storageKey, 'cnr');
+    } else {
+        await performSearch(`${API}/search`, { query: query, type: activeTab }, storageKey, 'list');
     }
-
-    await searchCNR(query, storageKey);
 };
+
+async function performSearch(endpoint, bodyData, storageKey, renderType) {
+    setLoading(true); 
+    window.clearResults();
+    try {
+        const res = await fetch(endpoint, { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify(bodyData) 
+        });
+        const json = await res.json();
+        
+        if (!res.ok || !json.success) {
+            return showError(json.error || 'The official API failed to fetch records.');
+        }
+
+        if (currentUser) {
+            let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
+            localStorage.setItem(storageKey, currentCount + 1);
+            updateSearchLimitUI();
+        }
+
+        if (renderType === 'cnr') {
+            renderCaseDetail(json.data);
+        } else {
+            renderCaseList(json.data);
+        }
+    } catch (e) { 
+        showError(`Network Error: Cannot connect to backend. (${e.message})`); 
+    } finally { 
+        setLoading(false); 
+    }
+}
 
 function updateSearchLimitUI() {
     const limitText = document.getElementById('limit-text');
@@ -202,33 +230,41 @@ function setLoading(on) {
     btn.innerHTML = on ? '<div class="spinner"></div><span>Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
 }
 
-async function searchCNR(cnr, storageKey) {
-    setLoading(true); 
-    window.clearResults();
-    try {
-        const res = await fetch(`${API}/cnr`, { 
-            method: 'POST', 
-            headers: {'Content-Type': 'application/json'}, 
-            body: JSON.stringify({cnr}) 
-        });
-        const json = await res.json();
-        
-        if (!res.ok || !json.success) {
-            return showError(json.error || 'The official eCourts API failed to fetch this case. Please check the CNR number.');
-        }
-
-        if (currentUser) {
-            let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
-            localStorage.setItem(storageKey, currentCount + 1);
-            updateSearchLimitUI();
-        }
-
-        renderCaseDetail(json.data);
-    } catch (e) { 
-        showError(`Network Error: Cannot connect to the Render backend. (${e.message})`); 
-    } finally { 
-        setLoading(false); 
+function renderCaseList(resultsArray) {
+    hidePlaceholder();
+    if (!resultsArray || resultsArray.length === 0) { 
+        showError('No cases found for this search query.'); 
+        return; 
     }
+
+    let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
+                <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">Found ${resultsArray.length} recent cases:</div>`;
+
+    resultsArray.forEach(data => {
+        const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners[0] : 'Unknown Petitioner';
+        const respondent = (data.respondents && data.respondents.length > 0) ? data.respondents[0] : 'Unknown Respondent';
+        const title = `${petitioner} vs ${respondent}`;
+        const cnr = data.cnr || '—';
+        const status = data.caseStatus || 'Pending';
+        const nextHearing = data.nextHearingDate || data.decisionDate || '—';
+
+        html += `
+        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="padding-right: 15px;">
+                    <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; word-break: break-word;">${title}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${cnr}</div>
+                </div>
+                <div style="font-size: 11px; font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${status}</div>
+            </div>
+            <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 8px;">
+                <b>Next Hearing/Decision:</b> ${nextHearing}
+            </div>
+        </div>`;
+    });
+
+    document.getElementById('results').innerHTML = html;
+    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 function renderCaseDetail(payload) {
