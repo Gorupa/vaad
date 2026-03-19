@@ -24,7 +24,7 @@ const db = getFirestore(app);
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let currentPlan = 'free'; 
-let cycleStartDate = null; // The new 30-day cycle tracker
+let cycleStartDate = null; 
 
 const limits = {
     free: { searches: 1, pdfs: 0 },
@@ -35,10 +35,13 @@ const limits = {
 
 let activeTab = 'cnr';
 
-document.addEventListener('click', (e) => {
-    if (e.target.closest('#login-btn')) signInWithPopup(auth, provider);
-    if (e.target.closest('#logout-btn')) signOut(auth);
-});
+// --- BULLETPROOF BUTTON BINDINGS ---
+const loginBtn = document.getElementById('login-btn');
+if (loginBtn) loginBtn.onclick = () => signInWithPopup(auth, provider);
+
+const logoutBtn = document.getElementById('logout-btn');
+if (logoutBtn) logoutBtn.onclick = () => signOut(auth);
+
 
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
@@ -56,10 +59,10 @@ onAuthStateChanged(auth, async (user) => {
             const userSnap = await getDoc(userRef);
 
             if (userSnap.exists() && userSnap.data().plan) {
-                let dbPlan = userSnap.data().plan.toLowerCase().trim();
+                // ARMOR: Forces lowercase and removes all spaces/symbols (e.g., "Pro Max " -> "promax")
+                let dbPlan = String(userSnap.data().plan).toLowerCase().replace(/[^a-z]/g, '');
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 
-                // Fetch the cycle start date from Firebase (or default to today for new users)
                 cycleStartDate = userSnap.data().cycleStartDate || new Date().toISOString().split('T')[0];
             } else {
                 const today = new Date().toISOString().split('T')[0];
@@ -79,31 +82,29 @@ onAuthStateChanged(auth, async (user) => {
         cycleStartDate = null;
     }
     
+    // Update the UI safely
     updateBadge();
     updateTabLocks();
     updateSearchLimitUI();
 });
 
-// --- THE NEW 30-DAY ROLLING FUP FUNCTION ---
+// --- THE ROLLING FUP FUNCTION ---
 function checkFUP(actionType) {
     if (!currentUser) return { allowed: false, used: 0, limit: 0, storageKey: null, expired: false };
+    
+    // Extra safety fallback
+    if (!currentPlan || !limits[currentPlan]) currentPlan = 'free';
 
-    // 1. Check if the 30-day cycle has expired
-    const cycleStart = new Date(cycleStartDate);
+    const cycleStart = new Date(cycleStartDate || new Date());
     const today = new Date();
-    // Calculate difference in days
     const diffTime = Math.abs(today - cycleStart);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
-    // If more than 30 days have passed, and they are a paid user, their plan is expired
     if (diffDays > 30 && currentPlan !== 'free') {
         return { allowed: false, used: 0, limit: 0, storageKey: null, expired: true };
     }
 
-    // 2. Generate a storage key based on the EXACT cycle start date, not the calendar month
-    // Example: "vaad_search_User123_cycle_2026-03-19"
     const storageKey = `vaad_${actionType}_${currentUser.uid}_cycle_${cycleStartDate}`;
-    
     let used = parseInt(localStorage.getItem(storageKey) || 0);
     let limit = limits[currentPlan][`${actionType}s`]; 
 
@@ -227,7 +228,7 @@ window.selectPlan = function(planType) {
 
     const upiLink = `upi://pay?pa=gauravkalal@ybl&pn=${encodeURIComponent(planName)}&am=${amount}&cu=INR`;
     const upiBtn = document.getElementById('upi-btn-link');
-    if(upiBtn) {
+    if (upiBtn) {
         upiBtn.href = upiLink;
         upiBtn.innerText = `Pay ₹${amount} via UPI App`;
     }
@@ -250,14 +251,12 @@ window.handleSearch = async function() {
 
     const fup = checkFUP('search');
 
-    // Handle 30-day Expiry
     if (fup.expired) {
         showError(`Your ${currentPlan.toUpperCase()} subscription cycle has expired (30 days completed). Please renew your subscription to continue using premium features.`);
         window.openModal();
         return;
     }
 
-    // Handle usage limits
     if (!fup.allowed) { 
         if (currentPlan === 'free') {
             window.openModal();
