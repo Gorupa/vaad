@@ -1,9 +1,7 @@
-// ── MOBILE DEBUGGER ──
 window.onerror = function(msg, url, line) { 
-    alert("Script Error: " + msg + " (Line " + line + ")"); 
+    console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
-// ── FIREBASE V10.8.0 SETUP (Guaranteed Stable Version) ──
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -23,15 +21,17 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// ── STATE ──
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
+let currentPlan = 'free'; // 'free', 'pro', or 'promax'
 let isPro = false; 
+let isProMax = false; 
+
 const maxFreeSearches = 1; 
 const maxProSearches = 30; 
+const maxProMaxSearches = 100;
 let activeTab = 'cnr';
 
-// ── AUTH & DATABASE LISTENERS ──
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
@@ -45,30 +45,39 @@ onAuthStateChanged(auth, async (user) => {
             const userSnap = await getDoc(userRef);
 
             if (userSnap.exists()) {
-                isPro = userSnap.data().isPro === true;
+                const data = userSnap.data();
+                // Smart fallback: Check for 'plan', if not, look at old 'isPro' data
+                currentPlan = data.plan || (data.isPro ? 'pro' : 'free');
+                
             } else {
+                // New user registration
                 await setDoc(userRef, {
                     name: user.displayName,
                     email: user.email,
-                    isPro: false,
+                    plan: 'free',
                     joinedAt: new Date().toISOString()
                 });
-                isPro = false;
+                currentPlan = 'free';
             }
+            
+            // Set logic flags based on the single 'plan' string
+            isProMax = (currentPlan === 'promax');
+            isPro = (currentPlan === 'pro' || currentPlan === 'promax');
+
         } catch (error) {
             console.error("Error fetching user data:", error);
-            isPro = false; 
+            currentPlan = 'free'; isPro = false; isProMax = false;
         }
     } else {
         document.getElementById('login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
-        isPro = false;
+        currentPlan = 'free'; isPro = false; isProMax = false;
     }
     
     updateSearchLimitUI();
+    updateTabLocks();
 });
 
-// Attach Auth button listeners safely
 setTimeout(() => {
     const loginBtn = document.getElementById('login-btn');
     const logoutBtn = document.getElementById('logout-btn');
@@ -76,34 +85,64 @@ setTimeout(() => {
     if (logoutBtn) logoutBtn.onclick = () => signOut(auth);
 }, 500);
 
-// ── UI LOGIC (Attached to window for HTML access) ──
+function updateTabLocks() {
+    const lockIcons = document.querySelectorAll('.lock-icon');
+    if (isProMax) {
+        lockIcons.forEach(icon => icon.style.display = 'none');
+    } else {
+        lockIcons.forEach(icon => icon.style.display = 'inline');
+    }
+}
+
 window.switchTab = function(tab) {
+    if (tab !== 'cnr' && !isProMax) {
+        window.openModal(isPro ? 'promax-only' : 'both');
+        return;
+    }
+
     activeTab = tab;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-    // Since only CNR is active, we just visually switch. The locked ones trigger modals.
+    document.querySelectorAll('.form-panel').forEach(p => p.style.display = 'none');
+    document.getElementById('panel-' + tab).style.display = 'block';
+    
+    window.clearResults();
 };
 
 window.closeModal = function() { 
     const modal = document.getElementById('upgrade-modal');
     if (modal) modal.style.display = 'none'; 
 };
-window.openModal = function() { 
+
+window.openModal = function(type = 'both') { 
     const modal = document.getElementById('upgrade-modal');
-    if (modal) modal.style.display = 'flex'; 
+    if (!modal) return;
+
+    const proCard = document.getElementById('pro-card');
+    const modalTitle = document.getElementById('modal-title');
+    const modalSubtitle = document.getElementById('modal-subtitle');
+
+    if (type === 'promax-only') {
+        proCard.style.display = 'none';
+        modalTitle.innerText = "Upgrade to Pro Max";
+        modalSubtitle.innerText = "Unlock advanced search filters and 100 API searches.";
+    } else {
+        proCard.style.display = 'block';
+        modalTitle.innerText = "Upgrade to Vaad Pro";
+        modalSubtitle.innerText = "Unlock official API searches and priority data loading.";
+    }
+    
+    modal.style.display = 'flex'; 
 };
 
 window.handleSearch = async function() {
-    if (activeTab !== 'cnr') return;
+    let query = '';
     
-    const cnrInput = document.getElementById('cnr-input');
-    const cnr = cnrInput ? cnrInput.value.trim() : '';
-    if (!cnr) {
-        if (cnrInput) {
-            cnrInput.style.borderColor = 'red';
-            setTimeout(() => cnrInput.style.borderColor = '', 1500);
-        }
-        return;
-    }
+    if (activeTab === 'cnr') query = document.getElementById('cnr-input').value.trim();
+    if (activeTab === 'litigant') query = document.getElementById('litigant-input').value.trim();
+    if (activeTab === 'advocate') query = document.getElementById('advocate-input').value.trim();
+    if (activeTab === 'judge') query = document.getElementById('judge-input').value.trim();
+
+    if (!query) return;
 
     if (!currentUser) {
         signInWithPopup(auth, provider);
@@ -116,17 +155,16 @@ window.handleSearch = async function() {
     
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
 
-    if (!isPro && searchesUsed >= maxFreeSearches) {
-        window.openModal();
+    if (!isPro && searchesUsed >= maxFreeSearches) { window.openModal('both'); return; }
+    if (isPro && !isProMax && searchesUsed >= maxProSearches) { showError("Fair Usage Policy reached for Pro plan. Limits reset on the 1st."); return; }
+    if (isProMax && searchesUsed >= maxProMaxSearches) { showError("Fair Usage Policy reached for Pro Max plan. Limits reset on the 1st."); return; }
+
+    if (activeTab !== 'cnr') {
+        showError(`The ${activeTab} search filter is unlocked! (Next step: Update server.js to connect to the official API).`);
         return;
     }
 
-    if (isPro && searchesUsed >= maxProSearches) {
-        showError("Fair Usage Policy reached. You have used your 30 API searches for this month. Limits reset on the 1st.");
-        return;
-    }
-
-    await searchCNR(cnr, storageKey);
+    await searchCNR(query, storageKey);
 };
 
 function updateSearchLimitUI() {
@@ -144,17 +182,19 @@ function updateSearchLimitUI() {
     const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
     
-    if (isPro) {
-        if (limitText) limitText.innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - Unlimited Searches*</span>';
+    if (isProMax) {
+        if (limitText) limitText.innerHTML = '<span style="color: #d4af37; font-weight:600;">Pro Max Active - 100 Searches</span>';
         if (upgradeBtn) upgradeBtn.style.display = 'none';
+    } else if (isPro) {
+        if (limitText) limitText.innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - 30 Searches</span>';
+        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal('promax-only'); }
     } else {
         let remaining = Math.max(0, maxFreeSearches - searchesUsed);
         if (limitText) limitText.innerText = `Free searches remaining: ${remaining}/${maxFreeSearches}`;
-        if (upgradeBtn) upgradeBtn.style.display = 'flex';
+        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal('both'); }
     }
 }
 
-// ── API LOGIC ──
 function setLoading(on) {
     const btn = document.getElementById('search-btn');
     if (!btn) return;
