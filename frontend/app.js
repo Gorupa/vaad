@@ -24,6 +24,7 @@ const db = getFirestore(app);
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let currentPlan = 'free'; 
+let cycleStartDate = null; // The new 30-day cycle tracker
 
 const limits = {
     free: { searches: 1, pdfs: 0 },
@@ -34,6 +35,11 @@ const limits = {
 
 let activeTab = 'cnr';
 
+document.addEventListener('click', (e) => {
+    if (e.target.closest('#login-btn')) signInWithPopup(auth, provider);
+    if (e.target.closest('#logout-btn')) signOut(auth);
+});
+
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     if (user) {
@@ -42,23 +48,35 @@ onAuthStateChanged(auth, async (user) => {
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
         document.getElementById('user-avatar').src = user.photoURL;
 
+        const badge = document.getElementById('user-badge');
+        if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
+
         try {
             const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
 
-            if (userSnap.exists()) {
-                currentPlan = userSnap.data().plan || 'free';
+            if (userSnap.exists() && userSnap.data().plan) {
+                let dbPlan = userSnap.data().plan.toLowerCase().trim();
+                currentPlan = limits[dbPlan] ? dbPlan : 'free';
+                
+                // Fetch the cycle start date from Firebase (or default to today for new users)
+                cycleStartDate = userSnap.data().cycleStartDate || new Date().toISOString().split('T')[0];
             } else {
-                await setDoc(userRef, { name: user.displayName, email: user.email, plan: 'free', joinedAt: new Date().toISOString() });
+                const today = new Date().toISOString().split('T')[0];
+                await setDoc(userRef, { name: user.displayName, email: user.email, plan: 'free', cycleStartDate: today, joinedAt: new Date().toISOString() });
                 currentPlan = 'free';
+                cycleStartDate = today;
             }
         } catch (error) {
+            console.error(error);
             currentPlan = 'free';
+            cycleStartDate = new Date().toISOString().split('T')[0];
         }
     } else {
         document.getElementById('login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
         currentPlan = 'free';
+        cycleStartDate = null;
     }
     
     updateBadge();
@@ -66,12 +84,38 @@ onAuthStateChanged(auth, async (user) => {
     updateSearchLimitUI();
 });
 
-setTimeout(() => {
-    const loginBtn = document.getElementById('login-btn');
-    const logoutBtn = document.getElementById('logout-btn');
-    if (loginBtn) loginBtn.onclick = () => signInWithPopup(auth, provider);
-    if (logoutBtn) logoutBtn.onclick = () => signOut(auth);
-}, 500);
+// --- THE NEW 30-DAY ROLLING FUP FUNCTION ---
+function checkFUP(actionType) {
+    if (!currentUser) return { allowed: false, used: 0, limit: 0, storageKey: null, expired: false };
+
+    // 1. Check if the 30-day cycle has expired
+    const cycleStart = new Date(cycleStartDate);
+    const today = new Date();
+    // Calculate difference in days
+    const diffTime = Math.abs(today - cycleStart);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+
+    // If more than 30 days have passed, and they are a paid user, their plan is expired
+    if (diffDays > 30 && currentPlan !== 'free') {
+        return { allowed: false, used: 0, limit: 0, storageKey: null, expired: true };
+    }
+
+    // 2. Generate a storage key based on the EXACT cycle start date, not the calendar month
+    // Example: "vaad_search_User123_cycle_2026-03-19"
+    const storageKey = `vaad_${actionType}_${currentUser.uid}_cycle_${cycleStartDate}`;
+    
+    let used = parseInt(localStorage.getItem(storageKey) || 0);
+    let limit = limits[currentPlan][`${actionType}s`]; 
+
+    return {
+        allowed: used < limit,
+        used: used,
+        limit: limit,
+        remaining: Math.max(0, limit - used),
+        storageKey: storageKey,
+        expired: false
+    };
+}
 
 function updateBadge() {
     const badge = document.getElementById('user-badge');
@@ -100,25 +144,16 @@ function updateTabLocks() {
     const cnrLock = document.getElementById('cnr-lock');
     const otherLocks = document.querySelectorAll('.tab:not(#tab-cnr) .lock-icon');
 
-    // Supreme & Pro Max unlock everything
     if (currentPlan === 'supreme' || currentPlan === 'promax') {
         if (cnrLock) cnrLock.style.display = 'none';
         otherLocks.forEach(icon => icon.style.display = 'none');
-    } 
-    // Pro unlocks lists, but locks CNR
-    else if (currentPlan === 'pro') {
+    } else if (currentPlan === 'pro') {
         if (cnrLock) cnrLock.style.display = 'inline';
         otherLocks.forEach(icon => icon.style.display = 'none');
-        
-        // Auto-switch away from CNR if they are on it
         if (activeTab === 'cnr') window.switchTab('litigant');
-    } 
-    // Free unlocks CNR, locks lists
-    else {
+    } else {
         if (cnrLock) cnrLock.style.display = 'none';
         otherLocks.forEach(icon => icon.style.display = 'inline');
-        
-        // Auto-switch back to CNR if they are on a locked tab
         if (activeTab !== 'cnr') window.switchTab('cnr');
     }
 }
@@ -192,8 +227,10 @@ window.selectPlan = function(planType) {
 
     const upiLink = `upi://pay?pa=gauravkalal@ybl&pn=${encodeURIComponent(planName)}&am=${amount}&cu=INR`;
     const upiBtn = document.getElementById('upi-btn-link');
-    upiBtn.href = upiLink;
-    upiBtn.innerText = `Pay ₹${amount} via UPI App`;
+    if(upiBtn) {
+        upiBtn.href = upiLink;
+        upiBtn.innerText = `Pay ₹${amount} via UPI App`;
+    }
 };
 
 window.handleSearch = async function() {
@@ -211,30 +248,33 @@ window.handleSearch = async function() {
         return;
     }
 
-    const date = new Date();
-    const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
-    const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
-    let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
-    const maxSearchesAllowed = limits[currentPlan].searches;
+    const fup = checkFUP('search');
 
-    if (searchesUsed >= maxSearchesAllowed) { 
+    // Handle 30-day Expiry
+    if (fup.expired) {
+        showError(`Your ${currentPlan.toUpperCase()} subscription cycle has expired (30 days completed). Please renew your subscription to continue using premium features.`);
+        window.openModal();
+        return;
+    }
+
+    // Handle usage limits
+    if (!fup.allowed) { 
         if (currentPlan === 'free') {
             window.openModal();
         } else {
-            showError(`Strict Fair Usage Policy (FUP) reached for the ${currentPlan.toUpperCase()} plan. Please wait for limits to reset, or contact gauravkalal1719@gmail.com.`);
+            showError(`Strict Fair Usage Policy (FUP) reached for the ${currentPlan.toUpperCase()} plan. You have used all ${fup.limit} searches for this billing cycle. Renew or upgrade early to continue.`);
         }
         return; 
     }
 
-    // Server request logic
     if (activeTab === 'cnr') {
         if (currentPlan === 'pro') {
             window.openModal();
             return;
         }
-        await performSearch(`${API}/cnr`, { cnr: query }, storageKey, 'cnr');
+        await performSearch(`${API}/cnr`, { cnr: query }, fup.storageKey, 'cnr');
     } else {
-        await performSearch(`${API}/search`, { query: query, type: activeTab }, storageKey, 'list');
+        await performSearch(`${API}/search`, { query: query, type: activeTab }, fup.storageKey, 'list');
     }
 };
 
@@ -278,21 +318,25 @@ function updateSearchLimitUI() {
         return;
     }
 
-    const storageKey = `vaad_searches_${currentUser.uid}_${new Date().getFullYear()}_${new Date().getMonth()}`;
-    let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
-    let remaining = Math.max(0, limits[currentPlan].searches - searchesUsed);
+    const fup = checkFUP('search');
+
+    if (fup.expired) {
+        if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired - Renew Now</span>`;
+        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+        return;
+    }
 
     if (currentPlan === 'supreme') {
-        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme Active - ${remaining}/${limits.supreme.searches} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
         if (upgradeBtn) upgradeBtn.style.display = 'none';
     } else if (currentPlan === 'promax') {
-        if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${remaining}/${limits.promax.searches} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
         if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Supreme"; upgradeBtn.onclick = () => window.openModal(); }
     } else if (currentPlan === 'pro') {
-        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${remaining}/${limits.pro.searches} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
         if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal(); }
     } else {
-        if (limitText) limitText.innerText = `Free searches remaining: ${remaining}/${limits.free.searches}`;
+        if (limitText) limitText.innerText = `Free searches remaining: ${fup.remaining}/${fup.limit}`;
         if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
     }
 }
@@ -385,6 +429,10 @@ function renderCaseDetail(payload) {
         if (orders.length > 0) {
             html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Case Orders (PDFs)</h3>
             <div style="display: flex; flex-direction: column; gap: 10px;">`;
+            
+            const fup = checkFUP('pdf');
+            html += `<div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">PDF Downloads remaining this cycle: <b>${fup.remaining}/${fup.limit}</b></div>`;
+
             orders.forEach(o => {
                 html += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;">
                     <div>
@@ -402,13 +450,16 @@ function renderCaseDetail(payload) {
 }
 
 window.downloadPDF = async function(event, cnr, filename) {
-    const date = new Date();
-    const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
-    const pdfStorageKey = `vaad_pdfs_${currentUser.uid}_${monthKey}`;
-    let pdfsUsed = parseInt(localStorage.getItem(pdfStorageKey) || 0);
+    const fup = checkFUP('pdf');
 
-    if (pdfsUsed >= limits.supreme.pdfs) {
-        alert(`FUP Reached: You have used your ${limits.supreme.pdfs} PDF downloads for this month.`);
+    if (fup.expired) {
+        alert("Your subscription has expired. Please renew to download PDFs.");
+        window.openModal();
+        return;
+    }
+
+    if (!fup.allowed) {
+        alert(`Strict FUP Reached: You have used all ${fup.limit} of your PDF downloads for this cycle.`);
         return;
     }
 
@@ -442,7 +493,7 @@ window.downloadPDF = async function(event, cnr, filename) {
         a.remove();
         window.URL.revokeObjectURL(url);
 
-        localStorage.setItem(pdfStorageKey, pdfsUsed + 1);
+        localStorage.setItem(fup.storageKey, fup.used + 1);
         btn.innerText = "Downloaded ✓";
         btn.style.background = "#10b981"; 
         btn.style.opacity = "1";
