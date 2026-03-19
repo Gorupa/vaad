@@ -97,19 +97,30 @@ onAuthStateChanged(auth, async (user) => {
     updateSearchLimitUI();
 });
 
-// --- THE ROLLING FUP FUNCTION ---
+// --- THE ROLLING FUP FUNCTION (NOW WITH COUNTDOWN TIMER) ---
 function checkFUP(actionType) {
-    if (!currentUser) return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: false };
+    if (!currentUser) return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: false, daysLeft: 0 };
     
     if (!currentPlan || !limits[currentPlan]) currentPlan = 'free';
 
-    const cycleStart = new Date(cycleStartDate || new Date());
+    // Calculate exactly how many days have passed since midnight of their start date
+    const cycleStart = new Date(cycleStartDate || new Date().toISOString().split('T')[0]);
+    cycleStart.setHours(0,0,0,0);
     const today = new Date();
-    const diffTime = Math.abs(today - cycleStart);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+    today.setHours(0,0,0,0);
+    
+    const diffTime = today - cycleStart;
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24)); 
 
-    if (diffDays > 30 && currentPlan !== 'free') {
-        return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: true };
+    let isExpired = false;
+    let daysLeft = 0;
+
+    if (currentPlan !== 'free') {
+        if (diffDays >= 30) {
+            isExpired = true;
+        } else {
+            daysLeft = 30 - diffDays;
+        }
     }
 
     const storageKey = `vaad_${actionType}_${currentUser.uid}_cycle_${cycleStartDate}`;
@@ -125,7 +136,8 @@ function checkFUP(actionType) {
         limit: limit,
         remaining: remaining,
         storageKey: storageKey,
-        expired: false
+        expired: isExpired,
+        daysLeft: daysLeft
     };
 }
 
@@ -133,7 +145,13 @@ function updateBadge() {
     const badge = document.getElementById('user-badge');
     if (!badge) return;
     
-    if (currentPlan === 'supreme') {
+    const fup = checkFUP('search'); // Check if they are expired
+    
+    if (fup.expired) {
+        badge.innerText = "EXPIRED";
+        badge.style.background = "#ef4444"; // Red badge
+        badge.style.color = "white";
+    } else if (currentPlan === 'supreme') {
         badge.innerText = "SUPREME";
         badge.style.background = "#8b5cf6";
         badge.style.color = "white";
@@ -212,12 +230,10 @@ window.openModal = function() {
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
-    // FIX: Dynamically hide cards based on the user's current plan
     document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
     document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
-    document.getElementById('supreme-card').style.display = 'block'; // Always visible unless user is already Supreme
+    document.getElementById('supreme-card').style.display = 'block'; 
 
-    // Pre-select the immediate next tier
     if (currentPlan === 'free') window.selectPlan('pro');
     else if (currentPlan === 'pro') window.selectPlan('promax');
     else if (currentPlan === 'promax') window.selectPlan('supreme');
@@ -343,34 +359,37 @@ function updateSearchLimitUI() {
     if (fup.expired) {
         if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired - Renew Now</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'inline-block'; 
+            upgradeBtn.style.display = 'block'; 
             upgradeBtn.innerText = "⚡ Renew"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
         return;
     }
 
+    // Creates the text piece: "(14 days left) • "
+    let daysText = currentPlan !== 'free' ? `(${fup.daysLeft} days left) • ` : '';
+
     if (currentPlan === 'supreme') {
-        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) upgradeBtn.style.display = 'none'; 
     } else if (currentPlan === 'promax') {
-        if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'inline-block'; 
+            upgradeBtn.style.display = 'block'; 
             upgradeBtn.innerText = "⚡ Get Supreme"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
     } else if (currentPlan === 'pro') {
-        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'inline-block'; 
+            upgradeBtn.style.display = 'block'; 
             upgradeBtn.innerText = "⚡ Get Pro Max"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
     } else {
-        if (limitText) limitText.innerHTML = `<span style="color: var(--text-muted); font-weight:600;">Free Plan - ${fup.remaining}/${fup.limit} Searches Left</span>`;
+        if (limitText) limitText.innerHTML = `<span style="color: var(--text-muted); font-weight:600;">Free Plan • ${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'inline-block'; 
+            upgradeBtn.style.display = 'block'; 
             upgradeBtn.innerText = "⚡ Upgrade to Pro"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
