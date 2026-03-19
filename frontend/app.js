@@ -75,8 +75,8 @@ setTimeout(() => {
 function updateTabLocks() {
     const cnrLock = document.getElementById('cnr-lock');
     if (cnrLock) {
-        // CNR is unlocked ONLY for promax and supreme
-        if (currentPlan === 'promax' || currentPlan === 'supreme') {
+        // CNR is unlocked for Free, ProMax, and Supreme. (Pro users get locked out of CNR)
+        if (currentPlan === 'promax' || currentPlan === 'supreme' || currentPlan === 'free') {
             cnrLock.style.display = 'none';
         } else {
             cnrLock.style.display = 'inline';
@@ -85,9 +85,15 @@ function updateTabLocks() {
 }
 
 window.switchTab = function(tab) {
-    // Pro Max & Supreme check for CNR
-    if (tab === 'cnr' && currentPlan === 'pro') {
-        window.openModal('promax-only');
+    // Free users cannot use list tabs
+    if (currentPlan === 'free' && tab !== 'cnr') {
+        window.openModal();
+        return;
+    }
+    
+    // Pro users cannot use CNR tab
+    if (currentPlan === 'pro' && tab === 'cnr') {
+        window.openModal();
         return;
     }
 
@@ -103,10 +109,9 @@ window.closeModal = function() {
     if (modal) modal.style.display = 'none'; 
 };
 
-window.openModal = function(type = 'both') { 
+window.openModal = function() { 
     const modal = document.getElementById('upgrade-modal');
-    if (!modal) return;
-    modal.style.display = 'flex'; 
+    if (modal) modal.style.display = 'flex'; 
 };
 
 window.handleSearch = async function() {
@@ -139,7 +144,6 @@ window.handleSearch = async function() {
         return; 
     }
 
-    // Force Pro users away from CNR
     if (activeTab === 'cnr' && currentPlan === 'pro') {
         window.openModal();
         return;
@@ -228,8 +232,8 @@ function renderCaseList(resultsArray) {
                 <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">Found ${resultsArray.length} recent cases:</div>`;
 
     resultsArray.forEach(data => {
-        const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners[0] : 'Unknown';
-        const respondent = (data.respondents && data.respondents.length > 0) ? data.respondents[0] : 'Unknown';
+        const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners[0] : 'Unknown Petitioner';
+        const respondent = (data.respondents && data.respondents.length > 0) ? data.respondents[0] : 'Unknown Respondent';
         const cnr = data.cnr || '—';
         const status = data.caseStatus || 'Pending';
         
@@ -237,10 +241,10 @@ function renderCaseList(resultsArray) {
         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="padding-right: 15px;">
-                    <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">${petitioner} vs ${respondent}</div>
+                    <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; word-break: break-word;">${petitioner} vs ${respondent}</div>
                     <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${cnr}</div>
                 </div>
-                <div style="font-size: 11px; font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 4px 8px; border-radius: 4px;">${status}</div>
+                <div style="font-size: 11px; font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${status}</div>
             </div>
         </div>`;
     });
@@ -266,7 +270,6 @@ function renderCaseDetail(payload) {
             </div>
         </div>`;
 
-    // ── THE SUPREME TIER LOGIC ──
     const history = data.historyOfCaseHearings || [];
     const orders = [...(data.interimOrders || []), ...(data.judgmentOrders || [])];
 
@@ -279,7 +282,6 @@ function renderCaseDetail(payload) {
             </div>`;
         }
     } else {
-        // RENDER SUPREME HISTORY TABLE
         if (history.length > 0) {
             html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Hearing History</h3>
             <div style="overflow-x: auto; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
@@ -297,7 +299,6 @@ function renderCaseDetail(payload) {
             html += `</table></div>`;
         }
 
-        // RENDER SUPREME PDF DOWNLOADS
         if (orders.length > 0) {
             html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Case Orders (PDFs)</h3>
             <div style="display: flex; flex-direction: column; gap: 10px;">`;
@@ -307,7 +308,7 @@ function renderCaseDetail(payload) {
                         <div style="font-weight: 500; font-size: 14px;">${o.orderDate || 'Order'}</div>
                         <div style="font-size: 12px; color: var(--text-muted);">${o.description || 'Order Document'}</div>
                     </div>
-                    <button onclick="downloadPDF('${data.cnr}', '${o.orderUrl}')" style="background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Download PDF</button>
+                    <button onclick="downloadPDF(event, '${data.cnr}', '${o.orderUrl}')" style="background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Download PDF</button>
                 </div>`;
             });
             html += `</div>`;
@@ -317,9 +318,59 @@ function renderCaseDetail(payload) {
     document.getElementById('results').innerHTML = html;
 }
 
-// Global function placeholder for the PDF download API call (We will build the backend for this next!)
-window.downloadPDF = function(cnr, filename) {
-    alert(`Backend wiring needed! We will set up server.js to fetch: ${filename} for CNR: ${cnr}`);
+// PDF Download Logic with strict FUP controls
+window.downloadPDF = async function(event, cnr, filename) {
+    const date = new Date();
+    const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
+    const pdfStorageKey = `vaad_pdfs_${currentUser.uid}_${monthKey}`;
+    let pdfsUsed = parseInt(localStorage.getItem(pdfStorageKey) || 0);
+
+    if (pdfsUsed >= limits.supreme.pdfs) {
+        alert(`FUP Reached: You have used your ${limits.supreme.pdfs} PDF downloads for this month.`);
+        return;
+    }
+
+    const btn = event.target;
+    btn.innerText = "Downloading...";
+    btn.style.opacity = "0.7";
+    btn.disabled = true;
+
+    try {
+        const res = await fetch(`${API}/download`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ cnr, filename })
+        });
+
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+            const json = await res.json();
+            alert(json.error || 'Failed to download PDF.');
+            btn.innerText = "Error";
+            return;
+        }
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        localStorage.setItem(pdfStorageKey, pdfsUsed + 1);
+        btn.innerText = "Downloaded ✓";
+        btn.style.background = "#10b981"; 
+        btn.style.opacity = "1";
+
+    } catch (e) {
+        alert(`Network error: ${e.message}`);
+        btn.innerText = "Download Failed";
+        btn.disabled = false;
+        btn.style.opacity = "1";
+    }
 };
 
 function showError(msg) {
