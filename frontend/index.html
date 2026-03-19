@@ -37,21 +37,13 @@
 <div class="search-card">
     <div class="search-container">
         <div class="tabs">
-            <div class="tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number</div>
-            <div class="tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon">🔒</span></div>
-            <div class="tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon">🔒</span></div>
-            <div class="tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon">🔒</span></div>
+            <div class="tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant</div>
+            <div class="tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
+            <div class="tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge</div>
+            <div class="tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock">🔒</span></div>
         </div>
         
         <div class="search-form">
-            <div class="form-panel active" id="panel-cnr">
-                <div class="field">
-                    <label class="field-label" for="cnr-input">CNR Number</label>
-                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
-                    <div class="cnr-hint">16-character alphanumeric case number</div>
-                </div>
-            </div>
-            
             <div class="form-panel" id="panel-litigant" style="display: none;">
                 <div class="field">
                     <label class="field-label" for="litigant-input">Litigant / Party Name</label>
@@ -73,6 +65,14 @@
                 </div>
             </div>
 
+            <div class="form-panel active" id="panel-cnr">
+                <div class="field">
+                    <label class="field-label" for="cnr-input">CNR Number</label>
+                    <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
+                    <div class="cnr-hint">16-character alphanumeric case number</div>
+                </div>
+            </div>
+
             <button class="btn-search" id="search-btn" onclick="window.handleSearch()">
                 <span id="btn-text">Search Cases</span>
             </button>
@@ -83,55 +83,47 @@
 
 <div class="results" id="results"></div>
 
-<div class="results" id="placeholder">
-    <div class="placeholder">
-        <div class="placeholder-card">
-            <div class="placeholder-label">Information Provided</div>
-            <div class="placeholder-item"><span>📅</span> Next hearing date and purpose</div>
-            <div class="placeholder-item"><span>📋</span> Case type, court, and current stage</div>
-            <div class="placeholder-item"><span>👥</span> Party and advocate details</div>
-            <div class="placeholder-item"><span>⏱️</span> Complete case history log</div>
-        </div>
-    </div>
-</div>
-
 <div id="upgrade-modal" class="modal-overlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
         <button class="modal-close" onclick="window.closeModal()">×</button>
-        <div class="pricing-title" id="modal-title">Upgrade to Vaad Pro</div>
-        <div class="pricing-subtitle" id="modal-subtitle">Unlock official API searches and priority data loading.</div>
+        <div class="pricing-title" id="modal-title">Upgrade to Vaad Premium</div>
+        <div class="pricing-subtitle" id="modal-subtitle">Unlock official API searches and deep case history.</div>
         
         <div id="pro-card" style="border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="font-weight: bold; color: var(--text-primary); font-size: 18px;">Pro Plan</div>
             <div class="price-tag" style="margin: 5px 0;">₹99<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 15px; font-size: 13px;">
-                <li>✓ 30 CNR Searches</li>
-                <li>✓ Zero Captcha Interruptions</li>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
+                <li>✓ 30 Searches</li>
+                <li>✓ Litigant, Advocate & Judge Filters</li>
             </ul>
         </div>
 
-        <div id="promax-card" style="border: 1px dashed #d4af37; padding: 15px; border-radius: 8px; background: rgba(212, 175, 55, 0.05); margin-bottom: 20px;">
+        <div id="promax-card" style="border: 1px solid #d4af37; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
             <div style="color: #d4af37; font-weight: bold; font-size: 18px;">Pro Max</div>
             <div class="price-tag" style="margin: 5px 0;">₹199<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 15px; font-size: 13px;">
-                <li>✓ 100 API Searches</li>
-                <li>✓ Unlocks Litigant, Advocate & Judge Search</li>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
+                <li>✓ 100 Searches</li>
+                <li>✓ Unlocks Detailed CNR Case Lookup</li>
+            </ul>
+        </div>
+
+        <div id="supreme-card" style="border: 2px solid #8b5cf6; padding: 15px; border-radius: 8px; background: rgba(139, 92, 246, 0.05); margin-bottom: 20px;">
+            <div style="color: #8b5cf6; font-weight: bold; font-size: 18px;">Supreme Plan</div>
+            <div class="price-tag" style="margin: 5px 0;">₹399<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
+                <li>✓ 150 Searches</li>
+                <li>✓ View Full Hearing History Logs</li>
+                <li>✓ Download 30 Official Order PDFs</li>
             </ul>
         </div>
 
         <div class="upi-box">
-            <div class="upi-note">Pay directly via UPI to activate:</div>
+            <div class="upi-note">Pay directly via UPI to activate your chosen plan:</div>
             <div class="upi-id">gauravkalal@ybl</div> 
-            <div class="desktop-qr">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=gauravkalal@ybl%26pn=Vaad%20Premium%26cu=INR" alt="UPI QR Code" width="120" height="120">
-            </div>
-            <div class="mobile-upi-btn">
+            <div class="mobile-upi-btn" style="margin-top: 10px;">
                 <a href="upi://pay?pa=gauravkalal@ybl&pn=Vaad%20Premium&cu=INR" class="btn-primary-intent" style="display: block; text-align: center; background: #2563eb; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 500;">Pay via UPI App</a>
             </div>
             <div class="upi-note" style="margin-top: 16px;">Send payment and email screenshot to <b>gauravkalal1719@gmail.com</b>. Your account will be upgraded within 2 hours.</div>
-            <div style="font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                *Subject to Fair Usage Policy. Resets on the 1st of every month.
-            </div>
         </div>
     </div>
 </div>
@@ -143,7 +135,7 @@
         <span>©2026</span>
     </div>
     <div class="footer-disclaimer">
-        Vaad is an independent open-source tool. Data is fetched live using the official eCourtsIndia Partner API.
+        Vaad is an independent tool. Data is fetched live using the official eCourtsIndia Partner API.
     </div>
 </footer>
 
