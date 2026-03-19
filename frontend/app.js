@@ -103,7 +103,6 @@ function checkFUP(actionType) {
     
     if (!currentPlan || !limits[currentPlan]) currentPlan = 'free';
 
-    // Calculate exactly how many days have passed since midnight of their start date
     const cycleStart = new Date(cycleStartDate || new Date().toISOString().split('T')[0]);
     cycleStart.setHours(0,0,0,0);
     const today = new Date();
@@ -145,11 +144,11 @@ function updateBadge() {
     const badge = document.getElementById('user-badge');
     if (!badge) return;
     
-    const fup = checkFUP('search'); // Check if they are expired
+    const fup = checkFUP('search');
     
     if (fup.expired) {
         badge.innerText = "EXPIRED";
-        badge.style.background = "#ef4444"; // Red badge
+        badge.style.background = "#ef4444"; 
         badge.style.color = "white";
     } else if (currentPlan === 'supreme') {
         badge.innerText = "SUPREME";
@@ -225,18 +224,31 @@ window.openModal = function() {
         return;
     }
 
-    if (currentPlan === 'supreme') return;
+    const fup = checkFUP('search');
+
+    // ONLY block opening the modal if they are active Supreme (not expired)
+    if (currentPlan === 'supreme' && !fup.expired) return;
 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
-    document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
-    document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
-    document.getElementById('supreme-card').style.display = 'block'; 
+    // FIX: If expired, show all cards so they can easily renew
+    if (fup.expired) {
+        document.getElementById('pro-card').style.display = 'block';
+        document.getElementById('promax-card').style.display = 'block';
+        document.getElementById('supreme-card').style.display = 'block';
+        
+        // Pre-select the plan they are currently on to make renewing easy
+        window.selectPlan(currentPlan === 'free' ? 'pro' : currentPlan);
+    } else {
+        document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
+        document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
+        document.getElementById('supreme-card').style.display = 'block'; 
 
-    if (currentPlan === 'free') window.selectPlan('pro');
-    else if (currentPlan === 'pro') window.selectPlan('promax');
-    else if (currentPlan === 'promax') window.selectPlan('supreme');
+        if (currentPlan === 'free') window.selectPlan('pro');
+        else if (currentPlan === 'pro') window.selectPlan('promax');
+        else if (currentPlan === 'promax') window.selectPlan('supreme');
+    }
 
     modal.style.display = 'flex'; 
 };
@@ -359,14 +371,13 @@ function updateSearchLimitUI() {
     if (fup.expired) {
         if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired - Renew Now</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Renew"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
         return;
     }
 
-    // Creates the text piece: "(14 days left) • "
     let daysText = currentPlan !== 'free' ? `(${fup.daysLeft} days left) • ` : '';
 
     if (currentPlan === 'supreme') {
@@ -375,21 +386,21 @@ function updateSearchLimitUI() {
     } else if (currentPlan === 'promax') {
         if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Get Supreme"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
     } else if (currentPlan === 'pro') {
         if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Get Pro Max"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
     } else {
         if (limitText) limitText.innerHTML = `<span style="color: var(--text-muted); font-weight:600;">Free Plan • ${fup.remaining}/${fup.limit} Searches</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Upgrade to Pro"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
