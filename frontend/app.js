@@ -26,7 +26,6 @@ let currentUser = null;
 let currentPlan = 'free'; 
 let cycleStartDate = null; 
 
-// FIX: Keys perfectly match the actionType now ('search' and 'pdf')
 const limits = {
     free: { search: 1, pdf: 0 },
     pro: { search: 30, pdf: 0 },
@@ -36,22 +35,28 @@ const limits = {
 
 let activeTab = 'cnr';
 
-// --- BULLETPROOF BUTTON BINDINGS ---
-setTimeout(() => {
-    const loginBtn = document.getElementById('login-btn');
-    if (loginBtn) loginBtn.onclick = () => signInWithPopup(auth, provider);
-
-    const logoutBtn = document.getElementById('logout-btn');
-    if (logoutBtn) logoutBtn.onclick = () => {
+// --- BUTTON BINDINGS ---
+document.addEventListener('click', (e) => {
+    const loginTarget = e.target.closest('#login-btn');
+    const logoutTarget = e.target.closest('#logout-btn');
+    
+    if (loginTarget) {
+        signInWithPopup(auth, provider);
+    }
+    
+    if (logoutTarget) {
         signOut(auth).then(() => {
-            // FIX: The Nuclear Refresh. Guarantees the UI wipes completely clean.
             window.location.reload(); 
         });
-    };
-}, 500);
+    }
+});
 
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
+    
+    const limitText = document.getElementById('limit-text');
+    if (limitText) limitText.innerText = "Loading limits..."; 
+
     if (user) {
         document.getElementById('login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
@@ -110,7 +115,6 @@ function checkFUP(actionType) {
     const storageKey = `vaad_${actionType}_${currentUser.uid}_cycle_${cycleStartDate}`;
     let used = parseInt(localStorage.getItem(storageKey) || 0);
     
-    // FIX: Accurately grabs the limit number without adding an 's'
     let planData = limits[currentPlan];
     let limit = planData ? planData[actionType] : 0; 
     let remaining = Math.max(0, limit - used);
@@ -197,13 +201,18 @@ window.openModal = function() {
         return;
     }
 
+    // Do not open modal if they are already on the highest tier!
+    if (currentPlan === 'supreme') return;
+
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
+    // FIX: Dynamically hide cards they have already purchased
     document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
     document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
-    document.getElementById('supreme-card').style.display = 'block';
+    document.getElementById('supreme-card').style.display = 'block'; // Always show Supreme to anyone who isn't Supreme
 
+    // Pre-select the appropriate next tier
     if (currentPlan === 'free') window.selectPlan('pro');
     else if (currentPlan === 'pro') window.selectPlan('promax');
     else if (currentPlan === 'promax') window.selectPlan('supreme');
@@ -314,6 +323,7 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
     }
 }
 
+// --- PRECISE BUTTON PROGRESSION LOGIC ---
 function updateSearchLimitUI() {
     const limitText = document.getElementById('limit-text');
     const upgradeBtn = document.getElementById('nav-upgrade-btn');
@@ -328,22 +338,22 @@ function updateSearchLimitUI() {
 
     if (fup.expired) {
         if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired - Renew Now</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
         return;
     }
 
     if (currentPlan === 'supreme') {
         if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) upgradeBtn.style.display = 'none';
+        if (upgradeBtn) upgradeBtn.style.display = 'none'; // Highest tier, button hidden
     } else if (currentPlan === 'promax') {
         if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Supreme"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Get Supreme"; upgradeBtn.onclick = () => window.openModal(); }
     } else if (currentPlan === 'pro') {
         if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal(); }
     } else {
-        if (limitText) limitText.innerText = `Free searches remaining: ${fup.remaining}/${fup.limit}`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
+        if (limitText) limitText.innerHTML = `<span style="color: var(--text-muted); font-weight:600;">Free Plan - ${fup.remaining}/${fup.limit} Searches Left</span>`;
+        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Upgrade to Pro"; upgradeBtn.onclick = () => window.openModal(); }
     }
 }
 
