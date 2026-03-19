@@ -7,6 +7,10 @@
     <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    <style>
+        .pricing-card { border-radius: 8px; padding: 15px; margin-bottom: 15px; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border-color); }
+        .pricing-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    </style>
 </head>
 <body>
 
@@ -20,11 +24,14 @@
             Sign In
         </button>
 
-        <div id="user-menu" class="user-profile" style="display: none;">
+        <div id="user-menu" class="user-profile" style="display: none; align-items: center;">
             <button id="nav-upgrade-btn" class="btn-upgrade" onclick="window.openModal()" style="display: none;">⚡ Upgrade</button>
             <img id="user-avatar" src="" alt="Avatar" style="width: 24px; height: 24px; border-radius: 50%;">
-            <span id="user-name">User</span>
-            <button id="logout-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; text-decoration:underline; padding: 0 4px;">Log Out</button>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1;">
+                <span id="user-name" style="font-size: 13px;">User</span>
+                <span id="user-badge" style="font-size: 9px; padding: 2px 4px; border-radius: 3px; font-weight: bold; margin-top: 2px;">FREE</span>
+            </div>
+            <button id="logout-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; text-decoration:underline; padding: 0 4px; margin-left: 5px;">Log Out</button>
         </div>
     </div>
 </nav>
@@ -37,10 +44,10 @@
 <div class="search-card">
     <div class="search-container">
         <div class="tabs">
-            <div class="tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant</div>
-            <div class="tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
-            <div class="tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge</div>
-            <div class="tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock">🔒</span></div>
+            <div class="tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon" id="list-lock1">🔒</span></div>
+            <div class="tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon" id="list-lock2">🔒</span></div>
+            <div class="tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon" id="list-lock3">🔒</span></div>
+            <div class="tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock" style="display:none;">🔒</span></div>
         </div>
         
         <div class="search-form">
@@ -86,32 +93,33 @@
 <div id="upgrade-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
         <button class="modal-close" onclick="window.closeModal()">×</button>
-        <div class="pricing-title" id="modal-title">Upgrade to Vaad Premium</div>
-        <div class="pricing-subtitle" id="modal-subtitle">Unlock official API searches and deep case history.</div>
+        <div class="pricing-title" id="modal-title">Upgrade your Plan</div>
+        <div class="pricing-subtitle" id="modal-subtitle">Select a plan to unlock powerful search tools.</div>
         
-        <div id="pro-card" style="border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
-            <div style="font-weight: bold; color: var(--text-primary); font-size: 18px;">Pro Plan</div>
-            <div class="price-tag" style="margin: 5px 0;">₹99<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
+        <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')">
+            <div style="font-weight: bold; color: var(--primary); font-size: 18px;">Pro Plan</div>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-primary);">₹99<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
             <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
                 <li>✓ 30 Searches</li>
-                <li>✓ Litigant, Advocate & Judge Filters</li>
+                <li>✓ Unlocks Litigant, Advocate & Judge Filters</li>
             </ul>
         </div>
 
-        <div id="promax-card" style="border: 1px solid #d4af37; padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+        <div id="promax-card" class="pricing-card" onclick="window.selectPlan('promax')">
             <div style="color: #d4af37; font-weight: bold; font-size: 18px;">Pro Max</div>
-            <div class="price-tag" style="margin: 5px 0;">₹199<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-primary);">₹199<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
             <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
                 <li>✓ 100 Searches</li>
+                <li>✓ Includes All Name Filters</li>
                 <li>✓ Unlocks Detailed CNR Case Lookup</li>
             </ul>
         </div>
 
-        <div id="supreme-card" style="border: 2px solid #8b5cf6; padding: 15px; border-radius: 8px; background: rgba(139, 92, 246, 0.05); margin-bottom: 20px;">
+        <div id="supreme-card" class="pricing-card" onclick="window.selectPlan('supreme')" style="background: rgba(139, 92, 246, 0.05);">
             <div style="color: #8b5cf6; font-weight: bold; font-size: 18px;">Supreme Plan</div>
-            <div class="price-tag" style="margin: 5px 0;">₹399<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-primary);">₹399<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
             <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
-                <li>✓ 150 Searches</li>
+                <li>✓ 150 Searches (All Filters + CNR)</li>
                 <li>✓ View Full Hearing History Logs</li>
                 <li>✓ Download 30 Official Order PDFs</li>
             </ul>
@@ -121,7 +129,7 @@
             <div class="upi-note">Pay directly via UPI to activate your chosen plan:</div>
             <div class="upi-id">gauravkalal@ybl</div> 
             <div class="mobile-upi-btn" style="margin-top: 10px;">
-                <a href="upi://pay?pa=gauravkalal@ybl&pn=Vaad%20Premium&cu=INR" class="btn-primary-intent" style="display: block; text-align: center; background: #2563eb; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 500;">Pay via UPI App</a>
+                <a id="upi-btn-link" href="#" class="btn-primary-intent" style="display: block; text-align: center; background: #2563eb; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 500;">Select a plan above</a>
             </div>
             <div class="upi-note" style="margin-top: 16px;">Send payment and email screenshot to <b>gauravkalal1719@gmail.com</b>. Your account will be upgraded within 2 hours.</div>
         </div>
