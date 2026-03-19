@@ -24,12 +24,14 @@ const db = getFirestore(app);
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let currentPlan = 'free'; 
-let isPro = false; 
-let isProMax = false; 
 
-const maxFreeSearches = 1; 
-const maxProSearches = 30; 
-const maxProMaxSearches = 100;
+const limits = {
+    free: { searches: 1, pdfs: 0 },
+    pro: { searches: 30, pdfs: 0 },
+    promax: { searches: 100, pdfs: 0 },
+    supreme: { searches: 150, pdfs: 30 }
+};
+
 let activeTab = 'cnr';
 
 onAuthStateChanged(auth, async (user) => {
@@ -45,29 +47,18 @@ onAuthStateChanged(auth, async (user) => {
             const userSnap = await getDoc(userRef);
 
             if (userSnap.exists()) {
-                const data = userSnap.data();
-                currentPlan = data.plan || (data.isPro ? 'pro' : 'free');
+                currentPlan = userSnap.data().plan || 'free';
             } else {
-                await setDoc(userRef, {
-                    name: user.displayName,
-                    email: user.email,
-                    plan: 'free',
-                    joinedAt: new Date().toISOString()
-                });
+                await setDoc(userRef, { name: user.displayName, email: user.email, plan: 'free', joinedAt: new Date().toISOString() });
                 currentPlan = 'free';
             }
-            
-            isProMax = (currentPlan === 'promax');
-            isPro = (currentPlan === 'pro' || currentPlan === 'promax');
-
         } catch (error) {
-            console.error("Error fetching user data:", error);
-            currentPlan = 'free'; isPro = false; isProMax = false;
+            currentPlan = 'free';
         }
     } else {
         document.getElementById('login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
-        currentPlan = 'free'; isPro = false; isProMax = false;
+        currentPlan = 'free';
     }
     
     updateSearchLimitUI();
@@ -82,17 +73,21 @@ setTimeout(() => {
 }, 500);
 
 function updateTabLocks() {
-    const lockIcons = document.querySelectorAll('.lock-icon');
-    if (isProMax) {
-        lockIcons.forEach(icon => icon.style.display = 'none');
-    } else {
-        lockIcons.forEach(icon => icon.style.display = 'inline');
+    const cnrLock = document.getElementById('cnr-lock');
+    if (cnrLock) {
+        // CNR is unlocked ONLY for promax and supreme
+        if (currentPlan === 'promax' || currentPlan === 'supreme') {
+            cnrLock.style.display = 'none';
+        } else {
+            cnrLock.style.display = 'inline';
+        }
     }
 }
 
 window.switchTab = function(tab) {
-    if (tab !== 'cnr' && !isProMax) {
-        window.openModal(isPro ? 'promax-only' : 'both');
+    // Pro Max & Supreme check for CNR
+    if (tab === 'cnr' && currentPlan === 'pro') {
+        window.openModal('promax-only');
         return;
     }
 
@@ -100,7 +95,6 @@ window.switchTab = function(tab) {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     document.querySelectorAll('.form-panel').forEach(p => p.style.display = 'none');
     document.getElementById('panel-' + tab).style.display = 'block';
-    
     window.clearResults();
 };
 
@@ -112,21 +106,6 @@ window.closeModal = function() {
 window.openModal = function(type = 'both') { 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
-
-    const proCard = document.getElementById('pro-card');
-    const modalTitle = document.getElementById('modal-title');
-    const modalSubtitle = document.getElementById('modal-subtitle');
-
-    if (type === 'promax-only') {
-        proCard.style.display = 'none';
-        modalTitle.innerText = "Upgrade to Pro Max";
-        modalSubtitle.innerText = "Unlock advanced search filters and 100 API searches.";
-    } else {
-        proCard.style.display = 'block';
-        modalTitle.innerText = "Upgrade to Vaad Pro";
-        modalSubtitle.innerText = "Unlock official API searches and priority data loading.";
-    }
-    
     modal.style.display = 'flex'; 
 };
 
@@ -149,12 +128,23 @@ window.handleSearch = async function() {
     const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
     const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
     let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
+    const maxSearchesAllowed = limits[currentPlan].searches;
 
-    if (!isPro && searchesUsed >= maxFreeSearches) { window.openModal('both'); return; }
-    if (isPro && !isProMax && searchesUsed >= maxProSearches) { showError("Fair Usage Policy reached for Pro plan."); return; }
-    if (isProMax && searchesUsed >= maxProMaxSearches) { showError("Fair Usage Policy reached for Pro Max plan."); return; }
+    if (searchesUsed >= maxSearchesAllowed) { 
+        if (currentPlan === 'free') {
+            window.openModal();
+        } else {
+            showError(`Strict Fair Usage Policy (FUP) reached for the ${currentPlan.toUpperCase()} plan. Please wait for limits to reset, or contact gauravkalal1719@gmail.com.`);
+        }
+        return; 
+    }
 
-    // Route search to correct endpoint
+    // Force Pro users away from CNR
+    if (activeTab === 'cnr' && currentPlan === 'pro') {
+        window.openModal();
+        return;
+    }
+
     if (activeTab === 'cnr') {
         await performSearch(`${API}/cnr`, { cnr: query }, storageKey, 'cnr');
     } else {
@@ -183,11 +173,8 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
             updateSearchLimitUI();
         }
 
-        if (renderType === 'cnr') {
-            renderCaseDetail(json.data);
-        } else {
-            renderCaseList(json.data);
-        }
+        if (renderType === 'cnr') renderCaseDetail(json.data);
+        else renderCaseList(json.data);
     } catch (e) { 
         showError(`Network Error: Cannot connect to backend. (${e.message})`); 
     } finally { 
@@ -205,21 +192,21 @@ function updateSearchLimitUI() {
         return;
     }
 
-    const date = new Date();
-    const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
-    const storageKey = `vaad_searches_${currentUser.uid}_${monthKey}`;
-    let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
-    
-    if (isProMax) {
-        if (limitText) limitText.innerHTML = '<span style="color: #d4af37; font-weight:600;">Pro Max Active - 100 Searches</span>';
+    if (currentPlan === 'supreme') {
+        if (limitText) limitText.innerHTML = '<span style="color: #8b5cf6; font-weight:600;">Supreme Active - 150 Searches</span>';
         if (upgradeBtn) upgradeBtn.style.display = 'none';
-    } else if (isPro) {
-        if (limitText) limitText.innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Account Active - 30 Searches</span>';
-        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal('promax-only'); }
+    } else if (currentPlan === 'promax') {
+        if (limitText) limitText.innerHTML = '<span style="color: #d4af37; font-weight:600;">Pro Max Active - 100 Searches</span>';
+        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Supreme"; upgradeBtn.onclick = () => window.openModal(); }
+    } else if (currentPlan === 'pro') {
+        if (limitText) limitText.innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Active - 30 Searches</span>';
+        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal(); }
     } else {
-        let remaining = Math.max(0, maxFreeSearches - searchesUsed);
-        if (limitText) limitText.innerText = `Free searches remaining: ${remaining}/${maxFreeSearches}`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal('both'); }
+        const storageKey = `vaad_searches_${currentUser.uid}_${new Date().getFullYear()}_${new Date().getMonth()}`;
+        let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
+        let remaining = Math.max(0, limits.free.searches - searchesUsed);
+        if (limitText) limitText.innerText = `Free searches remaining: ${remaining}/${limits.free.searches}`;
+        if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
     }
 }
 
@@ -241,103 +228,104 @@ function renderCaseList(resultsArray) {
                 <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">Found ${resultsArray.length} recent cases:</div>`;
 
     resultsArray.forEach(data => {
-        const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners[0] : 'Unknown Petitioner';
-        const respondent = (data.respondents && data.respondents.length > 0) ? data.respondents[0] : 'Unknown Respondent';
-        const title = `${petitioner} vs ${respondent}`;
+        const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners[0] : 'Unknown';
+        const respondent = (data.respondents && data.respondents.length > 0) ? data.respondents[0] : 'Unknown';
         const cnr = data.cnr || '—';
         const status = data.caseStatus || 'Pending';
-        const nextHearing = data.nextHearingDate || data.decisionDate || '—';
-
+        
         html += `
         <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="padding-right: 15px;">
-                    <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; word-break: break-word;">${title}</div>
+                    <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px;">${petitioner} vs ${respondent}</div>
                     <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${cnr}</div>
                 </div>
-                <div style="font-size: 11px; font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${status}</div>
-            </div>
-            <div style="font-size: 12px; color: var(--text-muted); margin-top: 8px; border-top: 1px solid var(--border-color); padding-top: 8px;">
-                <b>Next Hearing/Decision:</b> ${nextHearing}
+                <div style="font-size: 11px; font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 4px 8px; border-radius: 4px;">${status}</div>
             </div>
         </div>`;
     });
-
     document.getElementById('results').innerHTML = html;
-    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 function renderCaseDetail(payload) {
     hidePlaceholder();
-    if (!payload || !payload.data || !payload.data.courtCaseData) { 
-        showError('Invalid case data returned from official API.'); 
-        return; 
-    }
+    if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
 
     const data = payload.data.courtCaseData;
-    const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners.join(', ') : '—';
-    const respondent = (data.respondents && data.respondents.length > 0) ? data.respondents.join(', ') : '—';
-    const petAdv = (data.petitionerAdvocates && data.petitionerAdvocates.length > 0) ? data.petitionerAdvocates.join(', ') : '—';
-    const resAdv = (data.respondentAdvocates && data.respondentAdvocates.length > 0) ? data.respondentAdvocates.join(', ') : '—';
-
-    const title = `${petitioner.split(',')[0]} vs ${respondent.split(',')[0]}`;
-    const cnr = data.cnr || '—';
-    const caseType = data.caseTypeRaw || data.caseType || '—';
-    const courtName = data.courtName || '—';
-    const district = data.district || '—';
-    const filingDate = data.filingDate || '—';
+    const title = `${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}`;
     const status = data.caseStatus || 'Pending';
-    const stage = data.disposalTypeRaw || data.purpose || '—';
     
-    let nextHearing = data.nextHearingDate || '—';
-    const nextPurpose = data.purpose || '';
-
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
         <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
             <div style="font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">${title}</div>
-            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">CNR: ${cnr}</div>`;
+            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">CNR: ${data.cnr}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div><div style="font-size: 12px; color: var(--text-muted);">Status</div><div style="font-weight: 500;">${status}</div></div>
+                <div><div style="font-size: 12px; color: var(--text-muted);">Court</div><div style="font-weight: 500;">${data.courtName}</div></div>
+                <div style="grid-column: span 2;"><div style="font-size: 12px; color: var(--text-muted);">Advocates</div><div style="font-weight: 500;">P: ${(data.petitionerAdvocates||['—']).join(', ')} <br> R: ${(data.respondentAdvocates||['—']).join(', ')}</div></div>
+            </div>
+        </div>`;
 
-    if (status.toUpperCase().includes('DISPOS')) {
-        const decisionDate = data.decisionDate || data.lastHearingDate || nextHearing;
-        html += `<div style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.3); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
-            <div style="font-size: 12px; font-weight: 600; color: #10b981; text-transform: uppercase;">Decision / Disposed Date</div>
-            <div style="font-size: 16px; color: #10b981;">${decisionDate}</div>
-        </div>`;
-    } else if (nextHearing !== '—') {
-        html += `<div style="background: var(--primary-light); border: 1px solid var(--primary); padding: 12px; border-radius: 6px; margin-bottom: 20px;">
-            <div style="font-size: 12px; font-weight: 600; color: var(--primary); text-transform: uppercase;">Next Hearing Date</div>
-            <div style="font-size: 16px; color: var(--primary);">${nextHearing}</div>
-            ${nextPurpose ? `<div style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">Purpose: ${nextPurpose}</div>` : ''}
-        </div>`;
+    // ── THE SUPREME TIER LOGIC ──
+    const history = data.historyOfCaseHearings || [];
+    const orders = [...(data.interimOrders || []), ...(data.judgmentOrders || [])];
+
+    if (currentPlan !== 'supreme') {
+        if (history.length > 0 || orders.length > 0) {
+            html += `<div style="margin-top: 20px; background: rgba(139, 92, 246, 0.05); border: 1px dashed #8b5cf6; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer;" onclick="window.openModal()">
+                <div style="font-size: 16px; margin-bottom: 8px;">🔒 <b>This case has ${history.length} historical hearings and ${orders.length} orders.</b></div>
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Upgrade to the ₹399 Supreme Plan to view the full timeline and download certified PDFs.</div>
+                <button class="btn-primary" style="background: #8b5cf6; border: none;">Unlock Case History</button>
+            </div>`;
+        }
+    } else {
+        // RENDER SUPREME HISTORY TABLE
+        if (history.length > 0) {
+            html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Hearing History</h3>
+            <div style="overflow-x: auto; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+                <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 13px;">
+                    <tr style="background: var(--primary-light); border-bottom: 1px solid var(--border-color);">
+                        <th style="padding: 10px;">Date</th><th style="padding: 10px;">Purpose</th><th style="padding: 10px;">Judge</th>
+                    </tr>`;
+            history.forEach(h => {
+                html += `<tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 10px;">${h.hearingDate || h.businessOnDate}</td>
+                    <td style="padding: 10px;">${h.purposeOfListing || '—'}</td>
+                    <td style="padding: 10px;">${h.judge || '—'}</td>
+                </tr>`;
+            });
+            html += `</table></div>`;
+        }
+
+        // RENDER SUPREME PDF DOWNLOADS
+        if (orders.length > 0) {
+            html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Case Orders (PDFs)</h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">`;
+            orders.forEach(o => {
+                html += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;">
+                    <div>
+                        <div style="font-weight: 500; font-size: 14px;">${o.orderDate || 'Order'}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);">${o.description || 'Order Document'}</div>
+                    </div>
+                    <button onclick="downloadPDF('${data.cnr}', '${o.orderUrl}')" style="background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Download PDF</button>
+                </div>`;
+            });
+            html += `</div>`;
+        }
     }
 
-    html += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-        <div><div style="font-size: 12px; color: var(--text-muted);">Status</div><div style="font-weight: 500;">${status}</div></div>
-        <div><div style="font-size: 12px; color: var(--text-muted);">Stage</div><div style="font-weight: 500;">${stage}</div></div>
-        <div><div style="font-size: 12px; color: var(--text-muted);">Case Type</div><div style="font-weight: 500;">${caseType}</div></div>
-        <div><div style="font-size: 12px; color: var(--text-muted);">Filing Date</div><div style="font-weight: 500;">${filingDate}</div></div>
-        <div style="grid-column: span 2;"><div style="font-size: 12px; color: var(--text-muted);">Court</div><div style="font-weight: 500;">${courtName}, ${district}</div></div>
-        <div style="grid-column: span 2;"><div style="font-size: 12px; color: var(--text-muted);">Petitioner(s)</div><div style="font-weight: 500;">${petitioner}</div></div>
-        <div style="grid-column: span 2;"><div style="font-size: 12px; color: var(--text-muted);">Respondent(s)</div><div style="font-weight: 500;">${respondent}</div></div>
-        <div><div style="font-size: 12px; color: var(--text-muted);">Pet. Advocate</div><div style="font-weight: 500;">${petAdv}</div></div>
-        <div><div style="font-size: 12px; color: var(--text-muted);">Res. Advocate</div><div style="font-weight: 500;">${resAdv}</div></div>
-    </div></div>`;
-
     document.getElementById('results').innerHTML = html;
-    document.getElementById('results').scrollIntoView({ behavior:'smooth', block:'start' });
 }
+
+// Global function placeholder for the PDF download API call (We will build the backend for this next!)
+window.downloadPDF = function(cnr, filename) {
+    alert(`Backend wiring needed! We will set up server.js to fetch: ${filename} for CNR: ${cnr}`);
+};
 
 function showError(msg) {
     hidePlaceholder();
-    document.getElementById('results').innerHTML = `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px;"><span>⚠</span><span>${msg}</span></div>`;
+    document.getElementById('results').innerHTML = `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; line-height: 1.5;"><span>⚠</span><span>${msg}</span></div>`;
 }
-
-window.clearResults = function() { 
-    document.getElementById('results').innerHTML = ''; 
-    document.getElementById('placeholder').style.display = 'block'; 
-};
-function hidePlaceholder() { 
-    document.getElementById('placeholder').style.display = 'none'; 
-}
-
+window.clearResults = function() { document.getElementById('results').innerHTML = ''; document.getElementById('placeholder').style.display = 'block'; };
+function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
 document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
