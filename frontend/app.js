@@ -35,13 +35,30 @@ const limits = {
 
 let activeTab = 'cnr';
 
-// --- BULLETPROOF BUTTON BINDINGS ---
-const loginBtn = document.getElementById('login-btn');
-if (loginBtn) loginBtn.onclick = () => signInWithPopup(auth, provider);
-
-const logoutBtn = document.getElementById('logout-btn');
-if (logoutBtn) logoutBtn.onclick = () => signOut(auth);
-
+// --- BUTTON BINDINGS ---
+document.addEventListener('click', (e) => {
+    // Make sure we match the ID correctly, even if clicking a span inside the button
+    const loginTarget = e.target.closest('#login-btn');
+    const logoutTarget = e.target.closest('#logout-btn');
+    
+    if (loginTarget) {
+        signInWithPopup(auth, provider);
+    }
+    
+    if (logoutTarget) {
+        signOut(auth).then(() => {
+            // Force an immediate UI reset upon successful logout
+            currentUser = null;
+            currentPlan = 'free';
+            cycleStartDate = null;
+            document.getElementById('login-btn').style.display = 'flex';
+            document.getElementById('user-menu').style.display = 'none';
+            updateSearchLimitUI();
+            updateTabLocks();
+            window.clearResults();
+        });
+    }
+});
 
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
@@ -59,10 +76,8 @@ onAuthStateChanged(auth, async (user) => {
             const userSnap = await getDoc(userRef);
 
             if (userSnap.exists() && userSnap.data().plan) {
-                // ARMOR: Forces lowercase and removes all spaces/symbols (e.g., "Pro Max " -> "promax")
                 let dbPlan = String(userSnap.data().plan).toLowerCase().replace(/[^a-z]/g, '');
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
-                
                 cycleStartDate = userSnap.data().cycleStartDate || new Date().toISOString().split('T')[0];
             } else {
                 const today = new Date().toISOString().split('T')[0];
@@ -82,7 +97,6 @@ onAuthStateChanged(auth, async (user) => {
         cycleStartDate = null;
     }
     
-    // Update the UI safely
     updateBadge();
     updateTabLocks();
     updateSearchLimitUI();
@@ -90,9 +104,8 @@ onAuthStateChanged(auth, async (user) => {
 
 // --- THE ROLLING FUP FUNCTION ---
 function checkFUP(actionType) {
-    if (!currentUser) return { allowed: false, used: 0, limit: 0, storageKey: null, expired: false };
+    if (!currentUser) return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: false };
     
-    // Extra safety fallback
     if (!currentPlan || !limits[currentPlan]) currentPlan = 'free';
 
     const cycleStart = new Date(cycleStartDate || new Date());
@@ -101,18 +114,22 @@ function checkFUP(actionType) {
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
 
     if (diffDays > 30 && currentPlan !== 'free') {
-        return { allowed: false, used: 0, limit: 0, storageKey: null, expired: true };
+        return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: true };
     }
 
     const storageKey = `vaad_${actionType}_${currentUser.uid}_cycle_${cycleStartDate}`;
     let used = parseInt(localStorage.getItem(storageKey) || 0);
-    let limit = limits[currentPlan][`${actionType}s`]; 
+    
+    // FIX: Safely retrieve the limit based on the plan and action type
+    let planData = limits[currentPlan];
+    let limit = planData ? planData[`${actionType}s`] : 0; 
+    let remaining = Math.max(0, limit - used);
 
     return {
         allowed: used < limit,
         used: used,
         limit: limit,
-        remaining: Math.max(0, limit - used),
+        remaining: remaining,
         storageKey: storageKey,
         expired: false
     };
