@@ -26,39 +26,29 @@ let currentUser = null;
 let currentPlan = 'free'; 
 let cycleStartDate = null; 
 
+// FIX: Keys perfectly match the actionType now ('search' and 'pdf')
 const limits = {
-    free: { searches: 1, pdfs: 0 },
-    pro: { searches: 30, pdfs: 0 },
-    promax: { searches: 100, pdfs: 0 },
-    supreme: { searches: 150, pdfs: 30 }
+    free: { search: 1, pdf: 0 },
+    pro: { search: 30, pdf: 0 },
+    promax: { search: 100, pdf: 0 },
+    supreme: { search: 150, pdf: 30 }
 };
 
 let activeTab = 'cnr';
 
-// --- BUTTON BINDINGS ---
-document.addEventListener('click', (e) => {
-    // Make sure we match the ID correctly, even if clicking a span inside the button
-    const loginTarget = e.target.closest('#login-btn');
-    const logoutTarget = e.target.closest('#logout-btn');
-    
-    if (loginTarget) {
-        signInWithPopup(auth, provider);
-    }
-    
-    if (logoutTarget) {
+// --- BULLETPROOF BUTTON BINDINGS ---
+setTimeout(() => {
+    const loginBtn = document.getElementById('login-btn');
+    if (loginBtn) loginBtn.onclick = () => signInWithPopup(auth, provider);
+
+    const logoutBtn = document.getElementById('logout-btn');
+    if (logoutBtn) logoutBtn.onclick = () => {
         signOut(auth).then(() => {
-            // Force an immediate UI reset upon successful logout
-            currentUser = null;
-            currentPlan = 'free';
-            cycleStartDate = null;
-            document.getElementById('login-btn').style.display = 'flex';
-            document.getElementById('user-menu').style.display = 'none';
-            updateSearchLimitUI();
-            updateTabLocks();
-            window.clearResults();
+            // FIX: The Nuclear Refresh. Guarantees the UI wipes completely clean.
+            window.location.reload(); 
         });
-    }
-});
+    };
+}, 500);
 
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
@@ -120,9 +110,9 @@ function checkFUP(actionType) {
     const storageKey = `vaad_${actionType}_${currentUser.uid}_cycle_${cycleStartDate}`;
     let used = parseInt(localStorage.getItem(storageKey) || 0);
     
-    // FIX: Safely retrieve the limit based on the plan and action type
+    // FIX: Accurately grabs the limit number without adding an 's'
     let planData = limits[currentPlan];
-    let limit = planData ? planData[`${actionType}s`] : 0; 
+    let limit = planData ? planData[actionType] : 0; 
     let remaining = Math.max(0, limit - used);
 
     return {
