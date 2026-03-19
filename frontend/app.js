@@ -61,8 +61,9 @@ onAuthStateChanged(auth, async (user) => {
         currentPlan = 'free';
     }
     
-    updateSearchLimitUI();
+    updateBadge();
     updateTabLocks();
+    updateSearchLimitUI();
 });
 
 setTimeout(() => {
@@ -72,26 +73,67 @@ setTimeout(() => {
     if (logoutBtn) logoutBtn.onclick = () => signOut(auth);
 }, 500);
 
+function updateBadge() {
+    const badge = document.getElementById('user-badge');
+    if (!badge) return;
+    
+    if (currentPlan === 'supreme') {
+        badge.innerText = "SUPREME";
+        badge.style.background = "#8b5cf6";
+        badge.style.color = "white";
+    } else if (currentPlan === 'promax') {
+        badge.innerText = "PRO MAX";
+        badge.style.background = "#d4af37";
+        badge.style.color = "black";
+    } else if (currentPlan === 'pro') {
+        badge.innerText = "PRO";
+        badge.style.background = "var(--primary)";
+        badge.style.color = "white";
+    } else {
+        badge.innerText = "FREE";
+        badge.style.background = "var(--border-color)";
+        badge.style.color = "var(--text-secondary)";
+    }
+}
+
 function updateTabLocks() {
     const cnrLock = document.getElementById('cnr-lock');
-    if (cnrLock) {
-        // CNR is unlocked for Free, ProMax, and Supreme. (Pro users get locked out of CNR)
-        if (currentPlan === 'promax' || currentPlan === 'supreme' || currentPlan === 'free') {
-            cnrLock.style.display = 'none';
-        } else {
-            cnrLock.style.display = 'inline';
-        }
+    const otherLocks = document.querySelectorAll('.tab:not(#tab-cnr) .lock-icon');
+
+    // Supreme & Pro Max unlock everything
+    if (currentPlan === 'supreme' || currentPlan === 'promax') {
+        if (cnrLock) cnrLock.style.display = 'none';
+        otherLocks.forEach(icon => icon.style.display = 'none');
+    } 
+    // Pro unlocks lists, but locks CNR
+    else if (currentPlan === 'pro') {
+        if (cnrLock) cnrLock.style.display = 'inline';
+        otherLocks.forEach(icon => icon.style.display = 'none');
+        
+        // Auto-switch away from CNR if they are on it
+        if (activeTab === 'cnr') window.switchTab('litigant');
+    } 
+    // Free unlocks CNR, locks lists
+    else {
+        if (cnrLock) cnrLock.style.display = 'none';
+        otherLocks.forEach(icon => icon.style.display = 'inline');
+        
+        // Auto-switch back to CNR if they are on a locked tab
+        if (activeTab !== 'cnr') window.switchTab('cnr');
     }
 }
 
 window.switchTab = function(tab) {
-    // Free users cannot use list tabs
+    if (!currentUser) {
+        signInWithPopup(auth, provider);
+        return;
+    }
+
     if (currentPlan === 'free' && tab !== 'cnr') {
         window.openModal();
         return;
     }
     
-    // Pro users cannot use CNR tab
     if (currentPlan === 'pro' && tab === 'cnr') {
         window.openModal();
         return;
@@ -104,14 +146,54 @@ window.switchTab = function(tab) {
     window.clearResults();
 };
 
-window.closeModal = function() { 
-    const modal = document.getElementById('upgrade-modal');
-    if (modal) modal.style.display = 'none'; 
-};
+window.closeModal = function() { document.getElementById('upgrade-modal').style.display = 'none'; };
 
 window.openModal = function() { 
+    if (!currentUser) {
+        signInWithPopup(auth, provider);
+        return;
+    }
+
     const modal = document.getElementById('upgrade-modal');
-    if (modal) modal.style.display = 'flex'; 
+    if (!modal) return;
+
+    document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
+    document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
+    document.getElementById('supreme-card').style.display = 'block';
+
+    if (currentPlan === 'free') window.selectPlan('pro');
+    else if (currentPlan === 'pro') window.selectPlan('promax');
+    else if (currentPlan === 'promax') window.selectPlan('supreme');
+
+    modal.style.display = 'flex'; 
+};
+
+window.selectPlan = function(planType) {
+    document.getElementById('pro-card').style.border = '1px solid var(--border-color)';
+    document.getElementById('promax-card').style.border = '1px solid var(--border-color)';
+    document.getElementById('supreme-card').style.border = '1px solid var(--border-color)';
+
+    let amount = "99.00";
+    let planName = "Vaad Pro";
+
+    if (planType === 'pro') {
+        document.getElementById('pro-card').style.border = '2px solid var(--primary)';
+        amount = "99.00";
+        planName = "Vaad Pro";
+    } else if (planType === 'promax') {
+        document.getElementById('promax-card').style.border = '2px solid #d4af37';
+        amount = "199.00";
+        planName = "Vaad Pro Max";
+    } else if (planType === 'supreme') {
+        document.getElementById('supreme-card').style.border = '2px solid #8b5cf6';
+        amount = "399.00";
+        planName = "Vaad Supreme";
+    }
+
+    const upiLink = `upi://pay?pa=gauravkalal@ybl&pn=${encodeURIComponent(planName)}&am=${amount}&cu=INR`;
+    const upiBtn = document.getElementById('upi-btn-link');
+    upiBtn.href = upiLink;
+    upiBtn.innerText = `Pay ₹${amount} via UPI App`;
 };
 
 window.handleSearch = async function() {
@@ -144,12 +226,12 @@ window.handleSearch = async function() {
         return; 
     }
 
-    if (activeTab === 'cnr' && currentPlan === 'pro') {
-        window.openModal();
-        return;
-    }
-
+    // Server request logic
     if (activeTab === 'cnr') {
+        if (currentPlan === 'pro') {
+            window.openModal();
+            return;
+        }
         await performSearch(`${API}/cnr`, { cnr: query }, storageKey, 'cnr');
     } else {
         await performSearch(`${API}/search`, { query: query, type: activeTab }, storageKey, 'list');
@@ -196,19 +278,20 @@ function updateSearchLimitUI() {
         return;
     }
 
+    const storageKey = `vaad_searches_${currentUser.uid}_${new Date().getFullYear()}_${new Date().getMonth()}`;
+    let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
+    let remaining = Math.max(0, limits[currentPlan].searches - searchesUsed);
+
     if (currentPlan === 'supreme') {
-        if (limitText) limitText.innerHTML = '<span style="color: #8b5cf6; font-weight:600;">Supreme Active - 150 Searches</span>';
+        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme Active - ${remaining}/${limits.supreme.searches} Searches Left</span>`;
         if (upgradeBtn) upgradeBtn.style.display = 'none';
     } else if (currentPlan === 'promax') {
-        if (limitText) limitText.innerHTML = '<span style="color: #d4af37; font-weight:600;">Pro Max Active - 100 Searches</span>';
+        if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${remaining}/${limits.promax.searches} Searches Left</span>`;
         if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Supreme"; upgradeBtn.onclick = () => window.openModal(); }
     } else if (currentPlan === 'pro') {
-        if (limitText) limitText.innerHTML = '<span style="color: var(--primary); font-weight:600;">Pro Active - 30 Searches</span>';
+        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${remaining}/${limits.pro.searches} Searches Left</span>`;
         if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal(); }
     } else {
-        const storageKey = `vaad_searches_${currentUser.uid}_${new Date().getFullYear()}_${new Date().getMonth()}`;
-        let searchesUsed = parseInt(localStorage.getItem(storageKey) || 0);
-        let remaining = Math.max(0, limits.free.searches - searchesUsed);
         if (limitText) limitText.innerText = `Free searches remaining: ${remaining}/${limits.free.searches}`;
         if (upgradeBtn) { upgradeBtn.style.display = 'block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
     }
@@ -318,7 +401,6 @@ function renderCaseDetail(payload) {
     document.getElementById('results').innerHTML = html;
 }
 
-// PDF Download Logic with strict FUP controls
 window.downloadPDF = async function(event, cnr, filename) {
     const date = new Date();
     const monthKey = `${date.getFullYear()}_${date.getMonth()}`;
