@@ -212,10 +212,12 @@ window.openModal = function() {
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
-    document.getElementById('pro-card').style.display = 'block';
-    document.getElementById('promax-card').style.display = 'block';
-    document.getElementById('supreme-card').style.display = 'block'; 
+    // FIX: Dynamically hide cards based on the user's current plan
+    document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
+    document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
+    document.getElementById('supreme-card').style.display = 'block'; // Always visible unless user is already Supreme
 
+    // Pre-select the immediate next tier
     if (currentPlan === 'free') window.selectPlan('pro');
     else if (currentPlan === 'pro') window.selectPlan('promax');
     else if (currentPlan === 'promax') window.selectPlan('supreme');
@@ -341,7 +343,7 @@ function updateSearchLimitUI() {
     if (fup.expired) {
         if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired - Renew Now</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Renew"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
@@ -354,21 +356,21 @@ function updateSearchLimitUI() {
     } else if (currentPlan === 'promax') {
         if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Get Supreme"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
     } else if (currentPlan === 'pro') {
         if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Get Pro Max"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
     } else {
         if (limitText) limitText.innerHTML = `<span style="color: var(--text-muted); font-weight:600;">Free Plan - ${fup.remaining}/${fup.limit} Searches Left</span>`;
         if (upgradeBtn) { 
-            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.style.display = 'inline-block'; 
             upgradeBtn.innerText = "⚡ Upgrade to Pro"; 
             upgradeBtn.onclick = () => window.openModal(); 
         }
@@ -543,7 +545,6 @@ window.downloadPDF = async function(event, cnr, filename) {
     }
 };
 
-// --- FIX: Safely modifying DOM elements ---
 function showError(msg) {
     hidePlaceholder();
     const resultsContainer = document.getElementById('results');
