@@ -81,7 +81,7 @@ onAuthStateChanged(auth, async (user) => {
                 cycleStartDate = today;
             }
         } catch (error) {
-            console.error(error);
+            console.error("Firebase read error:", error);
             currentPlan = 'free';
             cycleStartDate = new Date().toISOString().split('T')[0];
         }
@@ -189,11 +189,17 @@ window.switchTab = function(tab) {
     activeTab = tab;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     document.querySelectorAll('.form-panel').forEach(p => p.style.display = 'none');
-    document.getElementById('panel-' + tab).style.display = 'block';
+    
+    const targetPanel = document.getElementById('panel-' + tab);
+    if (targetPanel) targetPanel.style.display = 'block';
+    
     window.clearResults();
 };
 
-window.closeModal = function() { document.getElementById('upgrade-modal').style.display = 'none'; };
+window.closeModal = function() { 
+    const modal = document.getElementById('upgrade-modal');
+    if (modal) modal.style.display = 'none'; 
+};
 
 window.openModal = function() { 
     if (!currentUser) {
@@ -201,18 +207,15 @@ window.openModal = function() {
         return;
     }
 
-    // Do not open modal if they are already on the highest tier!
     if (currentPlan === 'supreme') return;
 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
-    // FIX: Dynamically hide cards they have already purchased
-    document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
-    document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
-    document.getElementById('supreme-card').style.display = 'block'; // Always show Supreme to anyone who isn't Supreme
+    document.getElementById('pro-card').style.display = 'block';
+    document.getElementById('promax-card').style.display = 'block';
+    document.getElementById('supreme-card').style.display = 'block'; 
 
-    // Pre-select the appropriate next tier
     if (currentPlan === 'free') window.selectPlan('pro');
     else if (currentPlan === 'pro') window.selectPlan('promax');
     else if (currentPlan === 'promax') window.selectPlan('supreme');
@@ -323,7 +326,6 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
     }
 }
 
-// --- PRECISE BUTTON PROGRESSION LOGIC ---
 function updateSearchLimitUI() {
     const limitText = document.getElementById('limit-text');
     const upgradeBtn = document.getElementById('nav-upgrade-btn');
@@ -338,22 +340,38 @@ function updateSearchLimitUI() {
 
     if (fup.expired) {
         if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired - Renew Now</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { 
+            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.innerText = "⚡ Renew"; 
+            upgradeBtn.onclick = () => window.openModal(); 
+        }
         return;
     }
 
     if (currentPlan === 'supreme') {
         if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) upgradeBtn.style.display = 'none'; // Highest tier, button hidden
+        if (upgradeBtn) upgradeBtn.style.display = 'none'; 
     } else if (currentPlan === 'promax') {
         if (limitText) limitText.innerHTML = `<span style="color: #d4af37; font-weight:600;">Pro Max Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Get Supreme"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { 
+            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.innerText = "⚡ Get Supreme"; 
+            upgradeBtn.onclick = () => window.openModal(); 
+        }
     } else if (currentPlan === 'pro') {
         if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">Pro Active - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Get Pro Max"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { 
+            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.innerText = "⚡ Get Pro Max"; 
+            upgradeBtn.onclick = () => window.openModal(); 
+        }
     } else {
         if (limitText) limitText.innerHTML = `<span style="color: var(--text-muted); font-weight:600;">Free Plan - ${fup.remaining}/${fup.limit} Searches Left</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Upgrade to Pro"; upgradeBtn.onclick = () => window.openModal(); }
+        if (upgradeBtn) { 
+            upgradeBtn.style.display = 'block'; 
+            upgradeBtn.innerText = "⚡ Upgrade to Pro"; 
+            upgradeBtn.onclick = () => window.openModal(); 
+        }
     }
 }
 
@@ -391,7 +409,9 @@ function renderCaseList(resultsArray) {
             </div>
         </div>`;
     });
-    document.getElementById('results').innerHTML = html;
+    
+    const resultsContainer = document.getElementById('results');
+    if (resultsContainer) resultsContainer.innerHTML = html;
 }
 
 function renderCaseDetail(payload) {
@@ -462,7 +482,8 @@ function renderCaseDetail(payload) {
         }
     }
 
-    document.getElementById('results').innerHTML = html;
+    const resultsContainer = document.getElementById('results');
+    if (resultsContainer) resultsContainer.innerHTML = html;
 }
 
 window.downloadPDF = async function(event, cnr, filename) {
@@ -522,10 +543,26 @@ window.downloadPDF = async function(event, cnr, filename) {
     }
 };
 
+// --- FIX: Safely modifying DOM elements ---
 function showError(msg) {
     hidePlaceholder();
-    document.getElementById('results').innerHTML = `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; line-height: 1.5;"><span>⚠</span><span>${msg}</span></div>`;
+    const resultsContainer = document.getElementById('results');
+    if (resultsContainer) {
+        resultsContainer.innerHTML = `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; line-height: 1.5;"><span>⚠</span><span>${msg}</span></div>`;
+    }
 }
-window.clearResults = function() { document.getElementById('results').innerHTML = ''; document.getElementById('placeholder').style.display = 'block'; };
-function hidePlaceholder() { document.getElementById('placeholder').style.display = 'none'; }
+
+window.clearResults = function() { 
+    const resultsContainer = document.getElementById('results');
+    if (resultsContainer) resultsContainer.innerHTML = ''; 
+    
+    const placeholder = document.getElementById('placeholder');
+    if (placeholder) placeholder.style.display = 'block'; 
+};
+
+function hidePlaceholder() { 
+    const placeholder = document.getElementById('placeholder');
+    if (placeholder) placeholder.style.display = 'none'; 
+}
+
 document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
