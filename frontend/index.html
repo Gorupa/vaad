@@ -6,7 +6,6 @@
     <title>Vaad — Court Case Tracker</title>
     <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API.">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -23,7 +22,6 @@
 
         <div id="user-menu" class="user-profile" style="display: none;">
             <button id="nav-upgrade-btn" class="btn-upgrade" onclick="window.openModal()" style="display: none;">⚡ Upgrade</button>
-            
             <img id="user-avatar" src="" alt="Avatar" style="width: 24px; height: 24px; border-radius: 50%;">
             <span id="user-name">User</span>
             <button id="logout-btn" style="background:none; border:none; color:var(--text-muted); cursor:pointer; font-size:0.75rem; text-decoration:underline; padding: 0 4px;">Log Out</button>
@@ -33,26 +31,45 @@
 
 <div class="hero">
     <h1>Track court cases simply.</h1>
-    <p>Search Indian court cases by CNR number. Clean interface, instant results.</p>
-    <div class="hero-source">
-        ⚡ Powered securely by the official <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia Partner API</a>.
-    </div>
+    <p>Search Indian court cases instantly. Clean interface, official data.</p>
 </div>
 
 <div class="search-card">
     <div class="search-container">
         <div class="tabs">
             <div class="tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number</div>
-            <div class="tab" data-tab="litigant" onclick="window.openModal()">Litigant Name 🔒</div>
-            <div class="tab" data-tab="advocate" onclick="window.openModal()">Advocate 🔒</div>
-            <div class="tab" data-tab="judge" onclick="window.openModal()">Judge Name 🔒</div>
+            <div class="tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon">🔒</span></div>
+            <div class="tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon">🔒</span></div>
+            <div class="tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon">🔒</span></div>
         </div>
+        
         <div class="search-form">
             <div class="form-panel active" id="panel-cnr">
                 <div class="field">
                     <label class="field-label" for="cnr-input">CNR Number</label>
                     <input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" autocomplete="off" autocorrect="off" spellcheck="false" maxlength="20">
                     <div class="cnr-hint">16-character alphanumeric case number</div>
+                </div>
+            </div>
+            
+            <div class="form-panel" id="panel-litigant" style="display: none;">
+                <div class="field">
+                    <label class="field-label" for="litigant-input">Litigant / Party Name</label>
+                    <input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-panel" id="panel-advocate" style="display: none;">
+                <div class="field">
+                    <label class="field-label" for="advocate-input">Advocate Name</label>
+                    <input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="form-panel" id="panel-judge" style="display: none;">
+                <div class="field">
+                    <label class="field-label" for="judge-input">Judge Name</label>
+                    <input type="text" id="judge-input" placeholder="e.g. Smt. Anjali Desai" autocomplete="off">
                 </div>
             </div>
 
@@ -81,37 +98,39 @@
 <div id="upgrade-modal" class="modal-overlay">
     <div class="modal-box">
         <button class="modal-close" onclick="window.closeModal()">×</button>
-        <div class="pricing-title">Upgrade to Vaad Pro</div>
-        <div class="pricing-subtitle">Unlock 30 official API searches and priority data loading.</div>
-        <div class="price-tag">₹99<span> / month</span></div>
-        <ul class="feature-list" style="margin-bottom: 20px;">
-            <li>✓ 30 Official API Searches</li>
-            <li>✓ Instant Data Loading</li>
-            <li>✓ Zero Captcha Interruptions</li>
-        </ul>
+        <div class="pricing-title" id="modal-title">Upgrade to Vaad Pro</div>
+        <div class="pricing-subtitle" id="modal-subtitle">Unlock official API searches and priority data loading.</div>
         
-        <div style="border: 1px dashed #d4af37; padding: 10px; border-radius: 6px; background: rgba(212, 175, 55, 0.05); margin-bottom: 20px; text-align: left;">
-            <div style="color: #d4af37; font-weight: 600; font-size: 14px; margin-bottom: 4px;">Pro Max <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">(Coming Soon)</span></div>
-            <div style="font-size: 12px; color: var(--text-muted);">₹199/mo unlocks 100 searches + Litigant, Advocate, and Judge Name filters.</div>
+        <div id="pro-card" style="border: 1px solid var(--border-color); padding: 15px; border-radius: 8px; margin-bottom: 15px;">
+            <div style="font-weight: bold; color: var(--text-primary); font-size: 18px;">Pro Plan</div>
+            <div class="price-tag" style="margin: 5px 0;">₹99<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 15px; font-size: 13px;">
+                <li>✓ 30 CNR Searches</li>
+                <li>✓ Zero Captcha Interruptions</li>
+            </ul>
+        </div>
+
+        <div id="promax-card" style="border: 1px dashed #d4af37; padding: 15px; border-radius: 8px; background: rgba(212, 175, 55, 0.05); margin-bottom: 20px;">
+            <div style="color: #d4af37; font-weight: bold; font-size: 18px;">Pro Max</div>
+            <div class="price-tag" style="margin: 5px 0;">₹199<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 15px; font-size: 13px;">
+                <li>✓ 100 API Searches</li>
+                <li>✓ Unlocks Litigant, Advocate & Judge Search</li>
+            </ul>
         </div>
 
         <div class="upi-box">
-            <div class="upi-note">Pay directly via UPI to activate Pro:</div>
+            <div class="upi-note">Pay directly via UPI to activate:</div>
             <div class="upi-id">gauravkalal@ybl</div> 
-            
             <div class="desktop-qr">
-                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=gauravkalal@ybl%26pn=Vaad%20Pro%26am=99.00%26cu=INR" alt="UPI QR Code" width="120" height="120">
-                <div class="upi-note">Scan with PhonePe, GPay, or Paytm</div>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=upi://pay?pa=gauravkalal@ybl%26pn=Vaad%20Premium%26cu=INR" alt="UPI QR Code" width="120" height="120">
             </div>
-
             <div class="mobile-upi-btn">
-                <a href="upi://pay?pa=gauravkalal@ybl&pn=Vaad%20Pro&am=99.00&cu=INR" class="btn-primary-intent" style="display: block; text-align: center; background: #2563eb; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 500;">Pay ₹99 via UPI App</a>
+                <a href="upi://pay?pa=gauravkalal@ybl&pn=Vaad%20Premium&cu=INR" class="btn-primary-intent" style="display: block; text-align: center; background: #2563eb; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 500;">Pay via UPI App</a>
             </div>
-
-            <div class="upi-note" style="margin-top: 16px;">Send payment and email screenshot to <b>gauravkalal1719@gmail.com</b>.<br>Your account will be upgraded within 2 hours.</div>
-            
+            <div class="upi-note" style="margin-top: 16px;">Send payment and email screenshot to <b>gauravkalal1719@gmail.com</b>. Your account will be upgraded within 2 hours.</div>
             <div style="font-size: 10px; color: var(--text-muted); text-align: center; margin-top: 15px; border-top: 1px solid var(--border-color); padding-top: 10px;">
-                *Subject to Fair Usage Policy (30 cases/month on Pro). Resets on the 1st of every month.
+                *Subject to Fair Usage Policy. Resets on the 1st of every month.
             </div>
         </div>
     </div>
@@ -124,11 +143,10 @@
         <span>©2026</span>
     </div>
     <div class="footer-disclaimer">
-        Vaad is an independent open-source tool. Data is fetched live using the official eCourtsIndia Partner API. Vaad is not affiliated with the eCommittee or NIC.
+        Vaad is an independent open-source tool. Data is fetched live using the official eCourtsIndia Partner API.
     </div>
 </footer>
 
 <script type="module" src="app.js"></script>
-
 </body>
 </html>
