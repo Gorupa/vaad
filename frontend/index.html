@@ -2,12 +2,31 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vaad — Court Case Tracker</title>
     <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API.">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
     <style>
+        /* Native App Feel: Prevent text highlighting */
+        body {
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        input, .results, .upi-box {
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
         .pricing-card { border-radius: 8px; padding: 15px; margin-bottom: 15px; cursor: pointer; transition: all 0.2s; border: 1px solid var(--border-color); }
         .pricing-card:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
     </style>
@@ -148,7 +167,6 @@
         Vaad is an independent platform and is not affiliated with the Government of India or the official eCourts project. Data is provided for informational purposes only. © 2026 Vaad.
     </div>
 </footer>
-
 
 <script type="module" src="app.js"></script>
 </body>
