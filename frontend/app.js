@@ -1,4 +1,4 @@
-window.onerror = function(msg, url, line) { 
+Window.onerror = function(msg, url, line) { 
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
@@ -597,3 +597,16 @@ function hidePlaceholder() {
 }
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
+
+// --- PWA Service Worker Registration ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+            .then((registration) => {
+                console.log('Vaad PWA Active. Scope:', registration.scope);
+            })
+            .catch((error) => {
+                console.error('PWA Engine failed:', error);
+            });
+    });
+}
