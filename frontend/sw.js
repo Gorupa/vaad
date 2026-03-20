@@ -1,13 +1,16 @@
-const CACHE_NAME = 'vaad-cache-v2';
+const CACHE_NAME = 'vaad-cache-v3';
 const STATIC_ASSETS = [
     '/',
     '/index.html',
     '/style.css',
-    '/app.js'
+    '/app.js',
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
-// Install Event - Caches the UI
 self.addEventListener('install', (event) => {
+    // Forces the new service worker to activate immediately
+    self.skipWaiting(); 
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
             return cache.addAll(STATIC_ASSETS);
@@ -15,10 +18,11 @@ self.addEventListener('install', (event) => {
     );
 });
 
-// Fetch Event - Serves UI from cache, but fetches live API data from the network
 self.addEventListener('fetch', (event) => {
-    // If the request is for your backend API, DO NOT CACHE IT
-    if (event.request.url.includes('/api/')) {
+    const url = event.request.url;
+
+    // CRITICAL: Do NOT cache API calls, Firebase Auth, or Google links
+    if (url.includes('/api/') || url.includes('googleapis.com') || url.includes('firebase')) {
         return; 
     }
 
