@@ -226,19 +226,15 @@ window.openModal = function() {
 
     const fup = checkFUP('search');
 
-    // ONLY block opening the modal if they are active Supreme (not expired)
     if (currentPlan === 'supreme' && !fup.expired) return;
 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
-    // FIX: If expired, show all cards so they can easily renew
     if (fup.expired) {
         document.getElementById('pro-card').style.display = 'block';
         document.getElementById('promax-card').style.display = 'block';
         document.getElementById('supreme-card').style.display = 'block';
-        
-        // Pre-select the plan they are currently on to make renewing easy
         window.selectPlan(currentPlan === 'free' ? 'pro' : currentPlan);
     } else {
         document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
@@ -253,33 +249,88 @@ window.openModal = function() {
     modal.style.display = 'flex'; 
 };
 
+// --- RAZORPAY INTEGRATION ---
+window.payWithRazorpay = function(planType, amountInINR) {
+    if (!currentUser) {
+        alert("Please sign in first.");
+        return;
+    }
+
+    const amountInPaise = amountInINR * 100;
+
+    const options = {
+        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", // TODO: REPLACE THIS WITH YOUR REAL KEY
+        "amount": amountInPaise,
+        "currency": "INR",
+        "name": "Vaad",
+        "description": `Upgrade to Vaad ${planType.toUpperCase()}`,
+        "image": "https://vaad.pages.dev/icon-192.png",
+        
+        "handler": function (response) {
+            const btn = document.getElementById('upi-btn-link');
+            if (btn) btn.innerText = "Payment Successful! Upgrading...";
+            
+            // Reload page after a delay so webhook has time to update DB
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+        },
+        
+        "prefill": {
+            "name": currentUser.displayName || "",
+            "email": currentUser.email || ""
+        },
+        
+        "notes": {
+            "userId": currentUser.uid,
+            "planName": planType
+        },
+        
+        "theme": {
+            "color": "#8b5cf6"
+        }
+    };
+
+    const rzp = new window.Razorpay(options);
+    
+    rzp.on('payment.failed', function (response){
+        alert(`Payment Failed: ${response.error.description}`);
+    });
+    
+    rzp.open();
+};
+
 window.selectPlan = function(planType) {
     document.getElementById('pro-card').style.border = '1px solid var(--border-color)';
     document.getElementById('promax-card').style.border = '1px solid var(--border-color)';
     document.getElementById('supreme-card').style.border = '1px solid var(--border-color)';
 
-    let amount = "99.00";
-    let planName = "Vaad Pro";
+    let amount = 99;
+    let planName = "Pro";
 
     if (planType === 'pro') {
         document.getElementById('pro-card').style.border = '2px solid var(--primary)';
-        amount = "99.00";
-        planName = "Vaad Pro";
+        amount = 99;
+        planName = "Pro";
     } else if (planType === 'promax') {
         document.getElementById('promax-card').style.border = '2px solid #d4af37';
-        amount = "199.00";
-        planName = "Vaad Pro Max";
+        amount = 199;
+        planName = "Pro Max";
     } else if (planType === 'supreme') {
         document.getElementById('supreme-card').style.border = '2px solid #8b5cf6';
-        amount = "399.00";
-        planName = "Vaad Supreme";
+        amount = 399;
+        planName = "Supreme";
     }
 
-    const upiLink = `upi://pay?pa=gauravkalal@ybl&pn=${encodeURIComponent(planName)}&am=${amount}&cu=INR`;
-    const upiBtn = document.getElementById('upi-btn-link');
-    if (upiBtn) {
-        upiBtn.href = upiLink;
-        upiBtn.innerText = `Pay ₹${amount} via UPI App`;
+    const upgradeBtn = document.getElementById('upi-btn-link');
+    if (upgradeBtn) {
+        upgradeBtn.removeAttribute('href'); // Removes the old UPI link
+        upgradeBtn.innerText = `Pay ₹${amount} Securely`;
+        upgradeBtn.onclick = (e) => {
+            e.preventDefault();
+            upgradeBtn.innerText = "Opening Checkout...";
+            window.payWithRazorpay(planType, amount);
+        };
     }
 };
 
