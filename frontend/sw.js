@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-cache-v13'; // Bumped to v12 for Vaad 2.0 UI overhaul
+const CACHE_NAME = 'vaad-cache-v14'; // Bumped to v12 for Vaad 2.0 UI overhaul
 const urlsToCache = [
   '/',
   '/index.html',
