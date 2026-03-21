@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const admin = require('firebase-admin');
 
 // Initialize Firebase Admin so the server can securely update user plans
-// You need to add FIREBASE_SERVICE_ACCOUNT as an Environment Variable in Render
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
     admin.initializeApp({
@@ -30,7 +29,7 @@ const headers = {
     'Content-Type': 'application/json'
 };
 
-// ── ROUTE 1: EXACT CNR SEARCH (Pro Max & Supreme) ──
+// ── ROUTE 1: EXACT CNR SEARCH ──
 app.post('/api/cnr', async (req, res) => {
     const { cnr } = req.body;
     if (!cnr) return res.status(400).json({ success: false, error: 'CNR is required' });
@@ -46,7 +45,7 @@ app.post('/api/cnr', async (req, res) => {
     }
 });
 
-// ── ROUTE 2: LIST SEARCH (Pro, Pro Max, Supreme) ──
+// ── ROUTE 2: LIST SEARCH ──
 app.post('/api/search', async (req, res) => {
     const { query, type } = req.body;
     if (!query || !type) return res.status(400).json({ success: false, error: 'Query and type are required' });
@@ -69,7 +68,70 @@ app.post('/api/search', async (req, res) => {
     }
 });
 
-// ── ROUTE 3: PDF DOWNLOAD (Supreme Only) ──
+// ── ROUTE 3: CAUSE LIST SEARCH (Mapped to official API) ──
+app.post('/api/causelist', async (req, res) => {
+    const { query, state, limit } = req.body;
+    // eCourts docs specify: GET /api/partner/causelist/search?q=...&state=...
+    if (!query || !state) return res.status(400).json({ success: false, error: 'Query and State are required for Cause List search' });
+
+    const fetchLimit = limit || 10;
+    const url = `${BASE_URL}/causelist/search?q=${encodeURIComponent(query)}&state=${encodeURIComponent(state)}&limit=${fetchLimit}`;
+
+    try {
+        const response = await fetch(url, { method: 'GET', headers });
+        const data = await response.json();
+        if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Cause list fetch failed.' });
+        return res.json({ success: true, data: data });
+    } catch (error) {
+        console.error("API Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ── ROUTE 4: BULK CASE REFRESH (Mapped to official API) ──
+app.post('/api/bulk-refresh', async (req, res) => {
+    const { cnrs } = req.body; 
+    if (!cnrs || !Array.isArray(cnrs)) return res.status(400).json({ success: false, error: 'Array of CNRs is required' });
+
+    try {
+        // eCourts docs specify: POST /api/partner/case/bulk-refresh
+        const response = await fetch(`${BASE_URL}/case/bulk-refresh`, { 
+            method: 'POST', 
+            headers,
+            body: JSON.stringify({ cnrs })
+        });
+        const data = await response.json();
+        if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Bulk refresh failed.' });
+        return res.json({ success: true, data: data });
+    } catch (error) {
+        console.error("API Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ── ROUTE 5: AI JUDGMENT SUMMARY & MARKDOWN (Mapped to official API) ──
+app.post('/api/order/analyze', async (req, res) => {
+    const { cnr, filename, type } = req.body; 
+    // type must be 'summary' (order-ai) or 'markdown' (order-md)
+    if (!cnr || !filename || !type) return res.status(400).json({ success: false, error: 'CNR, filename, and type required' });
+
+    try {
+        // eCourts docs specify: GET /api/partner/case/{cnr}/order-ai/{filename} OR order-md
+        const endpointType = type === 'summary' ? 'order-ai' : 'order-md';
+        const url = `${BASE_URL}/case/${cnr}/${endpointType}/${filename}`;
+        
+        const response = await fetch(url, { method: 'GET', headers });
+        const data = await response.json();
+        
+        if (!response.ok) return res.status(400).json({ success: false, error: data.message || `Failed to fetch ${type}.` });
+        return res.json({ success: true, data: data });
+    } catch (error) {
+        console.error("API Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ── ROUTE 6: PDF DOWNLOAD ──
 app.post('/api/download', async (req, res) => {
     const { cnr, filename } = req.body;
     if (!cnr || !filename) return res.status(400).json({ success: false, error: 'CNR and filename are required' });
@@ -77,14 +139,12 @@ app.post('/api/download', async (req, res) => {
     try {
         const response = await fetch(`${BASE_URL}/case/${cnr}/order/${filename}`, { method: 'GET', headers });
         
-        // Check if the API returned an error JSON instead of a PDF
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             const data = await response.json();
             return res.status(400).json({ success: false, error: data.message || 'Could not fetch PDF.', raw: data });
         }
 
-        // If it's a valid PDF stream, send it directly to the user's browser
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         return response.body.pipe(res);
@@ -95,9 +155,8 @@ app.post('/api/download', async (req, res) => {
     }
 });
 
-// ── ROUTE 4: RAZORPAY WEBHOOK ──
+// ── ROUTE 7: RAZORPAY WEBHOOK ──
 app.post('/api/webhook/razorpay', async (req, res) => {
-    // Make sure to add this Secret in your Render Dashboard
     const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET; 
 
     if (!webhookSecret) {
@@ -107,7 +166,6 @@ app.post('/api/webhook/razorpay', async (req, res) => {
 
     const signature = req.headers['x-razorpay-signature'];
     
-    // Generate our own signature to compare
     const expectedSignature = crypto.createHmac('sha256', webhookSecret)
                                     .update(JSON.stringify(req.body))
                                     .digest('hex');
@@ -115,7 +173,6 @@ app.post('/api/webhook/razorpay', async (req, res) => {
     if (signature === expectedSignature) {
         console.log("Valid Razorpay Webhook Received!");
 
-        // Safely extract data depending on event type
         const paymentData = req.body.payload.payment ? req.body.payload.payment.entity : null;
         
         if (paymentData && paymentData.status === 'captured') {
@@ -139,7 +196,7 @@ app.post('/api/webhook/razorpay', async (req, res) => {
                 }
             } else {
                 console.warn("Webhook valid, but missing userId, planName, or DB not initialized.");
-                return res.status(200).json({ status: "ignored" }); // Still return 200 so Razorpay stops pinging
+                return res.status(200).json({ status: "ignored" }); 
             }
         } else {
             return res.status(200).json({ status: "ignored" });
