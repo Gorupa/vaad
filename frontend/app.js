@@ -220,8 +220,9 @@ function updateTabLocks() {
 }
 
 window.switchTab = function(tab) {
-    if (!currentUser) {
-        signInWithPopup(auth, provider);
+    // RAZORPAY FIX: If logged out, show the pricing modal instead of forcing login
+    if (!currentUser && tab !== 'cnr') {
+        window.openModal();
         return;
     }
 
@@ -281,17 +282,22 @@ window.closeModal = function() {
 };
 
 window.openModal = function() { 
+    const modal = document.getElementById('upgrade-modal');
+    if (!modal) return;
+
+    // RAZORPAY FIX: Let logged-out users see the pricing modal
     if (!currentUser) {
-        signInWithPopup(auth, provider);
+        document.getElementById('pro-card').style.display = 'block';
+        document.getElementById('promax-card').style.display = 'block';
+        document.getElementById('supreme-card').style.display = 'block';
+        window.selectPlan('pro');
+        modal.style.display = 'flex';
         return;
     }
 
     const fup = checkFUP('search');
 
     if (currentPlan === 'supreme' && !fup.expired) return;
-
-    const modal = document.getElementById('upgrade-modal');
-    if (!modal) return;
 
     if (fup.expired) {
         document.getElementById('pro-card').style.display = 'block';
@@ -313,8 +319,11 @@ window.openModal = function() {
 
 // --- RAZORPAY INTEGRATION ---
 window.payWithRazorpay = function(planType, amountInINR) {
+    // RAZORPAY FIX: Force login ONLY when they actually try to click the Pay button
     if (!currentUser) {
-        alert("Please sign in first.");
+        alert("Please sign in with Google to create your account before upgrading.");
+        window.closeModal();
+        signInWithPopup(auth, provider);
         return;
     }
 
