@@ -39,12 +39,16 @@ let activeTab = 'cnr';
 document.addEventListener('click', (e) => {
     const loginTarget = e.target.closest('#login-btn');
     const logoutTarget = e.target.closest('#logout-btn');
+    const mobileLogin = e.target.closest('#drawer-login-btn');
+    const mobileLogout = e.target.closest('#drawer-logout-btn');
     
-    if (loginTarget) {
+    if (loginTarget || mobileLogin) {
+        if (mobileLogin) window.toggleMenu();
         signInWithPopup(auth, provider);
     }
     
-    if (logoutTarget) {
+    if (logoutTarget || mobileLogout) {
+        if (mobileLogout) window.toggleMenu();
         signOut(auth).then(() => {
             window.location.reload(); 
         });
@@ -58,10 +62,23 @@ onAuthStateChanged(auth, async (user) => {
     if (limitText) limitText.innerText = "Loading limits..."; 
 
     if (user) {
+        // Desktop Profile
         document.getElementById('login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
         document.getElementById('user-avatar').src = user.photoURL;
+
+        // Mobile Drawer Profile
+        const drawerUnauth = document.getElementById('drawer-unauth');
+        const drawerAuth = document.getElementById('drawer-auth');
+        const drawerLogout = document.getElementById('drawer-logout-btn');
+        if (drawerUnauth) drawerUnauth.style.display = 'none';
+        if (drawerAuth) {
+            drawerAuth.style.display = 'flex';
+            document.getElementById('drawer-name').innerText = user.displayName;
+            document.getElementById('drawer-avatar').src = user.photoURL;
+        }
+        if (drawerLogout) drawerLogout.style.display = 'block';
 
         const badge = document.getElementById('user-badge');
         if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
@@ -88,6 +105,15 @@ onAuthStateChanged(auth, async (user) => {
     } else {
         document.getElementById('login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
+        
+        // Reset Mobile Drawer
+        const drawerUnauth = document.getElementById('drawer-unauth');
+        const drawerAuth = document.getElementById('drawer-auth');
+        const drawerLogout = document.getElementById('drawer-logout-btn');
+        if (drawerUnauth) drawerUnauth.style.display = 'block';
+        if (drawerAuth) drawerAuth.style.display = 'none';
+        if (drawerLogout) drawerLogout.style.display = 'none';
+
         currentPlan = 'free';
         cycleStartDate = null;
     }
@@ -144,6 +170,8 @@ function checkFUP(actionType) {
 
 function updateBadge() {
     const badge = document.getElementById('user-badge');
+    const drawerBadge = document.getElementById('drawer-badge');
+    
     if (!badge) return;
     
     const fup = checkFUP('search');
@@ -169,22 +197,21 @@ function updateBadge() {
         badge.style.background = "var(--border)";
         badge.style.color = "var(--text-muted)";
     }
+
+    if (drawerBadge) {
+        drawerBadge.innerText = badge.innerText;
+        drawerBadge.style.background = badge.style.background;
+        drawerBadge.style.color = badge.style.color;
+    }
 }
 
 function updateTabLocks() {
     const cnrLock = document.getElementById('cnr-lock');
     const otherLocks = document.querySelectorAll('.tab:not(#tab-cnr) .lock-icon');
 
-    if (currentPlan === 'supreme' || currentPlan === 'promax') {
+    if (currentPlan === 'supreme' || currentPlan === 'promax' || currentPlan === 'pro') {
         if (cnrLock) cnrLock.style.display = 'none';
         otherLocks.forEach(icon => icon.style.display = 'none');
-    } else if (currentPlan === 'pro') {
-        if (cnrLock) cnrLock.style.display = 'inline';
-        otherLocks.forEach(icon => {
-            if (icon.parentElement.dataset.tab === 'causelist') icon.style.display = 'none'; // Pro gets causelist
-            else icon.style.display = 'none';
-        });
-        if (activeTab === 'cnr') window.switchTab('litigant');
     } else {
         if (cnrLock) cnrLock.style.display = 'none';
         otherLocks.forEach(icon => icon.style.display = 'inline');
@@ -199,11 +226,6 @@ window.switchTab = function(tab) {
     }
 
     if (currentPlan === 'free' && tab !== 'cnr') {
-        window.openModal();
-        return;
-    }
-    
-    if (currentPlan === 'pro' && tab === 'cnr') {
         window.openModal();
         return;
     }
@@ -228,6 +250,29 @@ window.toggleCnrMode = function() {
     const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
     document.getElementById('cnr-single-field').style.display = mode === 'single' ? 'block' : 'none';
     document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
+};
+
+// --- VAAD 2.0 UI LOGIC (MODALS & DRAWER) ---
+window.toggleMenu = function() {
+    const drawer = document.getElementById('side-drawer');
+    const overlay = document.getElementById('drawer-overlay');
+    if (drawer.classList.contains('open')) {
+        drawer.classList.remove('open');
+        overlay.classList.remove('open');
+    } else {
+        drawer.classList.add('open');
+        overlay.classList.add('open');
+    }
+};
+
+window.openDevModal = function() {
+    const modal = document.getElementById('dev-modal');
+    if (modal) modal.classList.add('active');
+};
+
+window.closeDevModal = function() {
+    const modal = document.getElementById('dev-modal');
+    if (modal) modal.classList.remove('active');
 };
 
 window.closeModal = function() { 
@@ -373,11 +418,6 @@ window.handleSearch = async function() {
     let renderType = '';
 
     if (activeTab === 'cnr') {
-        if (currentPlan === 'pro') {
-            window.openModal();
-            return;
-        }
-        
         const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
         if (mode === 'single') {
             const query = document.getElementById('cnr-input').value.trim();
