@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-cache-v14'; // Bumped to v12 for Vaad 2.0 UI overhaul
+const CACHE_NAME = 'vaad-cache-v14';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -13,47 +13,46 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
+  self.skipWaiting(); // Forces the new service worker to activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => cache.addAll(urlsToCache))
   );
 });
 
-self.addEventListener('fetch', event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        if (response) {
-          return response;
-        }
-        return fetch(event.request).then(
-          function(response) {
-            if(!response || response.status !== 200 || response.type !== 'basic') {
-              return response;
-            }
-            var responseToCache = response.clone();
-            caches.open(CACHE_NAME)
-              .then(function(cache) {
-                cache.put(event.request, responseToCache);
-              });
-            return response;
-          }
-        );
-      })
-  );
-});
-
 self.addEventListener('activate', event => {
-  const cacheWhitelist = [CACHE_NAME];
+  event.waitUntil(clients.claim()); // Takes control of all open pages immediately
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
+          if (cacheName !== CACHE_NAME) {
+            return caches.delete(cacheName); // Deletes all old, broken caches
           }
         })
       );
     })
+  );
+});
+
+// NETWORK FIRST STRATEGY (Bulletproof)
+self.addEventListener('fetch', event => {
+  // Only intercept GET requests
+  if (event.request.method !== 'GET') return;
+
+  event.respondWith(
+    fetch(event.request)
+      .then(response => {
+        // If the network fetch is successful, clone it, cache it, and return it
+        const responseClone = response.clone();
+        caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, responseClone);
+        });
+        return response;
+      })
+      .catch(() => {
+        // If the network fails (offline), fall back to the cache
+        return caches.match(event.request);
+      })
   );
 });
