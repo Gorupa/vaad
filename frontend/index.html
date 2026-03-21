@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vaad — Court Case Tracker</title>
-    <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API.">
+    <title>Vaad — Court Case Tracker & AI Legal Assistant</title>
+    <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API and AI.">
     
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#8b5cf6">
@@ -113,14 +113,15 @@
     <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
         <button class="modal-close" onclick="window.closeModal()">×</button>
         <div class="pricing-title" id="modal-title">Upgrade your Plan</div>
-        <div class="pricing-subtitle" id="modal-subtitle">Select a plan to unlock powerful search tools.</div>
+        <div class="pricing-subtitle" id="modal-subtitle">Select a plan to unlock powerful AI and search tools.</div>
         
         <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')">
             <div style="font-weight: bold; color: var(--primary); font-size: 18px;">Pro Plan</div>
             <div class="price-tag" style="margin: 5px 0; color: var(--text-primary);">₹99<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
             <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
                 <li>✓ 30 Searches</li>
-                <li>✓ Unlocks Litigant, Advocate & Judge Filters</li>
+                <li>✓ Daily Cause List Search</li>
+                <li>✓ Bulk Case Refresh (Up to 50 CNRs)</li>
             </ul>
         </div>
 
@@ -128,9 +129,9 @@
             <div style="color: #d4af37; font-weight: bold; font-size: 18px;">Pro Max</div>
             <div class="price-tag" style="margin: 5px 0; color: var(--text-primary);">₹199<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
             <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
-                <li>✓ 100 Searches</li>
-                <li>✓ Includes All Name Filters</li>
-                <li>✓ Unlocks Detailed CNR Case Lookup</li>
+                <li>✓ 100 Searches & Full Cause List</li>
+                <li>✓ Download Certified Watermarked PDFs</li>
+                <li>✓ Extract Order Markdown Text for Drafting</li>
             </ul>
         </div>
 
@@ -138,9 +139,9 @@
             <div style="color: #8b5cf6; font-weight: bold; font-size: 18px;">Supreme Plan</div>
             <div class="price-tag" style="margin: 5px 0; color: var(--text-primary);">₹399<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
             <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;">
-                <li>✓ 150 Searches (All Filters + CNR)</li>
-                <li>✓ View Full Hearing History Logs</li>
-                <li>✓ Download 30 Official Order PDFs</li>
+                <li>✓ 150 Searches & All Pro Max Features</li>
+                <li>✓ AI Judgment Analysis & Summaries</li>
+                <li>✓ Extract Legal Issues & Statutes Cited</li>
             </ul>
         </div>
 
@@ -180,10 +181,7 @@
     </div>
 </footer>
 
-
-
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
-
 <script type="module" src="app.js"></script>
 </body>
 </html>
