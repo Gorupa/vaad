@@ -92,7 +92,6 @@ onAuthStateChanged(auth, async (user) => {
         cycleStartDate = null;
     }
     
-    // Explicitly make the global plan available for AI buttons
     window.currentUserPlan = currentPlan; 
     
     updateBadge();
@@ -181,7 +180,10 @@ function updateTabLocks() {
         otherLocks.forEach(icon => icon.style.display = 'none');
     } else if (currentPlan === 'pro') {
         if (cnrLock) cnrLock.style.display = 'inline';
-        otherLocks.forEach(icon => icon.style.display = 'none');
+        otherLocks.forEach(icon => {
+            if (icon.parentElement.dataset.tab === 'causelist') icon.style.display = 'none'; // Pro gets causelist
+            else icon.style.display = 'none';
+        });
         if (activeTab === 'cnr') window.switchTab('litigant');
     } else {
         if (cnrLock) cnrLock.style.display = 'none';
@@ -214,6 +216,18 @@ window.switchTab = function(tab) {
     if (targetPanel) targetPanel.style.display = 'block';
     
     window.clearResults();
+};
+
+window.toggleCnrMode = function() {
+    if (currentPlan === 'free') {
+        alert("Bulk CNR refresh requires a Paid Plan.");
+        document.querySelector('input[name="cnr-mode"][value="single"]').checked = true;
+        window.openModal();
+        return;
+    }
+    const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
+    document.getElementById('cnr-single-field').style.display = mode === 'single' ? 'block' : 'none';
+    document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
 };
 
 window.closeModal = function() { 
@@ -337,46 +351,72 @@ window.selectPlan = function(planType) {
 };
 
 window.handleSearch = async function() {
-    let query = '';
-    
-    if (activeTab === 'cnr') query = document.getElementById('cnr-input').value.trim();
-    if (activeTab === 'litigant') query = document.getElementById('litigant-input').value.trim();
-    if (activeTab === 'advocate') query = document.getElementById('advocate-input').value.trim();
-    if (activeTab === 'judge') query = document.getElementById('judge-input').value.trim();
-
-    if (!query) return;
-
     if (!currentUser) {
         signInWithPopup(auth, provider);
         return;
     }
 
     const fup = checkFUP('search');
-
     if (fup.expired) {
-        showError(`Your ${currentPlan.toUpperCase()} subscription cycle has expired. Please renew your subscription.`);
+        showError(`Your ${currentPlan.toUpperCase()} subscription cycle has expired. Please renew.`);
         window.openModal();
         return;
     }
-
     if (!fup.allowed) { 
-        if (currentPlan === 'free') {
-            window.openModal();
-        } else {
-            showError(`Strict Fair Usage Policy (FUP) reached for the ${currentPlan.toUpperCase()} plan. You have used all ${fup.limit} searches for this billing cycle.`);
-        }
+        if (currentPlan === 'free') window.openModal();
+        else showError(`FUP Limit Reached. You have used all ${fup.limit} searches for this cycle.`);
         return; 
     }
+
+    let endpoint = '';
+    let bodyData = {};
+    let renderType = '';
 
     if (activeTab === 'cnr') {
         if (currentPlan === 'pro') {
             window.openModal();
             return;
         }
-        await performSearch(`${API}/cnr`, { cnr: query }, fup.storageKey, 'cnr');
+        
+        const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
+        if (mode === 'single') {
+            const query = document.getElementById('cnr-input').value.trim();
+            if (!query) return;
+            endpoint = `${API}/cnr`;
+            bodyData = { cnr: query };
+            renderType = 'cnr';
+        } else {
+            const bulkText = document.getElementById('cnr-bulk-input').value.trim();
+            if (!bulkText) return;
+            const cnrs = bulkText.split('\n').map(c => c.trim()).filter(c => c.length > 5);
+            if (cnrs.length > 50) return alert("Maximum 50 CNRs allowed per bulk request.");
+            if (cnrs.length === 0) return alert("Please enter valid CNRs.");
+            
+            endpoint = `${API}/bulk-refresh`;
+            bodyData = { cnrs: cnrs };
+            renderType = 'bulk';
+        }
+    } else if (activeTab === 'causelist') {
+        const state = document.getElementById('causelist-state').value.trim().toUpperCase();
+        const query = document.getElementById('causelist-query').value.trim();
+        if (!state || !query) return alert("Please provide both State Code and Search Query.");
+        
+        endpoint = `${API}/causelist`;
+        bodyData = { query: query, state: state, limit: 20 };
+        renderType = 'causelist';
     } else {
-        await performSearch(`${API}/search`, { query: query, type: activeTab }, fup.storageKey, 'list');
+        let query = '';
+        if (activeTab === 'litigant') query = document.getElementById('litigant-input').value.trim();
+        if (activeTab === 'advocate') query = document.getElementById('advocate-input').value.trim();
+        if (activeTab === 'judge') query = document.getElementById('judge-input').value.trim();
+        if (!query) return;
+
+        endpoint = `${API}/search`;
+        bodyData = { query: query, type: activeTab };
+        renderType = 'list';
     }
+
+    await performSearch(endpoint, bodyData, fup.storageKey, renderType);
 };
 
 async function performSearch(endpoint, bodyData, storageKey, renderType) {
@@ -401,7 +441,33 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
         }
 
         if (renderType === 'cnr') renderCaseDetail(json.data);
-        else renderCaseList(json.data);
+        else if (renderType === 'list') renderCaseList(json.data);
+        else if (renderType === 'causelist') {
+             const resultsContainer = document.getElementById('results');
+             let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
+                         <h3 style="margin-bottom: 15px;">Today's Cause List</h3>`;
+             
+             if (!json.data || !json.data.results || json.data.results.length === 0) {
+                 html += `<div>No cases listed today for this query.</div>`;
+             } else {
+                 json.data.results.forEach(c => {
+                     html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;">
+                        <div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div>
+                        <div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div>
+                        <div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 2px 6px; border-radius: 4px;">Room: ${c.courtNo || '—'}</span></div>
+                     </div>`;
+                 });
+             }
+             resultsContainer.innerHTML = html;
+        }
+        else if (renderType === 'bulk') {
+             const resultsContainer = document.getElementById('results');
+             resultsContainer.innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 8px;">
+                <h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3>
+                <p style="font-size: 0.9rem;">Your CNRs have been queued for a fresh scrape from the eCourts server. Please wait 1-2 minutes and search for them individually to see updated dates and orders.</p>
+                <div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div>
+             </div>`;
+        }
     } catch (e) { 
         showError(`Network Error: Cannot connect to backend. (${e.message})`); 
     } finally { 
@@ -554,7 +620,6 @@ function renderCaseDetail(payload) {
                 const description = o.description || 'Order Document';
                 const filename = o.orderUrl || 'unknown.pdf';
                 
-                // --- THE NEW AI AND ORDER HTML STRUCTURE ---
                 html += `<div style="background: var(--bg); padding: 16px; border: 1px solid var(--border); border-radius: 8px;">
                     <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${orderDate}</div>
                     <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">${description}</div>
