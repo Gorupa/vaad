@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-cache-v15'; // Bumped for Stale-While-Revalidate strategy
+const CACHE_NAME = 'vaad-cache-v15';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -13,21 +13,25 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', event => {
-  self.skipWaiting(); // Forces the new service worker to activate immediately
+  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+    caches.open(CACHE_NAME).then(cache => {
+      // Bulletproof caching: If one file fails (e.g. typo in GitHub), it won't crash the whole app!
+      return Promise.allSettled(
+        urlsToCache.map(url => cache.add(url).catch(err => console.error('Cache failed for:', url)))
+      );
+    })
   );
 });
 
 self.addEventListener('activate', event => {
-  event.waitUntil(clients.claim()); // Takes control of all open pages immediately
+  event.waitUntil(clients.claim());
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName); // Deletes all old caches
+            return caches.delete(cacheName); // Nuke all old caches
           }
         })
       );
@@ -35,30 +39,35 @@ self.addEventListener('activate', event => {
   );
 });
 
-// STALE-WHILE-REVALIDATE STRATEGY (Maximum Speed + Auto Updates)
+// HYBRID STRATEGY: Network-First for HTML (Always fresh), Stale-While-Revalidate for JS/CSS (Always fast)
 self.addEventListener('fetch', event => {
-  // Only intercept GET requests
   if (event.request.method !== 'GET') return;
 
-  event.respondWith(
-    caches.match(event.request).then(cachedResponse => {
-      
-      // 1. Fetch fresh data from the network in the background
-      const fetchPromise = fetch(event.request).then(networkResponse => {
-        // Ensure the response is valid before caching it
-        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          caches.open(CACHE_NAME).then(cache => {
-            cache.put(event.request, networkResponse.clone());
-          });
-        }
-        return networkResponse;
-      }).catch(error => {
-        console.log('Network fetch failed, relying on cache:', error);
-      });
+  const isHtml = event.request.headers.get('accept').includes('text/html');
 
-      // 2. Return the cached response INSTANTLY if we have it.
-      // If we don't have it in cache yet, wait for the network fetch.
-      return cachedResponse || fetchPromise;
-    })
-  );
+  if (isHtml) {
+    // HTML Pages -> NETWORK FIRST (Fixes the ERR_FAILED issue permanently)
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, responseClone));
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+  } else {
+    // Assets (JS, CSS, Images) -> STALE WHILE REVALIDATE (Super Fast)
+    event.respondWith(
+      caches.match(event.request).then(cachedResponse => {
+        const fetchPromise = fetch(event.request).then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then(cache => cache.put(event.request, networkResponse.clone()));
+          }
+          return networkResponse;
+        }).catch(() => {});
+        return cachedResponse || fetchPromise;
+      })
+    );
+  }
 });
