@@ -18,6 +18,25 @@ self.addEventListener('install', (event) => {
     );
 });
 
+// --- NEW ACTIVATE EVENT: Deletes old caches so the app stays tiny ---
+self.addEventListener('activate', (event) => {
+    event.waitUntil(
+        caches.keys().then((cacheNames) => {
+            return Promise.all(
+                cacheNames.map((cache) => {
+                    if (cache !== CACHE_NAME) {
+                        console.log('Deleting old Vaad cache:', cache);
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        }).then(() => {
+            // Forces the new Service Worker to take control immediately
+            return self.clients.claim();
+        })
+    );
+});
+
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
