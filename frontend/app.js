@@ -1,4 +1,4 @@
-Window.onerror = function(msg, url, line) { 
+window.onerror = function(msg, url, line) { 
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
@@ -92,12 +92,15 @@ onAuthStateChanged(auth, async (user) => {
         cycleStartDate = null;
     }
     
+    // Explicitly make the global plan available for AI buttons
+    window.currentUserPlan = currentPlan; 
+    
     updateBadge();
     updateTabLocks();
     updateSearchLimitUI();
 });
 
-// --- THE ROLLING FUP FUNCTION (NOW WITH COUNTDOWN TIMER) ---
+// --- THE ROLLING FUP FUNCTION ---
 function checkFUP(actionType) {
     if (!currentUser) return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: false, daysLeft: 0 };
     
@@ -164,8 +167,8 @@ function updateBadge() {
         badge.style.color = "white";
     } else {
         badge.innerText = "FREE";
-        badge.style.background = "var(--border-color)";
-        badge.style.color = "var(--text-secondary)";
+        badge.style.background = "var(--border)";
+        badge.style.color = "var(--text-muted)";
     }
 }
 
@@ -259,7 +262,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
     const amountInPaise = amountInINR * 100;
 
     const options = {
-        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", // TODO: REPLACE THIS WITH YOUR REAL KEY
+        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", 
         "amount": amountInPaise,
         "currency": "INR",
         "name": "Vaad",
@@ -270,7 +273,6 @@ window.payWithRazorpay = function(planType, amountInINR) {
             const btn = document.getElementById('upi-btn-link');
             if (btn) btn.innerText = "Payment Successful! Upgrading...";
             
-            // Reload page after a delay so webhook has time to update DB
             setTimeout(() => {
                 window.location.reload();
             }, 3000);
@@ -301,9 +303,9 @@ window.payWithRazorpay = function(planType, amountInINR) {
 };
 
 window.selectPlan = function(planType) {
-    document.getElementById('pro-card').style.border = '1px solid var(--border-color)';
-    document.getElementById('promax-card').style.border = '1px solid var(--border-color)';
-    document.getElementById('supreme-card').style.border = '1px solid var(--border-color)';
+    document.getElementById('pro-card').style.border = '1px solid var(--border)';
+    document.getElementById('promax-card').style.border = '1px solid var(--border)';
+    document.getElementById('supreme-card').style.border = '1px solid var(--border)';
 
     let amount = 99;
     let planName = "Pro";
@@ -324,7 +326,7 @@ window.selectPlan = function(planType) {
 
     const upgradeBtn = document.getElementById('upi-btn-link');
     if (upgradeBtn) {
-        upgradeBtn.removeAttribute('href'); // Removes the old UPI link
+        upgradeBtn.removeAttribute('href'); 
         upgradeBtn.innerText = `Pay ₹${amount} Securely`;
         upgradeBtn.onclick = (e) => {
             e.preventDefault();
@@ -352,7 +354,7 @@ window.handleSearch = async function() {
     const fup = checkFUP('search');
 
     if (fup.expired) {
-        showError(`Your ${currentPlan.toUpperCase()} subscription cycle has expired (30 days completed). Please renew your subscription to continue using premium features.`);
+        showError(`Your ${currentPlan.toUpperCase()} subscription cycle has expired. Please renew your subscription.`);
         window.openModal();
         return;
     }
@@ -361,7 +363,7 @@ window.handleSearch = async function() {
         if (currentPlan === 'free') {
             window.openModal();
         } else {
-            showError(`Strict Fair Usage Policy (FUP) reached for the ${currentPlan.toUpperCase()} plan. You have used all ${fup.limit} searches for this billing cycle. Renew or upgrade early to continue.`);
+            showError(`Strict Fair Usage Policy (FUP) reached for the ${currentPlan.toUpperCase()} plan. You have used all ${fup.limit} searches for this billing cycle.`);
         }
         return; 
     }
@@ -466,14 +468,13 @@ function setLoading(on) {
 }
 
 function renderCaseList(resultsArray) {
-    hidePlaceholder();
     if (!resultsArray || resultsArray.length === 0) { 
         showError('No cases found for this search query.'); 
         return; 
     }
 
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
-                <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-primary);">Found ${resultsArray.length} recent cases:</div>`;
+                <div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main);">Found ${resultsArray.length} recent cases:</div>`;
 
     resultsArray.forEach(data => {
         const petitioner = (data.petitioners && data.petitioners.length > 0) ? data.petitioners[0] : 'Unknown Petitioner';
@@ -482,13 +483,13 @@ function renderCaseList(resultsArray) {
         const status = data.caseStatus || 'Pending';
         
         html += `
-        <div style="background: var(--bg-secondary); padding: 15px; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 10px;">
+        <div style="background: var(--bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;">
             <div style="display: flex; justify-content: space-between; align-items: start;">
                 <div style="padding-right: 15px;">
-                    <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); margin-bottom: 4px; word-break: break-word;">${petitioner} vs ${respondent}</div>
+                    <div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${petitioner} vs ${respondent}</div>
                     <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${cnr}</div>
                 </div>
-                <div style="font-size: 11px; font-weight: bold; background: var(--primary-light); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${status}</div>
+                <div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${status}</div>
             </div>
         </div>`;
     });
@@ -498,7 +499,6 @@ function renderCaseList(resultsArray) {
 }
 
 function renderCaseDetail(payload) {
-    hidePlaceholder();
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
 
     const data = payload.data.courtCaseData;
@@ -506,8 +506,8 @@ function renderCaseDetail(payload) {
     const status = data.caseStatus || 'Pending';
     
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
-        <div style="background: var(--bg-secondary); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color);">
-            <div style="font-size: 20px; font-weight: 600; color: var(--text-primary); margin-bottom: 5px;">${title}</div>
+        <div style="background: var(--bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
+            <div style="font-size: 20px; font-weight: 600; color: var(--text-main); margin-bottom: 5px;">${title}</div>
             <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">CNR: ${data.cnr}</div>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                 <div><div style="font-size: 12px; color: var(--text-muted);">Status</div><div style="font-weight: 500;">${status}</div></div>
@@ -523,20 +523,20 @@ function renderCaseDetail(payload) {
         if (history.length > 0 || orders.length > 0) {
             html += `<div style="margin-top: 20px; background: rgba(139, 92, 246, 0.05); border: 1px dashed #8b5cf6; padding: 15px; border-radius: 8px; text-align: center; cursor: pointer;" onclick="window.openModal()">
                 <div style="font-size: 16px; margin-bottom: 8px;">🔒 <b>This case has ${history.length} historical hearings and ${orders.length} orders.</b></div>
-                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Upgrade to the ₹399 Supreme Plan to view the full timeline and download certified PDFs.</div>
-                <button class="btn-primary" style="background: #8b5cf6; border: none;">Unlock Case History</button>
+                <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">Upgrade to the ₹399 Supreme Plan to analyze AI summaries and download certified PDFs.</div>
+                <button class="btn-primary-intent" style="background: #8b5cf6; border: none; padding: 8px 16px; border-radius: 6px; color: white; font-weight: 600; cursor: pointer;">Unlock Case History & AI</button>
             </div>`;
         }
     } else {
         if (history.length > 0) {
-            html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Hearing History</h3>
-            <div style="overflow-x: auto; background: var(--bg-secondary); border-radius: 8px; border: 1px solid var(--border-color);">
+            html += `<h3 style="margin-top:25px; margin-bottom: 10px; font-size: 1.1rem;">Hearing History</h3>
+            <div style="overflow-x: auto; background: var(--bg); border-radius: 8px; border: 1px solid var(--border);">
                 <table style="width: 100%; text-align: left; border-collapse: collapse; font-size: 13px;">
-                    <tr style="background: var(--primary-light); border-bottom: 1px solid var(--border-color);">
+                    <tr style="background: var(--bg-alt); border-bottom: 1px solid var(--border);">
                         <th style="padding: 10px;">Date</th><th style="padding: 10px;">Purpose</th><th style="padding: 10px;">Judge</th>
                     </tr>`;
             history.forEach(h => {
-                html += `<tr style="border-bottom: 1px solid var(--border-color);">
+                html += `<tr style="border-bottom: 1px solid var(--border);">
                     <td style="padding: 10px;">${h.hearingDate || h.businessOnDate}</td>
                     <td style="padding: 10px;">${h.purposeOfListing || '—'}</td>
                     <td style="padding: 10px;">${h.judge || '—'}</td>
@@ -546,19 +546,33 @@ function renderCaseDetail(payload) {
         }
 
         if (orders.length > 0) {
-            html += `<h3 style="margin-top:25px; margin-bottom: 10px;">Case Orders (PDFs)</h3>
-            <div style="display: flex; flex-direction: column; gap: 10px;">`;
-            
-            const fup = checkFUP('pdf');
-            html += `<div style="font-size: 12px; color: var(--text-muted); margin-bottom: 5px;">PDF Downloads remaining this cycle: <b>${fup.remaining}/${fup.limit}</b></div>`;
+            html += `<h3 style="margin-top:25px; margin-bottom: 10px; font-size: 1.1rem;">Case Orders & Judgments</h3>
+            <div style="display: flex; flex-direction: column; gap: 12px;">`;
 
             orders.forEach(o => {
-                html += `<div style="display: flex; justify-content: space-between; align-items: center; background: var(--bg-secondary); padding: 12px; border: 1px solid var(--border-color); border-radius: 6px;">
-                    <div>
-                        <div style="font-weight: 500; font-size: 14px;">${o.orderDate || 'Order'}</div>
-                        <div style="font-size: 12px; color: var(--text-muted);">${o.description || 'Order Document'}</div>
+                const orderDate = o.orderDate || 'Order';
+                const description = o.description || 'Order Document';
+                const filename = o.orderUrl || 'unknown.pdf';
+                
+                // --- THE NEW AI AND ORDER HTML STRUCTURE ---
+                html += `<div style="background: var(--bg); padding: 16px; border: 1px solid var(--border); border-radius: 8px;">
+                    <div style="font-weight: 600; font-size: 14px; margin-bottom: 4px;">${orderDate}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">${description}</div>
+                    
+                    <div class="order-actions" id="order-card-${filename.replace(/\./g, '-')}">
+                        <button class="btn-action" onclick="window.downloadPDF(event, '${data.cnr}', '${filename}')">
+                            📄 Download PDF
+                        </button>
+                        
+                        <button class="btn-action" onclick="window.analyzeOrder('${data.cnr}', '${filename}', 'markdown', this)">
+                            📝 Extract Text
+                        </button>
+
+                        <button class="btn-action btn-ai" onclick="window.analyzeOrder('${data.cnr}', '${filename}', 'summary', this)">
+                            <svg viewBox="0 0 24 24"><path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z"></path></svg>
+                            AI Summary
+                        </button>
                     </div>
-                    <button onclick="downloadPDF(event, '${data.cnr}', '${o.orderUrl}')" style="background: #8b5cf6; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 12px; font-weight: bold;">Download PDF</button>
                 </div>`;
             });
             html += `</div>`;
@@ -568,6 +582,86 @@ function renderCaseDetail(payload) {
     const resultsContainer = document.getElementById('results');
     if (resultsContainer) resultsContainer.innerHTML = html;
 }
+
+// --- NEW AI ANALYZE FUNCTION ---
+window.analyzeOrder = async (cnr, filename, type, buttonElement) => {
+    if (type === 'summary' && window.currentUserPlan !== 'supreme') {
+        alert("AI Summaries are only available on the Supreme Plan. Please upgrade.");
+        window.openModal();
+        return;
+    }
+    if (type === 'markdown' && (window.currentUserPlan === 'free' || window.currentUserPlan === 'pro')) {
+        alert("Text extraction requires Pro Max or Supreme Plan.");
+        window.openModal();
+        return;
+    }
+
+    const orderDiv = buttonElement.closest('div[id^="order-card-"]');
+    let aiBox = orderDiv.querySelector('.ai-box');
+    
+    if (!aiBox) {
+        aiBox = document.createElement('div');
+        aiBox.className = 'ai-box active';
+        orderDiv.appendChild(aiBox);
+    } else {
+        aiBox.classList.add('active');
+    }
+
+    aiBox.innerHTML = `<div class="ai-loading"><div class="ai-spinner"></div> Fetching ${type === 'summary' ? 'AI Analysis' : 'Text'} (10-30s)...</div>`;
+
+    try {
+        const response = await fetch(`${API}/order/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cnr, filename, type: type === 'summary' ? 'summary' : 'markdown' })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            if (type === 'summary') {
+                const analysis = data.data.aiAnalysis;
+                if (!analysis) {
+                    aiBox.innerHTML = `<strong>Notice:</strong> Analysis is still generating on the government server. Please click analyze again in 30 seconds.`;
+                    return;
+                }
+                
+                const summary = analysis.intelligent_insights_analytics?.order_significance_and_impact_assessment?.ai_generated_executive_summary || "Summary not available.";
+                const outcome = analysis.foundational_metadata?.procedural_details_from_order?.disposition_outcome_if_disposed || "Pending / Interim";
+                const statutesObj = analysis.deep_legal_substance_context?.core_legal_content_analysis?.statutes_cited_and_applied || [];
+                
+                let actsHtml = '';
+                if (statutesObj.length > 0) {
+                    actsHtml = `<strong>Key Statutes Cited:</strong><ul style="margin-top: 4px; padding-left: 16px;">`;
+                    statutesObj.forEach(act => {
+                        actsHtml += `<li>${act.act_name} (${act.section_article_rule})</li>`;
+                    });
+                    actsHtml += `</ul>`;
+                }
+
+                aiBox.innerHTML = `
+                    <h4>✨ AI Executive Summary</h4>
+                    <p style="margin-bottom: 12px;">${summary}</p>
+                    ${actsHtml}
+                    <div style="margin-top: 10px; border-top: 1px dashed #ddd6fe; padding-top: 10px;"><strong>Outcome:</strong> <span style="background: var(--success-bg); color: var(--success-text); padding: 2px 8px; border-radius: 4px; font-weight: 600; font-size: 0.75rem;">${outcome}</span></div>
+                `;
+            } else if (type === 'markdown') {
+                const text = data.data.extractedText || data.data.markdownContent || "Text not found.";
+                aiBox.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                        <h4 style="margin: 0; color: var(--text-main);">📄 Extracted Order Text</h4>
+                        <button class="btn-action" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.value); this.innerText='Copied!'; setTimeout(()=>this.innerText='Copy Text', 2000);" style="padding: 4px 8px; font-size: 0.75rem;">Copy Text</button>
+                    </div>
+                    <textarea readonly style="width: 100%; height: 200px; font-family: monospace; font-size: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--text-main);">${text}</textarea>
+                `;
+            }
+        } else {
+            aiBox.innerHTML = `<div style="color: var(--error-text);">Error: ${data.error}</div>`;
+        }
+    } catch (err) {
+        aiBox.innerHTML = `<div style="color: var(--error-text);">Connection failed. Please try again.</div>`;
+    }
+};
 
 window.downloadPDF = async function(event, cnr, filename) {
     const fup = checkFUP('pdf');
@@ -584,6 +678,7 @@ window.downloadPDF = async function(event, cnr, filename) {
     }
 
     const btn = event.target;
+    const originalText = btn.innerText;
     btn.innerText = "Downloading...";
     btn.style.opacity = "0.7";
     btn.disabled = true;
@@ -616,45 +711,36 @@ window.downloadPDF = async function(event, cnr, filename) {
         localStorage.setItem(fup.storageKey, fup.used + 1);
         btn.innerText = "Downloaded ✓";
         btn.style.background = "#10b981"; 
+        btn.style.color = "white";
         btn.style.opacity = "1";
 
     } catch (e) {
         alert(`Network error: ${e.message}`);
-        btn.innerText = "Download Failed";
+        btn.innerText = originalText;
         btn.disabled = false;
         btn.style.opacity = "1";
     }
 };
 
 function showError(msg) {
-    hidePlaceholder();
     const resultsContainer = document.getElementById('results');
     if (resultsContainer) {
-        resultsContainer.innerHTML = `<div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); color: #ef4444; padding: 15px; border-radius: 8px; display: flex; align-items: center; gap: 10px; line-height: 1.5;"><span>⚠</span><span>${msg}</span></div>`;
+        resultsContainer.innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
     }
 }
 
 window.clearResults = function() { 
     const resultsContainer = document.getElementById('results');
     if (resultsContainer) resultsContainer.innerHTML = ''; 
-    
-    const placeholder = document.getElementById('placeholder');
-    if (placeholder) placeholder.style.display = 'block'; 
 };
-
-function hidePlaceholder() { 
-    const placeholder = document.getElementById('placeholder');
-    if (placeholder) placeholder.style.display = 'none'; 
-}
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
 
-// --- PWA Service Worker Registration ---
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
             .then((registration) => {
-                console.log('Vaad PWA Active. Scope:', registration.scope);
+                console.log('Vaad PWA Active.');
             })
             .catch((error) => {
                 console.error('PWA Engine failed:', error);
