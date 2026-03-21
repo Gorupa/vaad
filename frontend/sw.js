@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-cache-v14';
+const CACHE_NAME = 'vaad-cache-v15'; // Bumped for Stale-While-Revalidate strategy
 const urlsToCache = [
   '/',
   '/index.html',
@@ -27,7 +27,7 @@ self.addEventListener('activate', event => {
       return Promise.all(
         cacheNames.map(cacheName => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName); // Deletes all old, broken caches
+            return caches.delete(cacheName); // Deletes all old caches
           }
         })
       );
@@ -35,24 +35,30 @@ self.addEventListener('activate', event => {
   );
 });
 
-// NETWORK FIRST STRATEGY (Bulletproof)
+// STALE-WHILE-REVALIDATE STRATEGY (Maximum Speed + Auto Updates)
 self.addEventListener('fetch', event => {
   // Only intercept GET requests
   if (event.request.method !== 'GET') return;
 
   event.respondWith(
-    fetch(event.request)
-      .then(response => {
-        // If the network fetch is successful, clone it, cache it, and return it
-        const responseClone = response.clone();
-        caches.open(CACHE_NAME).then(cache => {
-          cache.put(event.request, responseClone);
-        });
-        return response;
-      })
-      .catch(() => {
-        // If the network fails (offline), fall back to the cache
-        return caches.match(event.request);
-      })
+    caches.match(event.request).then(cachedResponse => {
+      
+      // 1. Fetch fresh data from the network in the background
+      const fetchPromise = fetch(event.request).then(networkResponse => {
+        // Ensure the response is valid before caching it
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, networkResponse.clone());
+          });
+        }
+        return networkResponse;
+      }).catch(error => {
+        console.log('Network fetch failed, relying on cache:', error);
+      });
+
+      // 2. Return the cached response INSTANTLY if we have it.
+      // If we don't have it in cache yet, wait for the network fetch.
+      return cachedResponse || fetchPromise;
+    })
   );
 });
