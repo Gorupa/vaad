@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-cache-v16';
+const CACHE_NAME = 'vaad-cache-v17';
 const urlsToCache = [
   '/',
   '/index.html',
