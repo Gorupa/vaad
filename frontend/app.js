@@ -2,9 +2,9 @@ window.onerror = function(msg, url, line) {
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
-// UPDATED: Swapped popup imports for redirect imports
+// REVERTED: Back to the rock-solid signInWithPopup
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -22,13 +22,6 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// --- SEAMLESS LOGIN HANDLER ---
-// Silently catches the user when they return from the Google login screen
-getRedirectResult(auth).catch((error) => {
-    console.error("Login Redirect Error:", error);
-    alert("Sign-in failed. Please try again.");
-});
-
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let currentPlan = 'free'; 
@@ -44,18 +37,26 @@ const limits = {
 let activeTab = 'cnr';
 
 // --- BUTTON BINDINGS ---
-document.addEventListener('click', (e) => {
+document.addEventListener('click', async (e) => {
     const loginTarget = e.target.closest('#login-btn');
     const logoutTarget = e.target.closest('#logout-btn');
     const mobileLogin = e.target.closest('#drawer-login-btn');
     const mobileLogout = e.target.closest('#drawer-logout-btn');
     
     if (loginTarget || mobileLogin) {
-        // Smooth UI Feedback before redirecting instantly
+        const originalText = loginTarget ? loginTarget.innerText : mobileLogin.innerText;
+        
         if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
         if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
         
-        signInWithRedirect(auth, provider);
+        try {
+            await signInWithPopup(auth, provider);
+            if (mobileLogin) window.toggleMenu();
+        } catch (error) {
+            console.error("Login failed or cancelled:", error);
+            if (loginTarget) loginTarget.innerText = "Sign In";
+            if (mobileLogin) mobileLogin.innerText = "Sign In / Register";
+        }
     }
     
     if (logoutTarget || mobileLogout) {
@@ -341,7 +342,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
     if (!currentUser) {
         alert("Please sign in with Google to create your account before upgrading.");
         window.closeModal();
-        signInWithRedirect(auth, provider);
+        signInWithPopup(auth, provider);
         return;
     }
 
@@ -424,7 +425,7 @@ window.selectPlan = function(planType) {
 
 window.handleSearch = async function() {
     if (!currentUser) {
-        signInWithRedirect(auth, provider);
+        signInWithPopup(auth, provider);
         return;
     }
 
