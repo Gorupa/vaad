@@ -220,7 +220,6 @@ function updateTabLocks() {
 }
 
 window.switchTab = function(tab) {
-    // RAZORPAY FIX: If logged out, show the pricing modal instead of forcing login
     if (!currentUser && tab !== 'cnr') {
         window.openModal();
         return;
@@ -276,6 +275,16 @@ window.closeDevModal = function() {
     if (modal) modal.classList.remove('active');
 };
 
+window.openWhatsNewModal = function() {
+    const modal = document.getElementById('whats-new-modal');
+    if (modal) modal.classList.add('active');
+};
+
+window.closeWhatsNewModal = function() {
+    const modal = document.getElementById('whats-new-modal');
+    if (modal) modal.classList.remove('active');
+};
+
 window.closeModal = function() { 
     const modal = document.getElementById('upgrade-modal');
     if (modal) modal.style.display = 'none'; 
@@ -285,7 +294,6 @@ window.openModal = function() {
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
 
-    // RAZORPAY FIX: Let logged-out users see the pricing modal
     if (!currentUser) {
         document.getElementById('pro-card').style.display = 'block';
         document.getElementById('promax-card').style.display = 'block';
@@ -319,7 +327,6 @@ window.openModal = function() {
 
 // --- RAZORPAY INTEGRATION ---
 window.payWithRazorpay = function(planType, amountInINR) {
-    // RAZORPAY FIX: Force login ONLY when they actually try to click the Pay button
     if (!currentUser) {
         alert("Please sign in with Google to create your account before upgrading.");
         window.closeModal();
