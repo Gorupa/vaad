@@ -19,7 +19,7 @@
 
 <nav class="nav">
     <div style="display: flex; align-items: center; gap: 12px;">
-        <button id="menu-btn" class="hamburger-btn" onclick="window.toggleMenu()">
+        <button id="menu-btn" class="hamburger-btn" style="display: block;" onclick="window.toggleMenu()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
         <a class="nav-brand" href="#">Vaad <span class="version-badge">2.0</span></a>
@@ -57,13 +57,24 @@
             </div>
         </div>
     </div>
-    <div class="drawer-links">
-        <a href="#" onclick="window.toggleMenu(); window.openModal();" style="color: var(--primary); font-weight: 600;">⚡ Upgrade Plan</a>
-        <a href="#" onclick="window.toggleMenu(); window.openDevModal();">👨‍💻 About Developer</a>
-        <a href="terms.html">📄 Terms of Service</a>
-        <a href="privacy.html">🔒 Privacy Policy</a>
-        <a href="refund.html">💳 Refund & Cancellation</a>
-        <a href="#" id="drawer-logout-btn" style="display: none; color: var(--error-text); margin-top: auto; border-top: 1px solid var(--border); padding-top: 16px;">Log Out</a>
+    <div class="drawer-links" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto;">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <a href="#" onclick="window.toggleMenu(); window.openModal();" style="color: var(--primary); font-weight: 600;">⚡ Upgrade Plan</a>
+            <a href="#" onclick="window.toggleMenu(); window.openDevModal();">👨‍💻 About Developer</a>
+            <a href="terms.html">📄 Terms of Service</a>
+            <a href="privacy.html">🔒 Privacy Policy</a>
+            <a href="refund.html">💳 Refund & Cancellation</a>
+        </div>
+        
+        <div style="margin-top: auto; padding-top: 32px; padding-bottom: 16px;">
+            <a href="#" id="drawer-logout-btn" style="display: none; color: var(--error-text); border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px; font-weight: 600; text-decoration: none;">Log Out</a>
+            
+            <div style="border-top: 1px solid var(--border); padding-top: 16px; text-align: left; font-size: 0.7rem; color: var(--text-muted); line-height: 2;">
+                <div style="font-weight: 600;">🔒 256-bit SSL Secure</div>
+                <div style="font-weight: 600;">⚡ Cloudflare Global CDN</div>
+                <div style="font-weight: 600;">🛡️ Google Cloud Infrastructure</div>
+            </div>
+        </div>
     </div>
 </div>
 
