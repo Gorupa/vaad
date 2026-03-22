@@ -2,8 +2,9 @@ window.onerror = function(msg, url, line) {
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
+// UPDATED: Swapped popup imports for redirect imports
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -20,6 +21,13 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
+
+// --- SEAMLESS LOGIN HANDLER ---
+// Silently catches the user when they return from the Google login screen
+getRedirectResult(auth).catch((error) => {
+    console.error("Login Redirect Error:", error);
+    alert("Sign-in failed. Please try again.");
+});
 
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
@@ -43,8 +51,11 @@ document.addEventListener('click', (e) => {
     const mobileLogout = e.target.closest('#drawer-logout-btn');
     
     if (loginTarget || mobileLogin) {
-        if (mobileLogin) window.toggleMenu();
-        signInWithPopup(auth, provider);
+        // Smooth UI Feedback before redirecting instantly
+        if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
+        if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
+        
+        signInWithRedirect(auth, provider);
     }
     
     if (logoutTarget || mobileLogout) {
@@ -330,7 +341,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
     if (!currentUser) {
         alert("Please sign in with Google to create your account before upgrading.");
         window.closeModal();
-        signInWithPopup(auth, provider);
+        signInWithRedirect(auth, provider);
         return;
     }
 
@@ -413,7 +424,7 @@ window.selectPlan = function(planType) {
 
 window.handleSearch = async function() {
     if (!currentUser) {
-        signInWithPopup(auth, provider);
+        signInWithRedirect(auth, provider);
         return;
     }
 
