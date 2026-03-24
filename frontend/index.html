@@ -209,6 +209,18 @@
     </div>
 </div>
 
+<div id="consent-modal" class="modal-overlay">
+    <div class="modal-box">
+        <h3 style="margin-bottom: 12px; font-size: 1.25rem;">Enable Cloud Sync ☁️</h3>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data on our secure servers located in Mumbai. Do you consent to enabling Cloud Sync?
+        </p>
+        <button class="btn-search" onclick="window.acceptConsent()" style="margin-bottom: 12px;">Yes, Enable Secure Sync</button>
+        <button class="btn-action" onclick="window.declineConsent()" style="width: 100%; justify-content: center; padding: 12px;">No, Keep Data Local Only</button>
+        <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 16px;">You can change this later in our <a href="privacy.html" style="color: var(--primary);">Privacy Policy</a>.</p>
+    </div>
+</div>
+
 <div id="universal-search-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 15vh;">
     <div class="modal-box" style="padding: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
         <div style="display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
