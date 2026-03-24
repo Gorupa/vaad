@@ -320,7 +320,10 @@ window.toggleMenu = function() {
 
 window.openDevModal = function() {
     const modal = document.getElementById('dev-modal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+        modal.classList.add('active');
+        modal.style.display = ''; // Fix for CSS conflict
+    }
 };
 
 window.closeDevModal = function() {
@@ -330,7 +333,10 @@ window.closeDevModal = function() {
 
 window.openWhatsNewModal = function() {
     const modal = document.getElementById('whats-new-modal');
-    if (modal) modal.classList.add('active');
+    if (modal) {
+        modal.classList.add('active');
+        modal.style.display = ''; // Fix for CSS conflict
+    }
 };
 
 window.closeWhatsNewModal = function() {
@@ -340,19 +346,24 @@ window.closeWhatsNewModal = function() {
 
 window.closeModal = function() { 
     const modal = document.getElementById('upgrade-modal');
-    if (modal) modal.style.display = 'none'; 
+    if (modal) {
+        modal.classList.remove('active'); 
+        modal.style.display = ''; // Removes inline display block so class works next time
+    }
 };
 
 window.openModal = function() { 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
+    
+    modal.style.display = ''; // Clear inline styles preventing flex
 
     if (!currentUser) {
         document.getElementById('pro-card').style.display = 'block';
         document.getElementById('promax-card').style.display = 'block';
         document.getElementById('supreme-card').style.display = 'block';
         window.selectPlan('pro');
-        modal.style.display = 'flex';
+        modal.classList.add('active');
         return;
     }
 
@@ -375,7 +386,7 @@ window.openModal = function() {
         else if (currentPlan === 'promax') window.selectPlan('supreme');
     }
 
-    modal.style.display = 'flex'; 
+    modal.classList.add('active'); 
 };
 
 window.payWithRazorpay = function(planType, amountInINR) {
