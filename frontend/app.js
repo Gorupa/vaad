@@ -2,9 +2,10 @@ window.onerror = function(msg, url, line) {
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
+// 1. ADDED updateDoc TO FIREBASE IMPORTS
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU",
@@ -68,6 +69,20 @@ document.addEventListener('click', async (e) => {
     }
 });
 
+// --- CLOUD SYNC HELPER ---
+async function syncDashboardToCloud() {
+    if (!currentUser) return;
+    try {
+        const userRef = doc(db, "users", currentUser.uid);
+        await updateDoc(userRef, {
+            practiceCases: practiceCases
+        });
+        console.log("[Cloud Sync] Dashboard saved to Firestore.");
+    } catch (error) {
+        console.error("Error syncing dashboard to cloud:", error);
+    }
+}
+
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     const limitText = document.getElementById('limit-text');
@@ -100,17 +115,32 @@ onAuthStateChanged(auth, async (user) => {
             const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
 
-            if (userSnap.exists() && userSnap.data().plan) {
-                let dbPlan = String(userSnap.data().plan).toLowerCase().replace(/[^a-z]/g, '');
+            if (userSnap.exists()) {
+                let dbPlan = String(userSnap.data().plan || 'free').toLowerCase().replace(/[^a-z]/g, '');
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 cycleStartDate = userSnap.data().cycleStartDate || new Date().toISOString().split('T')[0];
+                
+                // ✨ FETCH DASHBOARD DATA FROM CLOUD
+                if (userSnap.data().practiceCases) {
+                    practiceCases = userSnap.data().practiceCases;
+                    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+                    console.log("[Cloud Sync] Dashboard loaded from Firestore.");
+                }
             } else {
                 const today = new Date().toISOString().split('T')[0];
-                await setDoc(userRef, { name: user.displayName, email: user.email, plan: 'free', cycleStartDate: today, joinedAt: new Date().toISOString() });
+                await setDoc(userRef, { 
+                    name: user.displayName, 
+                    email: user.email, 
+                    plan: 'free', 
+                    cycleStartDate: today, 
+                    joinedAt: new Date().toISOString(),
+                    practiceCases: [] // Initialize empty array on cloud
+                });
                 currentPlan = 'free';
                 cycleStartDate = today;
             }
         } catch (error) {
+            console.error("Firebase read error:", error);
             currentPlan = 'free';
             cycleStartDate = new Date().toISOString().split('T')[0];
         }
@@ -132,6 +162,10 @@ onAuthStateChanged(auth, async (user) => {
 
         currentPlan = 'free';
         cycleStartDate = null;
+        
+        // ✨ CLEAR LOCAL DATA ON LOGOUT FOR PRIVACY
+        practiceCases = [];
+        localStorage.removeItem('vaad_dashboard_cases');
     }
     
     window.currentUserPlan = currentPlan; 
@@ -288,6 +322,12 @@ window.openWhatsNewModal = function() {
     m.classList.add('active'); m.style.display = ''; 
 };
 window.closeWhatsNewModal = function() { document.getElementById('whats-new-modal').classList.remove('active'); };
+
+window.openFaqModal = function() { 
+    const m = document.getElementById('faq-modal');
+    m.classList.add('active'); m.style.display = ''; 
+};
+window.closeFaqModal = function() { document.getElementById('faq-modal').classList.remove('active'); };
 
 window.openAddCaseModal = function() { 
     const m = document.getElementById('add-case-modal');
@@ -570,9 +610,9 @@ function renderCaseDetail(payload) {
 }
 
 // ==========================================
-// ✨ DASHBOARD LOGIC (Manual & Auto)
+// ✨ DASHBOARD LOGIC 
 // ==========================================
-window.saveTrackedCase = function() {
+window.saveTrackedCase = async function() {
     const cnr = document.getElementById('track-cnr').value.trim();
     const title = document.getElementById('track-title').value.trim();
     const total = parseInt(document.getElementById('track-total').value) || 0;
@@ -591,6 +631,7 @@ window.saveTrackedCase = function() {
     });
 
     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+    await syncDashboardToCloud(); // Save to Firebase
     
     document.getElementById('track-cnr').value = '';
     document.getElementById('track-title').value = '';
@@ -601,7 +642,7 @@ window.saveTrackedCase = function() {
     window.toggleView('dashboard');
 };
 
-window.logPayment = function(id) {
+window.logPayment = async function(id) {
     const input = document.getElementById('pay-input-' + id);
     const amount = parseInt(input.value);
     
@@ -616,6 +657,8 @@ window.logPayment = function(id) {
         });
         
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        await syncDashboardToCloud(); // Save to Firebase
+        
         window.renderDashboard();
     }
 };
@@ -698,7 +741,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handle
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(() => {
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
             console.log('[PWA] Service Worker Registered.');
         });
     });
