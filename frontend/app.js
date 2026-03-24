@@ -80,6 +80,8 @@ onAuthStateChanged(auth, async (user) => {
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
         const drawerLogout = document.getElementById('drawer-logout-btn');
+        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
+        
         if (drawerUnauth) drawerUnauth.style.display = 'none';
         if (drawerAuth) {
             drawerAuth.style.display = 'flex';
@@ -87,6 +89,7 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('drawer-avatar').src = user.photoURL;
         }
         if (drawerLogout) drawerLogout.style.display = 'block';
+        if (drawerDashboard) drawerDashboard.style.display = 'block';
 
         const badge = document.getElementById('user-badge');
         if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
@@ -117,9 +120,12 @@ onAuthStateChanged(auth, async (user) => {
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
         const drawerLogout = document.getElementById('drawer-logout-btn');
+        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
+        
         if (drawerUnauth) drawerUnauth.style.display = 'block';
         if (drawerAuth) drawerAuth.style.display = 'none';
         if (drawerLogout) drawerLogout.style.display = 'none';
+        if (drawerDashboard) drawerDashboard.style.display = 'none';
 
         currentPlan = 'free';
         cycleStartDate = null;
@@ -213,7 +219,7 @@ function updateBadge() {
 
 function updateTabLocks() {
     const cnrLock = document.getElementById('cnr-lock');
-    const otherLocks = document.querySelectorAll('.tab:not(#tab-cnr) .lock-icon');
+    const otherLocks = document.querySelectorAll('.tab:not(#tab-cnr):not(#tab-lawyer):not(#tab-us-case) .lock-icon');
 
     if (currentPlan === 'supreme' || currentPlan === 'promax' || currentPlan === 'pro') {
         if (cnrLock) cnrLock.style.display = 'none';
@@ -221,7 +227,7 @@ function updateTabLocks() {
     } else {
         if (cnrLock) cnrLock.style.display = 'none';
         otherLocks.forEach(icon => icon.style.display = 'inline');
-        if (activeTab !== 'cnr' && activeTab !== 'us-case') window.switchTab('cnr');
+        if (activeTab !== 'cnr' && activeTab !== 'us-case' && activeTab !== 'lawyer') window.switchTab('cnr');
     }
 }
 
@@ -248,12 +254,12 @@ window.switchJurisdiction = function(country) {
 };
 
 window.switchTab = function(tab) {
-    if (!currentUser && tab !== 'cnr' && tab !== 'us-case') {
+    if (!currentUser && tab !== 'cnr' && tab !== 'us-case' && tab !== 'lawyer') {
         window.openModal();
         return;
     }
 
-    if (currentPlan === 'free' && tab !== 'cnr' && tab !== 'us-case') {
+    if (currentPlan === 'free' && tab !== 'cnr' && tab !== 'us-case' && tab !== 'lawyer') {
         window.openModal();
         return;
     }
@@ -278,6 +284,25 @@ window.toggleCnrMode = function() {
     const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
     document.getElementById('cnr-single-field').style.display = mode === 'single' ? 'block' : 'none';
     document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
+};
+
+// --- VIEW SWITCHING LOGIC (Search vs Dashboard) ---
+window.toggleView = function(viewName) {
+    const searchView = document.getElementById('view-search');
+    const dashboardView = document.getElementById('view-dashboard');
+    
+    if (viewName === 'dashboard') {
+        if (!currentUser) {
+            alert("Please sign in to access your Practice Dashboard.");
+            window.openModal();
+            return;
+        }
+        searchView.style.display = 'none';
+        dashboardView.style.display = 'block';
+    } else {
+        dashboardView.style.display = 'none';
+        searchView.style.display = 'block';
+    }
 };
 
 // --- MODALS & MENUS ---
@@ -461,8 +486,10 @@ window.handleSearch = async function() {
     let renderType = '';
 
     if (activeJurisdiction === 'usa' && activeTab === 'us-case') {
-        // Prevent API search since US feature is "Coming Soon"
         alert("US Case Law search is coming soon. Stay tuned!");
+        return;
+    } else if (activeTab === 'lawyer') {
+        alert("Data-Driven Lawyer Discovery is currently compiling local records and will be available soon.");
         return;
     } else if (activeTab === 'cnr') {
         const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
