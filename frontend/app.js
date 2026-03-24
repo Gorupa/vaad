@@ -2,7 +2,6 @@ window.onerror = function(msg, url, line) {
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
-// 1. ADDED updateDoc TO FIREBASE IMPORTS
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -30,8 +29,10 @@ let cycleStartDate = null;
 let activeTab = 'cnr';
 let activeJurisdiction = 'india';
 
-// Local storage array for dashboard data
+// Local storage array for dashboard data & DPDP Consent Status
 let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || []; 
+let userConsent = localStorage.getItem('vaad_dpdp_consent');
+let pendingSaveAction = null; // Holds the save function if interrupted by consent prompt
 
 const limits = {
     free: { search: 1, pdf: 0 },
@@ -71,7 +72,7 @@ document.addEventListener('click', async (e) => {
 
 // --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
-    if (!currentUser) return;
+    if (!currentUser || userConsent !== 'true') return; // Enforce DPDP consent requirement
     try {
         const userRef = doc(db, "users", currentUser.uid);
         await updateDoc(userRef, {
@@ -120,11 +121,10 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 cycleStartDate = userSnap.data().cycleStartDate || new Date().toISOString().split('T')[0];
                 
-                // ✨ FETCH DASHBOARD DATA FROM CLOUD
+                // FETCH DASHBOARD DATA FROM CLOUD
                 if (userSnap.data().practiceCases) {
                     practiceCases = userSnap.data().practiceCases;
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-                    console.log("[Cloud Sync] Dashboard loaded from Firestore.");
                 }
             } else {
                 const today = new Date().toISOString().split('T')[0];
@@ -134,7 +134,7 @@ onAuthStateChanged(auth, async (user) => {
                     plan: 'free', 
                     cycleStartDate: today, 
                     joinedAt: new Date().toISOString(),
-                    practiceCases: [] // Initialize empty array on cloud
+                    practiceCases: []
                 });
                 currentPlan = 'free';
                 cycleStartDate = today;
@@ -163,7 +163,7 @@ onAuthStateChanged(auth, async (user) => {
         currentPlan = 'free';
         cycleStartDate = null;
         
-        // ✨ CLEAR LOCAL DATA ON LOGOUT FOR PRIVACY
+        // CLEAR LOCAL DATA ON LOGOUT FOR PRIVACY
         practiceCases = [];
         localStorage.removeItem('vaad_dashboard_cases');
     }
@@ -334,6 +334,35 @@ window.openAddCaseModal = function() {
     m.classList.add('active'); m.style.display = ''; 
 };
 window.closeAddCaseModal = function() { document.getElementById('add-case-modal').classList.remove('active'); };
+
+// ✨ DPDP CONSENT MODAL LOGIC
+window.openConsentModal = function() {
+    const m = document.getElementById('consent-modal');
+    m.classList.add('active'); m.style.display = ''; 
+};
+window.closeConsentModal = function() { document.getElementById('consent-modal').classList.remove('active'); };
+
+window.acceptConsent = async function() {
+    localStorage.setItem('vaad_dpdp_consent', 'true');
+    userConsent = 'true';
+    window.closeConsentModal();
+    if (pendingSaveAction) { 
+        await pendingSaveAction(); 
+        pendingSaveAction = null; 
+    } else {
+        await syncDashboardToCloud();
+    }
+};
+
+window.declineConsent = async function() {
+    localStorage.setItem('vaad_dpdp_consent', 'false');
+    userConsent = 'false';
+    window.closeConsentModal();
+    if (pendingSaveAction) { 
+        await pendingSaveAction(); 
+        pendingSaveAction = null; 
+    }
+};
 
 window.openModal = function() { 
     const modal = document.getElementById('upgrade-modal');
@@ -610,7 +639,7 @@ function renderCaseDetail(payload) {
 }
 
 // ==========================================
-// ✨ DASHBOARD LOGIC 
+// ✨ DASHBOARD LOGIC (DPDP Integrated)
 // ==========================================
 window.saveTrackedCase = async function() {
     const cnr = document.getElementById('track-cnr').value.trim();
@@ -620,26 +649,37 @@ window.saveTrackedCase = async function() {
 
     if (!title) return alert("Case Title / Client Name is required.");
 
-    practiceCases.unshift({
-        id: Date.now(),
-        cnr: cnr,
-        title: title,
-        totalFee: total,
-        perHearing: perHearing,
-        collected: 0,
-        payments: []
-    });
+    const executeSave = async () => {
+        practiceCases.unshift({
+            id: Date.now(),
+            cnr: cnr,
+            title: title,
+            totalFee: total,
+            perHearing: perHearing,
+            collected: 0,
+            payments: []
+        });
 
-    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-    await syncDashboardToCloud(); // Save to Firebase
-    
-    document.getElementById('track-cnr').value = '';
-    document.getElementById('track-title').value = '';
-    document.getElementById('track-total').value = '';
-    document.getElementById('track-hearing').value = '';
-    
-    window.closeAddCaseModal();
-    window.toggleView('dashboard');
+        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        await syncDashboardToCloud(); 
+        
+        document.getElementById('track-cnr').value = '';
+        document.getElementById('track-title').value = '';
+        document.getElementById('track-total').value = '';
+        document.getElementById('track-hearing').value = '';
+        
+        window.closeAddCaseModal();
+        window.toggleView('dashboard');
+    };
+
+    // DPDP Check: If consent has never been asked, interrupt and ask.
+    if (userConsent === null && currentUser) {
+        pendingSaveAction = executeSave;
+        window.closeAddCaseModal(); // Close the first modal to avoid overlap
+        window.openConsentModal();
+    } else {
+        await executeSave(); // Just save normally if they already said yes/no
+    }
 };
 
 window.logPayment = async function(id) {
@@ -657,7 +697,7 @@ window.logPayment = async function(id) {
         });
         
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud(); // Save to Firebase
+        await syncDashboardToCloud(); 
         
         window.renderDashboard();
     }
@@ -741,7 +781,7 @@ document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handle
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then((reg) => {
+        navigator.serviceWorker.register('/sw.js').then(() => {
             console.log('[PWA] Service Worker Registered.');
         });
     });
