@@ -1,8 +1,0 @@
-[{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "dev.pages.vaad.twa",
-        "sha256_cert_fingerprints": ["F6:91:CC:62:92:C2:FC:DA:F4:F5:1A:EF:B3:AA:50:98:DA:5C:4B:39:76:36:DE:EC:68:F4:02:2C:AC:17:CD:40"]
-      }
-    }]
