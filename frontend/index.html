@@ -26,7 +26,7 @@
     </div>
     
     <div class="nav-right desktop-only" style="display: none !important;">
-        <span class="nav-badge">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a></span>
+        <span class="nav-badge">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a> & CourtListener</span>
         
         <button id="login-btn" class="btn-auth">Sign In</button>
 
@@ -81,35 +81,56 @@
 
 <div class="hero">
     <h1>Track court cases simply.</h1>
-    <p>Search Indian court cases instantly. Clean interface, official data.</p>
+    <p>Search Indian and US court cases instantly. Clean interface, official data.</p>
 </div>
 
 <div class="search-card">
     <div class="search-container">
+        
+        <div style="display: flex; justify-content: center; padding: 16px 0; border-bottom: 1px solid var(--border);">
+            <div class="jurisdiction-pill">
+                <input type="radio" id="toggle-india" name="jurisdiction" value="india" checked onchange="window.switchJurisdiction('india')">
+                <label for="toggle-india">🇮🇳 India</label>
+                
+                <input type="radio" id="toggle-usa" name="jurisdiction" value="usa" onchange="window.switchJurisdiction('usa')">
+                <label for="toggle-usa">🇺🇸 USA</label>
+            </div>
+        </div>
+
         <div class="tabs" style="flex-wrap: wrap; text-transform: uppercase; font-size: 0.75rem;">
-            <div class="tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon" id="list-lock1">🔒</span></div>
-            <div class="tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon" id="list-lock2">🔒</span></div>
-            <div class="tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon" id="list-lock3">🔒</span></div>
-            <div class="tab" id="tab-causelist" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List <span class="lock-icon" id="list-lock4">🔒</span></div>
-            <div class="tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock" style="display:none;">🔒</span></div>
+            <div class="tab indian-tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon" id="list-lock1">🔒</span></div>
+            <div class="tab indian-tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon" id="list-lock2">🔒</span></div>
+            <div class="tab indian-tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon" id="list-lock3">🔒</span></div>
+            <div class="tab indian-tab" id="tab-causelist" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List <span class="lock-icon" id="list-lock4">🔒</span></div>
+            <div class="tab indian-tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock" style="display:none;">🔒</span></div>
+            
+            <div class="tab us-tab" id="tab-us-case" data-tab="us-case" style="display: none;" onclick="window.switchTab('us-case')">US Case Law <span class="lock-icon">🔒</span></div>
         </div>
         
         <div class="search-form">
-            <div class="form-panel" id="panel-litigant" style="display: none;"><div class="field"><label class="field-label">Litigant / Party Name</label><input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off"></div></div>
-            <div class="form-panel" id="panel-advocate" style="display: none;"><div class="field"><label class="field-label">Advocate Name</label><input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off"></div></div>
-            <div class="form-panel" id="panel-judge" style="display: none;"><div class="field"><label class="field-label">Judge Name</label><input type="text" id="judge-input" placeholder="e.g. Smt. Anjali Desai" autocomplete="off"></div></div>
-            <div class="form-panel" id="panel-causelist" style="display: none;">
+            <div class="form-panel indian-panel" id="panel-litigant" style="display: none;"><div class="field"><label class="field-label">Litigant / Party Name</label><input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off"></div></div>
+            <div class="form-panel indian-panel" id="panel-advocate" style="display: none;"><div class="field"><label class="field-label">Advocate Name</label><input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off"></div></div>
+            <div class="form-panel indian-panel" id="panel-judge" style="display: none;"><div class="field"><label class="field-label">Judge Name</label><input type="text" id="judge-input" placeholder="e.g. Smt. Anjali Desai" autocomplete="off"></div></div>
+            <div class="form-panel indian-panel" id="panel-causelist" style="display: none;">
                 <div style="display: flex; gap: 12px; margin-bottom: 12px;"><div class="field" style="flex: 1; margin-bottom: 0;"><label class="field-label">State Code</label><input type="text" id="causelist-state" placeholder="e.g. RJ, MH, DL" maxlength="2" style="text-transform: uppercase;"></div></div>
                 <div class="field"><label class="field-label">Advocate or Party Name</label><input type="text" id="causelist-query" placeholder="e.g. Sharma"><div class="cnr-hint">Fetches today's live court schedule.</div></div>
             </div>
 
-            <div class="form-panel active" id="panel-cnr">
+            <div class="form-panel indian-panel active" id="panel-cnr">
                 <div style="display: flex; gap: 16px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 600;">
                     <label style="cursor: pointer;"><input type="radio" name="cnr-mode" value="single" checked onchange="window.toggleCnrMode()"> Single CNR</label>
                     <label style="cursor: pointer; color: var(--primary);"><input type="radio" name="cnr-mode" value="bulk" onchange="window.toggleCnrMode()"> Bulk Refresh (Pro)</label>
                 </div>
                 <div class="field" id="cnr-single-field"><label class="field-label">CNR Number</label><input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" maxlength="20"><div class="cnr-hint">16-character alphanumeric case number</div></div>
                 <div class="field" id="cnr-bulk-field" style="display: none;"><label class="field-label">Bulk CNRs (Max 50)</label><textarea id="cnr-bulk-input" rows="4" placeholder="Paste up to 50 CNRs here (one per line)..." style="width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: inherit; font-size: 0.95rem; background: var(--bg); color: var(--text-main); outline: none; resize: vertical;"></textarea><div class="cnr-hint">Paste each CNR on a new line to queue them for a bulk refresh.</div></div>
+            </div>
+
+            <div class="form-panel us-panel" id="panel-us-case" style="display: none;">
+                <div class="field">
+                    <label class="field-label">Search US Federal & State Courts</label>
+                    <input type="text" id="us-query-input" placeholder="e.g. copyright fair use, Roe v. Wade" autocomplete="off">
+                    <div class="cnr-hint">Powered by CourtListener API. Search millions of opinions.</div>
+                </div>
             </div>
 
             <button class="btn-search" id="search-btn" onclick="window.handleSearch()"><span id="btn-text">Search Cases</span></button>
@@ -123,26 +144,26 @@
 <div id="upgrade-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
         <button class="modal-close" onclick="window.closeModal()">×</button>
-        <div class="pricing-title" id="modal-title">Upgrade your Plan</div>
-        <div class="pricing-subtitle" id="modal-subtitle">Select a plan to unlock powerful AI and search tools.</div>
+        <div class="pricing-title" id="modal-title" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;">Upgrade your Plan</div>
+        <div class="pricing-subtitle" id="modal-subtitle" style="color: var(--text-muted); margin-bottom: 24px;">Select a plan to unlock powerful AI and search tools.</div>
         
-        <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')">
+        <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')" style="border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer;">
             <div style="font-weight: bold; color: var(--primary); font-size: 18px;">Pro Plan</div>
-            <div class="price-tag" style="margin: 5px 0; color: var(--text-main);">₹99<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;"><li>✓ 30 Searches</li><li>✓ Daily Cause List Search</li><li>✓ Bulk Case Refresh (Up to 50 CNRs)</li></ul>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.2rem; font-weight: bold;">₹99<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0;"><li>✓ 30 Searches</li><li>✓ Daily Cause List Search</li><li>✓ Bulk Case Refresh (Up to 50 CNRs)</li><li>✓ US Case Law Access</li></ul>
         </div>
-        <div id="promax-card" class="pricing-card" onclick="window.selectPlan('promax')">
+        <div id="promax-card" class="pricing-card" onclick="window.selectPlan('promax')" style="border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer;">
             <div style="color: #d4af37; font-weight: bold; font-size: 18px;">Pro Max</div>
-            <div class="price-tag" style="margin: 5px 0; color: var(--text-main);">₹199<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;"><li>✓ 100 Searches & Full Cause List</li><li>✓ Download Certified Watermarked PDFs</li><li>✓ Extract Order Markdown Text for Drafting</li></ul>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.2rem; font-weight: bold;">₹199<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0;"><li>✓ 100 Searches & Full Cause List</li><li>✓ Download Certified Watermarked PDFs</li><li>✓ Extract Order Markdown Text for Drafting</li></ul>
         </div>
-        <div id="supreme-card" class="pricing-card" onclick="window.selectPlan('supreme')" style="background: rgba(139, 92, 246, 0.05);">
+        <div id="supreme-card" class="pricing-card" onclick="window.selectPlan('supreme')" style="background: rgba(139, 92, 246, 0.05); border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-bottom: 16px; cursor: pointer;">
             <div style="color: #8b5cf6; font-weight: bold; font-size: 18px;">Supreme Plan</div>
-            <div class="price-tag" style="margin: 5px 0; color: var(--text-main);">₹399<span style="font-size: 14px; color: var(--text-muted);"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px;"><li>✓ 150 Searches & All Pro Max Features</li><li>✓ AI Judgment Analysis & Summaries</li><li>✓ Extract Legal Issues & Statutes Cited</li></ul>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.2rem; font-weight: bold;">₹399<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0;"><li>✓ 150 Searches & All Pro Max Features</li><li>✓ AI Judgment Analysis & Summaries</li><li>✓ Unlimited AI Legal Dictionary</li></ul>
         </div>
 
-        <div class="upi-box" style="border: 1px solid #8b5cf6; background: rgba(139, 92, 246, 0.05);">
+        <div class="upi-box" style="border: 1px solid #8b5cf6; background: rgba(139, 92, 246, 0.05); padding: 16px; border-radius: 8px;">
             <div class="upi-note" style="font-size: 0.9rem; margin-bottom: 12px; font-weight: 500; color: var(--text-main);">Instant account upgrade via secure gateway:</div>
             <div class="mobile-upi-btn" style="margin-top: 10px;"><a id="upi-btn-link" href="#" class="btn-primary-intent" style="display: block; text-align: center; background: #8b5cf6; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 600;">Select a plan above</a></div>
         </div>
@@ -154,7 +175,7 @@
         <button class="modal-close" onclick="window.closeDevModal()">×</button>
         <div style="font-size: 2.5rem; margin-bottom: 10px;">⚖️</div>
         <h2 style="margin-bottom: 8px; font-size: 1.5rem;">Vaad 2.0</h2>
-        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">The Modern Indian Legal Dashboard</p>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">The Modern Indian & US Legal Dashboard</p>
         
         <div style="background: var(--bg-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align: left; margin-bottom: 20px;">
             <p style="margin-bottom: 8px; font-size: 0.95rem;">Designed and Developed by:</p>
@@ -163,7 +184,7 @@
         </div>
         
         <p style="font-size: 0.8rem; color: var(--text-muted);">A product of <strong>Raghav Communication</strong>.</p>
-        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">Version 2.0 • Powered by eCourtsIndia API</p>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">Version 2.0 • Powered by eCourtsIndia & CourtListener API</p>
     </div>
 </div>
 
@@ -178,30 +199,26 @@
                 <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v2.0</span>
                 <span style="font-size: 0.8rem; color: var(--text-muted);">March 2026</span>
             </div>
-            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">The Mobile-First Overhaul</h3>
+            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">US Database & AI Dictionary</h3>
             <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                <li><strong>US Court Database:</strong> Added search for US Federal and State court opinions.</li>
+                <li><strong>AI Legal Assistant:</strong> Highlight or paste text to instantly translate legalese into plain English.</li>
                 <li><strong>Native App Feel:</strong> Brand new sliding side-menu and frosted glass UI.</li>
-                <li><strong>Transparent Pricing:</strong> Browse features and pricing without logging in.</li>
-                <li><strong>AI Legal Assistant:</strong> Added AI-generated judgment summaries & text extraction (Supreme Plan).</li>
-                <li><strong>Bulk Tracking:</strong> Queue up to 50 CNRs at once for instant refreshing.</li>
-                <li><strong>Trust Center:</strong> Added transparent developer profile and legal compliance pages.</li>
-            </ul>
-        </div>
-
-        <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-bottom: 16px; opacity: 0.7;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="background: var(--border); color: var(--text-muted); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v1.0</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Earlier</span>
-            </div>
-            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">Initial Launch</h3>
-            <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
-                <li>Live eCourts API integration for accurate Indian court data.</li>
-                <li>Daily Cause List generation.</li>
-                <li>Razorpay payment gateway integration.</li>
             </ul>
         </div>
     </div>
 </div>
+
+<div id="ai-sidebar" class="ai-sidebar">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">✨ AI Assistant</h3>
+        <button onclick="window.closeAI()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-main); padding: 0;">×</button>
+    </div>
+    <div id="ai-content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); overflow-y: auto; max-height: calc(100vh - 80px);">
+        <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Select any complex legal term or click "Explain" on a US case to get an instant, plain-English summary.</p>
+    </div>
+</div>
+<div id="ai-overlay" class="drawer-overlay" onclick="window.closeAI()"></div>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script type="module" src="app.js"></script>
