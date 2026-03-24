@@ -70,7 +70,6 @@ document.addEventListener('click', async (e) => {
 
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
-    
     const limitText = document.getElementById('limit-text');
     if (limitText) limitText.innerText = "Loading limits..."; 
 
@@ -112,12 +111,11 @@ onAuthStateChanged(auth, async (user) => {
                 cycleStartDate = today;
             }
         } catch (error) {
-            console.error("Firebase read error:", error);
             currentPlan = 'free';
             cycleStartDate = new Date().toISOString().split('T')[0];
         }
         
-        window.renderDashboard(); // Render dashboard once logged in
+        window.renderDashboard(); 
     } else {
         document.getElementById('login-btn').style.display = 'flex';
         document.getElementById('user-menu').style.display = 'none';
@@ -137,7 +135,6 @@ onAuthStateChanged(auth, async (user) => {
     }
     
     window.currentUserPlan = currentPlan; 
-    
     updateBadge();
     updateTabLocks();
     updateSearchLimitUI();
@@ -274,25 +271,35 @@ window.toggleView = function(viewName) {
     }
 };
 
-// --- PURE CSS CLASS MODALS (Fix for display bugs) ---
+// --- MODALS & MENUS ---
 window.toggleMenu = function() {
     document.getElementById('side-drawer').classList.toggle('open');
     document.getElementById('drawer-overlay').classList.toggle('open');
 };
 
-window.openDevModal = function() { document.getElementById('dev-modal').classList.add('active'); };
+window.openDevModal = function() { 
+    const m = document.getElementById('dev-modal');
+    m.classList.add('active'); m.style.display = ''; 
+};
 window.closeDevModal = function() { document.getElementById('dev-modal').classList.remove('active'); };
 
-window.openWhatsNewModal = function() { document.getElementById('whats-new-modal').classList.add('active'); };
+window.openWhatsNewModal = function() { 
+    const m = document.getElementById('whats-new-modal');
+    m.classList.add('active'); m.style.display = ''; 
+};
 window.closeWhatsNewModal = function() { document.getElementById('whats-new-modal').classList.remove('active'); };
 
-window.openAddCaseModal = function() { document.getElementById('add-case-modal').classList.add('active'); };
+window.openAddCaseModal = function() { 
+    const m = document.getElementById('add-case-modal');
+    m.classList.add('active'); m.style.display = ''; 
+};
 window.closeAddCaseModal = function() { document.getElementById('add-case-modal').classList.remove('active'); };
 
 window.openModal = function() { 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
-    
+    modal.style.display = ''; 
+
     if (!currentUser) {
         document.getElementById('pro-card').style.display = 'block';
         document.getElementById('promax-card').style.display = 'block';
@@ -310,6 +317,8 @@ window.openModal = function() {
     } else {
         document.getElementById('pro-card').style.display = (currentPlan === 'free') ? 'block' : 'none';
         document.getElementById('promax-card').style.display = (currentPlan === 'free' || currentPlan === 'pro') ? 'block' : 'none';
+        document.getElementById('supreme-card').style.display = 'block'; 
+
         if (currentPlan === 'free') window.selectPlan('pro');
         else if (currentPlan === 'pro') window.selectPlan('promax');
         else if (currentPlan === 'promax') window.selectPlan('supreme');
@@ -346,14 +355,11 @@ window.payWithRazorpay = function(planType, amountInINR) {
 };
 
 window.selectPlan = function(planType) {
-    document.getElementById('pro-card').style.border = '1px solid var(--border)';
-    document.getElementById('promax-card').style.border = '1px solid var(--border)';
-    document.getElementById('supreme-card').style.border = '1px solid var(--border)';
-
+    document.querySelectorAll('.pricing-card').forEach(c => c.style.border = '1px solid var(--border)');
     let amount = 99; let planName = "Pro";
-    if (planType === 'pro') { document.getElementById('pro-card').style.border = '2px solid var(--primary)'; amount = 99; planName = "Pro"; }
-    else if (planType === 'promax') { document.getElementById('promax-card').style.border = '2px solid #d4af37'; amount = 199; planName = "Pro Max"; }
-    else if (planType === 'supreme') { document.getElementById('supreme-card').style.border = '2px solid #8b5cf6'; amount = 399; planName = "Supreme"; }
+    if (planType === 'pro') { document.getElementById('pro-card').style.border = '2px solid var(--primary)'; amount = 99; }
+    else if (planType === 'promax') { document.getElementById('promax-card').style.border = '2px solid #d4af37'; amount = 199; }
+    else if (planType === 'supreme') { document.getElementById('supreme-card').style.border = '2px solid #8b5cf6'; amount = 399; }
 
     const upgradeBtn = document.getElementById('upi-btn-link');
     if (upgradeBtn) {
@@ -363,6 +369,74 @@ window.selectPlan = function(planType) {
     }
 };
 
+// ==========================================
+// ✨ UNIVERSAL SEARCH LOGIC
+// ==========================================
+window.openUniversalSearch = function() {
+    if (!currentUser) { alert("Please sign in to search your Practice Dashboard."); window.openModal(); return; }
+    const modal = document.getElementById('universal-search-modal');
+    modal.classList.add('active');
+    modal.style.display = ''; 
+    setTimeout(() => { document.getElementById('uni-search-input').focus(); }, 100);
+};
+
+window.closeUniversalSearch = function() {
+    document.getElementById('universal-search-modal').classList.remove('active');
+    document.getElementById('uni-search-input').value = '';
+    document.getElementById('uni-search-results').innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>';
+};
+
+window.runUniversalSearch = function() {
+    const query = document.getElementById('uni-search-input').value.toLowerCase().trim();
+    const resultsContainer = document.getElementById('uni-search-results');
+    
+    if (!query) {
+        resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>';
+        return;
+    }
+
+    const matches = practiceCases.filter(c => 
+        c.title.toLowerCase().includes(query) || 
+        (c.cnr && c.cnr.toLowerCase().includes(query)) ||
+        c.totalFee.toString().includes(query)
+    );
+
+    if (matches.length === 0) {
+        resultsContainer.innerHTML = `<div style="text-align: center; color: var(--warning-text); font-size: 0.9rem; padding: 20px; background: var(--warning-bg); border-radius: 8px;">No dashboard records found for "${query}"</div>`;
+        return;
+    }
+
+    let html = '';
+    matches.forEach(c => {
+        const remaining = Math.max(0, c.totalFee - c.collected);
+        html += `
+        <div onclick="window.goToDashboardCase(${c.id})" style="padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <div style="font-weight: 600; color: var(--primary);">${c.title}</div>
+                <div style="font-size: 0.75rem; font-weight: bold; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid'}</div>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">CNR: ${c.cnr || 'Manual Entry'} • Total: ₹${c.totalFee}</div>
+        </div>`;
+    });
+    resultsContainer.innerHTML = html;
+};
+
+window.goToDashboardCase = function(caseId) {
+    window.closeUniversalSearch();
+    window.toggleView('dashboard');
+    setTimeout(() => {
+        const caseElement = document.getElementById(`dashboard-case-${caseId}`);
+        if (caseElement) {
+            caseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            caseElement.style.boxShadow = '0 0 0 2px var(--primary)';
+            setTimeout(() => { caseElement.style.boxShadow = 'none'; }, 1500);
+        }
+    }, 100);
+};
+
+// ==========================================
+// API SEARCH LOGIC
+// ==========================================
 window.handleSearch = async function() {
     if (!currentUser) { signInWithPopup(auth, provider); return; }
 
@@ -387,13 +461,12 @@ window.handleSearch = async function() {
             if (!bulkText) return;
             const cnrs = bulkText.split('\n').map(c => c.trim()).filter(c => c.length > 5);
             if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
-            if (cnrs.length === 0) return alert("Please enter valid CNRs.");
             endpoint = `${API}/bulk-refresh`; bodyData = { cnrs: cnrs }; renderType = 'bulk';
         }
     } else if (activeTab === 'causelist') {
         const state = document.getElementById('causelist-state').value.trim().toUpperCase();
         const query = document.getElementById('causelist-query').value.trim();
-        if (!state || !query) return alert("Provide both State Code and Query.");
+        if (!state || !query) return alert("Provide State Code and Query.");
         endpoint = `${API}/causelist`; bodyData = { query: query, state: state, limit: 20 }; renderType = 'causelist';
     } else {
         let query = '';
@@ -424,7 +497,6 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
         if (renderType === 'cnr') renderCaseDetail(json.data);
         else if (renderType === 'list') renderCaseList(json.data);
         else if (renderType === 'causelist') {
-             // ... CAUSELIST RENDERING ...
              const resultsContainer = document.getElementById('results');
              let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><h3 style="margin-bottom: 15px;">Today's Cause List</h3>`;
              if (!json.data || !json.data.results || json.data.results.length === 0) {
@@ -494,12 +566,11 @@ function renderCaseDetail(payload) {
                💼 Add to My Dashboard
             </button>
         </div>`;
-
     document.getElementById('results').innerHTML = html;
 }
 
 // ==========================================
-// ✨ NEW: DASHBOARD LOGIC (Manual & Auto)
+// ✨ DASHBOARD LOGIC (Manual & Auto)
 // ==========================================
 window.saveTrackedCase = function() {
     const cnr = document.getElementById('track-cnr').value.trim();
@@ -509,7 +580,7 @@ window.saveTrackedCase = function() {
 
     if (!title) return alert("Case Title / Client Name is required.");
 
-    practiceCases.push({
+    practiceCases.unshift({
         id: Date.now(),
         cnr: cnr,
         title: title,
@@ -567,7 +638,6 @@ window.renderDashboard = function() {
         if (c.payments && c.payments.length > 0) {
             paymentsHtml = `<div style="font-size: 0.8rem; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
                 <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">Recent Payments</div>`;
-            // Show last 3 payments
             c.payments.slice(-3).forEach(p => {
                 paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 4px 0;">
                     <span>${p.date}</span><span style="color: var(--success-text); font-weight: 600;">+ ₹${p.amount}</span>
@@ -577,7 +647,7 @@ window.renderDashboard = function() {
         }
 
         html += `
-        <div style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; padding: 16px;">
+        <div id="dashboard-case-${c.id}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; padding: 16px; transition: box-shadow 0.3s ease;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
                 <div>
                     <div style="font-weight: 700; font-size: 1.05rem;">${c.title}</div>
@@ -624,21 +694,11 @@ window.closeAI = function() {
     document.getElementById('ai-overlay').style.display = 'none';
 };
 
-function showError(msg) {
-    const resultsContainer = document.getElementById('results');
-    if (resultsContainer) resultsContainer.innerHTML = `<div class="error-box"><span>⚠</span><span>${msg}</span></div>`;
-}
-
-window.clearResults = function() { 
-    const resultsContainer = document.getElementById('results');
-    if (resultsContainer) resultsContainer.innerHTML = ''; 
-};
-
 document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then((reg) => {
+        navigator.serviceWorker.register('/sw.js').then(() => {
             console.log('[PWA] Service Worker Registered.');
         });
     });
