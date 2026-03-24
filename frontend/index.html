@@ -61,7 +61,7 @@
     <div class="drawer-links" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto;">
         <div style="display: flex; flex-direction: column; gap: 16px;">
             <a href="#" id="drawer-dashboard-btn" onclick="window.toggleMenu(); window.toggleView('dashboard');" style="display:none; color: var(--primary); font-weight: 700; background: var(--primary-bg); padding: 10px; border-radius: 8px;">💼 Practice Dashboard</a>
-            <a href="#" onclick="window.toggleMenu(); window.toggleView('search');" style="color: var(--text-main); font-weight: 600;">🔍 Search Cases</a>
+            <a href="#" onclick="window.toggleMenu(); window.openUniversalSearch();" style="color: var(--text-main); font-weight: 600;">🔍 Universal Search</a>
             <a href="#" onclick="window.toggleMenu(); window.openWhatsNewModal();" style="color: var(--text-main); font-weight: 600;">✨ What's New</a>
             <a href="#" onclick="window.toggleMenu(); window.openModal();" style="color: var(--text-main); font-weight: 600;">⚡ Upgrade Plan</a>
             <a href="#" onclick="window.toggleMenu(); window.openDevModal();">👨‍💻 About Developer</a>
@@ -208,6 +208,19 @@
     </div>
 </div>
 
+<div id="universal-search-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 15vh;">
+    <div class="modal-box" style="padding: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+        <div style="display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <span style="font-size: 1.2rem;">🔍</span>
+            <input type="text" id="uni-search-input" placeholder="Search clients, CNRs, fees..." autocomplete="off" onkeyup="window.runUniversalSearch()" style="border: none; outline: none; width: 100%; font-size: 1.1rem; background: transparent; color: var(--text-main);">
+            <button onclick="window.closeUniversalSearch()" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">×</button>
+        </div>
+        <div id="uni-search-results" style="max-height: 50vh; overflow-y: auto;">
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>
+        </div>
+    </div>
+</div>
+
 <div id="upgrade-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
         <button class="modal-close" onclick="window.closeModal()">×</button>
@@ -270,41 +283,36 @@
                 <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v2.0.1</span>
                 <span style="font-size: 0.8rem; color: var(--text-muted);">March 2026</span>
             </div>
-            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">The Practice Dashboard</h3>
+            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">Dashboard & Universal Search</h3>
             <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
-                <li><strong>Fee Tracker:</strong> Manually track case fees, set per-hearing installments, and view outstanding balances.</li>
-                <li><strong>Automated Math:</strong> Automatically calculates total expected, collected, and pending dues across all your cases.</li>
+                <li><strong>Practice Dashboard:</strong> Track case fees, set per-hearing installments, and view outstanding balances.</li>
+                <li><strong>Universal Search:</strong> Instantly search through your saved clients, CNRs, and fee logs directly from the menu.</li>
                 <li><strong>Payment Logs:</strong> Keeps a timestamped history of recent payments for each case.</li>
             </ul>
         </div>
 
-        <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-bottom: 24px; opacity: 0.8;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="background: var(--border); color: var(--text-muted); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v2.0</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">March 2026</span>
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary">v2.0 - The Mobile-First Overhaul</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 16px; opacity: 0.8;">
+                <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                    <li><strong>Native App Feel:</strong> Brand new sliding side-menu and frosted glass UI.</li>
+                    <li><strong>Transparent Pricing:</strong> Browse features and pricing without logging in.</li>
+                    <li><strong>AI Legal Assistant:</strong> Added AI-generated judgment summaries & text extraction.</li>
+                    <li><strong>Bulk Tracking:</strong> Queue up to 50 CNRs at once for instant refreshing.</li>
+                </ul>
             </div>
-            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">The Mobile-First Overhaul</h3>
-            <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
-                <li><strong>Native App Feel:</strong> Brand new sliding side-menu and frosted glass UI.</li>
-                <li><strong>Transparent Pricing:</strong> Browse features and pricing without logging in.</li>
-                <li><strong>AI Legal Assistant:</strong> Added AI-generated judgment summaries & text extraction (Supreme Plan).</li>
-                <li><strong>Bulk Tracking:</strong> Queue up to 50 CNRs at once for instant refreshing.</li>
-                <li><strong>Trust Center:</strong> Added transparent developer profile and legal compliance pages.</li>
-            </ul>
-        </div>
+        </details>
 
-        <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-bottom: 16px; opacity: 0.6;">
-            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
-                <span style="background: var(--border); color: var(--text-muted); padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v1.0</span>
-                <span style="font-size: 0.8rem; color: var(--text-muted);">Earlier</span>
+        <details class="changelog-details">
+            <summary class="changelog-summary">v1.0 - Initial Launch</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; opacity: 0.6;">
+                <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                    <li>Live eCourts API integration for accurate Indian court data.</li>
+                    <li>Daily Cause List generation.</li>
+                    <li>Razorpay payment gateway integration.</li>
+                </ul>
             </div>
-            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">Initial Launch</h3>
-            <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
-                <li>Live eCourts API integration for accurate Indian court data.</li>
-                <li>Daily Cause List generation.</li>
-                <li>Razorpay payment gateway integration.</li>
-            </ul>
-        </div>
+        </details>
 
     </div>
 </div>
