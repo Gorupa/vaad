@@ -72,7 +72,7 @@ document.addEventListener('click', async (e) => {
 
 // --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
-    if (!currentUser || userConsent !== 'true') return; // Enforce DPDP consent requirement
+    if (!currentUser || userConsent !== 'true') return; // DPDP Compliance Lock
     try {
         const userRef = doc(db, "users", currentUser.uid);
         await updateDoc(userRef, {
@@ -125,6 +125,7 @@ onAuthStateChanged(auth, async (user) => {
                 if (userSnap.data().practiceCases) {
                     practiceCases = userSnap.data().practiceCases;
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+                    console.log("[Cloud Sync] Dashboard loaded from Firestore.");
                 }
             } else {
                 const today = new Date().toISOString().split('T')[0];
@@ -675,10 +676,10 @@ window.saveTrackedCase = async function() {
     // DPDP Check: If consent has never been asked, interrupt and ask.
     if (userConsent === null && currentUser) {
         pendingSaveAction = executeSave;
-        window.closeAddCaseModal(); // Close the first modal to avoid overlap
+        window.closeAddCaseModal(); 
         window.openConsentModal();
     } else {
-        await executeSave(); // Just save normally if they already said yes/no
+        await executeSave(); 
     }
 };
 
@@ -703,6 +704,31 @@ window.logPayment = async function(id) {
     }
 };
 
+window.deleteDashboardCase = async function(id) {
+    if (!confirm("Are you sure you want to permanently delete this case and its payment history?")) return;
+    
+    practiceCases = practiceCases.filter(c => c.id !== id);
+    
+    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+    await syncDashboardToCloud();
+    window.renderDashboard();
+};
+
+window.deletePaymentLog = async function(caseId, paymentIndex) {
+    if (!confirm("Delete this payment log?")) return;
+
+    const caseIndex = practiceCases.findIndex(c => c.id === caseId);
+    if (caseIndex > -1) {
+        const pAmount = practiceCases[caseIndex].payments[paymentIndex].amount;
+        practiceCases[caseIndex].collected -= pAmount; 
+        practiceCases[caseIndex].payments.splice(paymentIndex, 1);
+        
+        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        await syncDashboardToCloud();
+        window.renderDashboard();
+    }
+};
+
 window.renderDashboard = function() {
     let totalExpected = 0;
     let totalCollected = 0;
@@ -720,10 +746,16 @@ window.renderDashboard = function() {
         let paymentsHtml = '';
         if (c.payments && c.payments.length > 0) {
             paymentsHtml = `<div style="font-size: 0.8rem; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
-                <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">Recent Payments</div>`;
-            c.payments.slice(-3).forEach(p => {
-                paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 4px 0;">
-                    <span>${p.date}</span><span style="color: var(--success-text); font-weight: 600;">+ ₹${p.amount}</span>
+                <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">Payment History</div>`;
+            
+            const reversedPayments = c.payments.map((p, i) => ({...p, originalIndex: i})).reverse();
+            reversedPayments.forEach(p => {
+                paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 6px 0; align-items: center;">
+                    <span>${p.date}</span>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <span style="color: var(--success-text); font-weight: 600;">+ ₹${p.amount}</span>
+                        <button onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px;" title="Delete Payment">×</button>
+                    </div>
                 </div>`;
             });
             paymentsHtml += `</div>`;
@@ -731,14 +763,17 @@ window.renderDashboard = function() {
 
         html += `
         <div id="dashboard-case-${c.id}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; padding: 16px; transition: box-shadow 0.3s ease;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
                 <div>
                     <div style="font-weight: 700; font-size: 1.05rem;">${c.title}</div>
                     <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">CNR: ${c.cnr || 'Manual Entry'}</div>
                 </div>
                 <div style="text-align: right;">
-                    <div style="font-size: 0.8rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
-                        ${remaining > 0 ? `₹${remaining} Pending` : 'Paid in Full ✓'}
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px;">
+                        <div style="font-size: 0.8rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+                            ${remaining > 0 ? `₹${remaining} Pending` : 'Paid in Full ✓'}
+                        </div>
+                        <button onclick="window.deleteDashboardCase(${c.id})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 4px; transition: transform 0.1s;" title="Delete Case" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
                     </div>
                 </div>
             </div>
