@@ -185,8 +185,6 @@ onAuthStateChanged(auth, async (user) => {
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
         
-        // Removed direct references to old specific logout/dashboard buttons as they are now panel-specific
-
         if (drawerUnauth) drawerUnauth.style.display = 'none';
         if (drawerAuth) {
             drawerAuth.style.display = 'flex';
@@ -249,7 +247,7 @@ onAuthStateChanged(auth, async (user) => {
         if (drawerUnauth) drawerUnauth.style.display = 'block';
         if (drawerAuth) {
             drawerAuth.style.display = 'none';
-            // RESTORED: Hamburger visible on unauth drawer
+            // Hamburger visible on unauth drawer
             document.getElementById('menu-btn').style.display = 'block';
         }
 
@@ -397,13 +395,11 @@ window.toggleView = function(viewName) {
     }
 };
 
-// --- MODALS & MENUS TRIGGERING (Reverted Core logic + ✨ Panel sliding logic) ---
+// --- MODALS & MENUS TRIGGERING (Core logic + ✨ Panel logic) ---
 window.toggleMenu = function() {
-    // MODIFICATION: Reset drawer to Main Panel every time it closes, 
-    // ensuring user starts at Core features next time. optimized for low-resource.
+    // MODIFICATION: optimized close function ensures Main view on re-open
     const sideDrawer = document.getElementById('side-drawer');
     if (sideDrawer.classList.contains('open')) {
-        // optimized delay to reset after drawer slides shut
         setTimeout(() => window.switchDrawerPanels(false), 300); 
     }
 
@@ -411,8 +407,7 @@ window.toggleMenu = function() {
     document.getElementById('drawer-overlay').classList.toggle('open');
 };
 
-// ✨ NEW GLOBAL FUNCTION for Decluttered Drawer Navigation
-// Using simple class toggles on stacked absolute panels is highly optimized for performance.
+// ✨ GLOBAL Function for Decluttered Drawer Navigation (using optimized absolute sliding approach)
 window.switchDrawerPanels = function(toAccountPanel) {
     const mainNavPanel = document.getElementById('main-nav-panel');
     const accountNavPanel = document.getElementById('account-nav-panel');
@@ -420,11 +415,11 @@ window.switchDrawerPanels = function(toAccountPanel) {
     if (!mainNavPanel || !accountNavPanel) return;
 
     if (toAccountPanel) {
-        // Move from Main -> Account: Main shifts left (-100%), Account slides in from right (0%)
+        // Main -> Account flow: Main moves left off-screen, Account slides in from right
         mainNavPanel.classList.add('hidden');
         accountNavPanel.classList.add('active');
     } else {
-        // Move from Account -> Main: Main shifts back right (0%), Account slides back right (100%)
+        // Account -> Main flow: Main returns right, Account slides out right
         mainNavPanel.classList.remove('hidden');
         accountNavPanel.classList.remove('active');
     }
@@ -638,7 +633,7 @@ window.handleSearch = async function() {
     } else if (activeTab === 'lawyer') {
         alert("Data-Driven Lawyer Discovery compilation of records, available soon."); return;
     } else if (activeTab === 'cnr') {
-        const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
+        const mode = document.querySelector('input[name="cnr-mode"][value="single"]').checked = true;
         if (mode === 'single') {
             const query = document.getElementById('cnr-input').value.trim();
             if (!query) return;
@@ -892,7 +887,7 @@ window.renderDashboard = function() {
                             ${remaining > 0 ? `₹${remaining} Pending` : 'Paid ✓'}
                         </div>
                         <button onclick="window.deleteDashboardCase(${c.id})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 4px; transition: transform 0.1s;" title="Delete Case" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
-                    </div>
+                        </div>
                 </div>
             </div>
 
