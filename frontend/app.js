@@ -2,9 +2,8 @@ window.onerror = function(msg, url, line) {
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
-// ✨ MODIFIED: Swapped signInWithPopup for signInWithCredential and signInWithRedirect
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithCredential, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithCredential, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -22,16 +21,26 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// ✨ ADDED: Initialize Google Identity Services (Credential Manager API)
+// ✨ Catch the returning user from a redirect fallback
+getRedirectResult(auth).then((result) => {
+    if (result) {
+        console.log("[Auth] Successfully signed in via redirect fallback");
+    }
+}).catch((error) => {
+    console.error("Firebase Auth redirect failed:", error);
+    resetLoginButtons();
+});
+
+// Initialize Google Identity Services (Credential Manager API)
 window.onload = function () {
     google.accounts.id.initialize({
         client_id: "649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com", 
         callback: handleCredentialResponse,
-        use_fedcm_for_prompt: true // Forces the modern Credential Manager API
+        use_fedcm_for_prompt: true 
     });
 };
 
-// ✨ ADDED: Handle the token returned by Credential Manager
+// Handle the token returned by Credential Manager
 async function handleCredentialResponse(response) {
     try {
         const credential = GoogleAuthProvider.credential(response.credential);
@@ -58,13 +67,11 @@ let cycleStartDate = null;
 let activeTab = 'cnr';
 let activeJurisdiction = 'india';
 
-// ✨ ADDED: Local state for new Permission Layer (Default True)
 let syncPermission = true;
 
-// Local storage array for dashboard data & DPDP Consent Status
 let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || []; 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
-let pendingSaveAction = null; // Holds the save function if interrupted by consent prompt
+let pendingSaveAction = null; 
 
 const limits = {
     free: { search: 1, pdf: 0 },
@@ -73,7 +80,7 @@ const limits = {
     supreme: { search: 150, pdf: 30 }
 };
 
-// --- BUTTON BINDINGS (✨ MODIFIED for Credential Manager integration) ---
+// --- BUTTON BINDINGS ---
 document.addEventListener('click', async (e) => {
     const loginTarget = e.target.closest('#login-btn');
     const logoutTarget = e.target.closest('#logout-btn');
@@ -85,11 +92,21 @@ document.addEventListener('click', async (e) => {
         if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
         
         try {
+            // ✨ THE BYPASS: Clear Google's 'g_state' cooldown cookie
+            document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+
             // Trigger Credential Manager API native prompt
             google.accounts.id.prompt((notification) => {
-                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
-                    console.warn("Credential Manager UI blocked or skipped. Falling back to seamless redirect.");
-                    // Fallback: If device blocks the native prompt, use Firebase redirect
+                
+                // 1. User explicitly closed the popup (X button)
+                if (notification.isDismissedMoment() || notification.isSkippedMoment()) {
+                    console.log("User dismissed the prompt. Cancelling login.");
+                    resetLoginButtons(); // Reset UI, no redirect
+                } 
+                
+                // 2. Native UI actually blocked by browser (e.g., Safari/Firefox tracking prevention)
+                else if (notification.isNotDisplayed()) {
+                    console.warn("Native UI not supported here. Falling back to redirect.");
                     signInWithRedirect(auth, provider);
                 }
             });
@@ -108,14 +125,12 @@ document.addEventListener('click', async (e) => {
     }
 });
 
-// --- CLOUD SYNC HELPER (✨ MODIFIED for Permission Check) ---
+// --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
     if (!currentUser) return; 
     
-    // 1. DPDP Compliance Lock (Original onboarding)
     if (userConsent !== 'true') return; 
 
-    // 2. ✨ NEW: Permission Layer Lock (Drawer Toggle)
     if (!syncPermission) {
         console.warn("[Cloud Sync] Syn blocked by user permission setting.");
         return; 
@@ -132,7 +147,6 @@ async function syncDashboardToCloud() {
     }
 }
 
-// ✨ ADDED: Function to sync Permission UI with Firestore on login
 async function syncPermissionUI() {
     if (!currentUser) return;
     try {
@@ -140,9 +154,7 @@ async function syncPermissionUI() {
         if (userSnap.exists()) {
             const data = userSnap.data();
             if (data.permissions && data.permissions.cloudSync !== undefined) {
-                // Update local memory state
                 syncPermission = data.permissions.cloudSync;
-                // Update visual Toggle UI
                 const toggleEl = document.getElementById('syncPermissionToggle');
                 if (toggleEl) toggleEl.checked = syncPermission;
                 console.log(`[Permission Layer] Initialized UI from Firestore: ${syncPermission}`);
@@ -153,34 +165,30 @@ async function syncPermissionUI() {
     }
 }
 
-// ✨ ADDED: GLOBAL Function for Drawer Toggle Change
 window.toggleCloudSyncPermission = async function() {
     const toggleEl = document.getElementById('syncPermissionToggle');
-    const isChecked = toggleEl.checked; // state they just switched to
+    const isChecked = toggleEl.checked; 
     
     if (!currentUser) {
         alert("Please sign in to change permissions.");
-        toggleEl.checked = !isChecked; // revert visual
+        toggleEl.checked = !isChecked; 
         return;
     }
 
     try {
         const userRef = doc(db, 'users', currentUser.uid);
         
-        // 1. Save new permission state to Firestore immediately
         await setDoc(userRef, { 
             permissions: { cloudSync: isChecked } 
         }, { merge: true });
 
-        // Update local memory state
         syncPermission = isChecked;
 
-        // 2. Immediate action based on revocation
         if (!isChecked) {
             if(confirm("Cloud Sync Revoked. Data remains locally on this device until you log out, but new changes won't backup. Without backup, data is lost if you use a new device or clear cache.")) {
                 alert("Permission revoked successfully.");
             } else {
-                toggleEl.checked = true; // revert visual UI
+                toggleEl.checked = true; 
                 await setDoc(userRef, { permissions: { cloudSync: true } }, { merge: true });
                 syncPermission = true;
                 return;
