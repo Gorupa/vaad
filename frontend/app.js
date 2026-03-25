@@ -21,7 +21,7 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// ✨ ADDED: Memory state for Smart Fallback
+// ✨ Memory state for Smart Fallback
 let forcePopupLogin = localStorage.getItem('vaad_force_popup') === 'true';
 
 window.addEventListener('load', () => {
@@ -35,7 +35,7 @@ window.addEventListener('load', () => {
     } else {
         console.error("[Auth] Google API script not found.");
     }
-    updateAuthPermissionUI(); // Update UI on load
+    updateAuthPermissionUI(); 
 });
 
 async function handleCredentialResponse(response) {
@@ -94,42 +94,37 @@ document.addEventListener('click', async (e) => {
                 await signInWithPopup(auth, provider);
                 if (mobileLogin) window.toggleMenu();
             } catch (error) {
+                console.error("Popup login failed or cancelled:", error);
                 resetLoginButtons();
             }
-            return;
+            return; 
         }
 
         try {
             document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             
-            google.accounts.id.prompt(async (notification) => {
+            google.accounts.id.prompt((notification) => {
                 if (notification.isDismissedMoment() || notification.isSkippedMoment()) {
                     resetLoginButtons();
                 } 
                 else if (notification.isNotDisplayed()) {
-                    console.warn("[Auth] Native UI blocked. Saving preference and switching to Popup.");
+                    console.warn("[Auth] Native UI blocked. Saving preference.");
                     
                     // Remember the block so we don't try again
                     localStorage.setItem('vaad_force_popup', 'true');
                     forcePopupLogin = true;
                     updateAuthPermissionUI();
                     
-                    try {
-                        await signInWithPopup(auth, provider);
-                        if (mobileLogin) window.toggleMenu();
-                    } catch (popupError) {
-                        resetLoginButtons();
-                    }
+                    // Do not call signInWithPopup here to avoid popup blocker trap.
+                    resetLoginButtons();
+                    alert("Easy Sign-In is blocked by your device settings. We have switched you to Standard Login.\n\nPlease click 'Sign In' one more time.");
                 }
             });
             
         } catch (error) {
-            try {
-                await signInWithPopup(auth, provider);
-                if (mobileLogin) window.toggleMenu();
-            } catch (fallbackError) {
-                resetLoginButtons();
-            }
+            console.error("Native prompt threw an error:", error);
+            resetLoginButtons();
+            alert("Login initialization failed. Please try again.");
         }
     }
     
@@ -141,7 +136,7 @@ document.addEventListener('click', async (e) => {
     }
 });
 
-// ✨ ADDED: Updates the Easy Sign-In Permission UI
+// ✨ Updates the Easy Sign-In Permission UI
 window.updateAuthPermissionUI = function() {
     const statusEl = document.getElementById('auth-permission-status');
     const helpEl = document.getElementById('auth-permission-help');
@@ -160,7 +155,7 @@ window.updateAuthPermissionUI = function() {
     }
 };
 
-// ✨ ADDED: Resets the app's memory so it tries Native Login again
+// ✨ Resets the app's memory so it tries Native Login again
 window.resetAuthPermission = function() {
     localStorage.removeItem('vaad_force_popup');
     forcePopupLogin = false;
