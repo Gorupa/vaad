@@ -48,10 +48,25 @@
 <div id="drawer-overlay" class="drawer-overlay" onclick="window.toggleMenu()"></div>
 <div id="side-drawer" class="drawer">
     <div class="drawer-header">
+        
         <div id="drawer-unauth" style="display: block;">
-            <h3 style="margin-bottom: 8px;">Welcome to Vaad</h3>
-            <button id="drawer-login-btn" class="btn-auth" style="width: 100%; justify-content: center;">Sign In / Register</button>
+            <h3 style="margin-bottom: 16px;">Welcome to Vaad</h3>
+            
+            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
+                <input type="email" id="auth-email" placeholder="Email Address" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--bg); color: var(--text-main);">
+                <input type="password" id="auth-password" placeholder="Password (min 6 chars)" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--bg); color: var(--text-main);">
+                <button id="email-login-btn" class="btn-search" style="margin-top: 4px; padding: 10px; font-size: 0.9rem;">Sign In / Register</button>
+                <div id="auth-error" style="color: var(--error-text); font-size: 0.75rem; display: none; text-align: center;"></div>
+            </div>
+
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 16px;">— OR —</div>
+
+            <button id="drawer-login-btn" class="btn-auth" style="width: 100%; justify-content: center; background: white; border: 1px solid var(--border);">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px; margin-right: 8px;" alt="G">
+                Continue with Google
+            </button>
         </div>
+
         <div id="drawer-auth" style="display: none; align-items: center; gap: 12px;">
             <img id="drawer-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
             <div>
@@ -84,25 +99,6 @@
                         <input type="checkbox" id="syncPermissionToggle" onchange="window.toggleCloudSyncPermission()">
                         <span class="slider"></span>
                     </label>
-                </div>
-                
-                <div style="background: rgba(0,0,0,0.02); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;">
-                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.9rem;">Easy Sign-In</div>
-                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Native fast login prompt</div>
-                        </div>
-                        <div id="auth-permission-status" style="font-size: 0.75rem; font-weight: 600; text-align: right;">
-                            </div>
-                    </div>
-                    
-                    <div id="auth-permission-help" style="display: none; font-size: 0.7rem; color: var(--warning-text); background: var(--warning-bg); padding: 8px; border-radius: 6px; margin-bottom: 8px;">
-                        Device blocked this feature. To fix: App Info > Site Settings > Allow Third-party sign-in.
-                    </div>
-
-                    <button id="auth-permission-reset" onclick="window.resetAuthPermission()" class="btn-action" style="display: none; width: 100%; justify-content: center; background: white; font-size: 0.75rem;">
-                        I fixed my settings, Re-enable
-                    </button>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; opacity: 0.5;">
