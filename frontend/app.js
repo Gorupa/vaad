@@ -3,7 +3,7 @@ window.onerror = function(msg, url, line) {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -21,9 +21,6 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// ✨ Memory state for Smart Fallback
-let forcePopupLogin = localStorage.getItem('vaad_force_popup') === 'true';
-
 window.addEventListener('load', () => {
     if (typeof google !== 'undefined' && google.accounts) {
         google.accounts.id.initialize({
@@ -35,7 +32,6 @@ window.addEventListener('load', () => {
     } else {
         console.error("[Auth] Google API script not found.");
     }
-    updateAuthPermissionUI(); 
 });
 
 async function handleCredentialResponse(response) {
@@ -53,8 +49,13 @@ async function handleCredentialResponse(response) {
 function resetLoginButtons() {
     const loginTarget = document.getElementById('login-btn');
     const mobileLogin = document.getElementById('drawer-login-btn');
+    const emailLoginBtn = document.getElementById('email-login-btn');
     if (loginTarget) loginTarget.innerText = "Sign In";
-    if (mobileLogin) mobileLogin.innerText = "Sign In / Register";
+    if (mobileLogin) mobileLogin.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px; margin-right: 8px;" alt="G"> Continue with Google`;
+    if (emailLoginBtn) {
+        emailLoginBtn.innerText = "Sign In / Register";
+        emailLoginBtn.disabled = false;
+    }
 }
 
 const API = 'https://vaad-wnul.onrender.com/api';
@@ -82,49 +83,87 @@ document.addEventListener('click', async (e) => {
     const logoutTarget = e.target.closest('#logout-btn');
     const mobileLogin = e.target.closest('#drawer-login-btn');
     const mobileLogout = e.target.closest('#drawer-logout-btn');
+    const emailLoginBtn = e.target.closest('#email-login-btn');
+
+    // Email & Password Authentication
+    if (emailLoginBtn) {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const errorDiv = document.getElementById('auth-error');
+        
+        if (!email || !password) {
+            errorDiv.innerText = "Please enter both email and password.";
+            errorDiv.style.display = "block";
+            return;
+        }
+
+        emailLoginBtn.innerText = 'Connecting...';
+        emailLoginBtn.disabled = true;
+        errorDiv.style.display = "none";
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            window.toggleMenu();
+        } catch (error) {
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                try {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    window.toggleMenu();
+                } catch (registerError) {
+                    if (registerError.code === 'auth/email-already-in-use') {
+                        errorDiv.innerText = "Incorrect password.";
+                    } else {
+                        errorDiv.innerText = "Error: " + registerError.message.replace('Firebase: ', '');
+                    }
+                    errorDiv.style.display = "block";
+                    resetLoginButtons();
+                }
+            } else {
+                errorDiv.innerText = "Error: " + error.message.replace('Firebase: ', '');
+                errorDiv.style.display = "block";
+                resetLoginButtons();
+            }
+        }
+        return;
+    }
     
+    // Google Sign In Authentication
     if (loginTarget || mobileLogin) {
         if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
         if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
         
-        // ✨ SMART FALLBACK: Skip native attempt entirely if blocked previously
-        if (forcePopupLogin || typeof google === 'undefined' || !google.accounts) {
-            console.log("[Auth] Bypassing native prompt. Using Popup Fallback.");
-            try {
-                await signInWithPopup(auth, provider);
-                if (mobileLogin) window.toggleMenu();
-            } catch (error) {
-                console.error("Popup login failed or cancelled:", error);
-                resetLoginButtons();
-            }
-            return; 
-        }
-
         try {
             document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             
-            google.accounts.id.prompt((notification) => {
+            if (typeof google === 'undefined' || !google.accounts) {
+                await signInWithPopup(auth, provider);
+                if (mobileLogin) window.toggleMenu();
+                return;
+            }
+
+            google.accounts.id.prompt(async (notification) => {
                 if (notification.isDismissedMoment() || notification.isSkippedMoment()) {
                     resetLoginButtons();
                 } 
                 else if (notification.isNotDisplayed()) {
-                    console.warn("[Auth] Native UI blocked. Saving preference.");
-                    
-                    // Remember the block so we don't try again
-                    localStorage.setItem('vaad_force_popup', 'true');
-                    forcePopupLogin = true;
-                    updateAuthPermissionUI();
-                    
-                    // Do not call signInWithPopup here to avoid popup blocker trap.
-                    resetLoginButtons();
-                    alert("Easy Sign-In is blocked by your device settings. We have switched you to Standard Login.\n\nPlease click 'Sign In' one more time.");
+                    console.warn("[Auth] Native UI blocked. Switching to Popup Fallback.");
+                    try {
+                        await signInWithPopup(auth, provider);
+                        if (mobileLogin) window.toggleMenu();
+                    } catch (popupError) {
+                        resetLoginButtons();
+                    }
                 }
             });
             
         } catch (error) {
             console.error("Native prompt threw an error:", error);
-            resetLoginButtons();
-            alert("Login initialization failed. Please try again.");
+            try {
+                await signInWithPopup(auth, provider);
+                if (mobileLogin) window.toggleMenu();
+            } catch (fallbackError) {
+                resetLoginButtons();
+            }
         }
     }
     
@@ -135,33 +174,6 @@ document.addEventListener('click', async (e) => {
         });
     }
 });
-
-// ✨ Updates the Easy Sign-In Permission UI
-window.updateAuthPermissionUI = function() {
-    const statusEl = document.getElementById('auth-permission-status');
-    const helpEl = document.getElementById('auth-permission-help');
-    const resetBtn = document.getElementById('auth-permission-reset');
-    
-    if (!statusEl) return;
-
-    if (forcePopupLogin) {
-        statusEl.innerHTML = `<span style="color: var(--error-text);">Blocked by Device</span>`;
-        if (helpEl) helpEl.style.display = 'block';
-        if (resetBtn) resetBtn.style.display = 'flex';
-    } else {
-        statusEl.innerHTML = `<span style="color: var(--success-text);">Active & Enabled</span>`;
-        if (helpEl) helpEl.style.display = 'none';
-        if (resetBtn) resetBtn.style.display = 'none';
-    }
-};
-
-// ✨ Resets the app's memory so it tries Native Login again
-window.resetAuthPermission = function() {
-    localStorage.removeItem('vaad_force_popup');
-    forcePopupLogin = false;
-    updateAuthPermissionUI();
-    alert("Easy Sign-In reset! The app will try the faster login method next time you sign in.");
-};
 
 // --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
@@ -244,8 +256,8 @@ onAuthStateChanged(auth, async (user) => {
     if (user) {
         document.getElementById('login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
-        document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
-        document.getElementById('user-avatar').src = user.photoURL;
+        document.getElementById('user-name').innerText = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+        document.getElementById('user-avatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + (user.displayName || user.email) + '&background=random';
 
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
@@ -255,8 +267,8 @@ onAuthStateChanged(auth, async (user) => {
         if (drawerUnauth) drawerUnauth.style.display = 'none';
         if (drawerAuth) {
             drawerAuth.style.display = 'flex';
-            document.getElementById('drawer-name').innerText = user.displayName;
-            document.getElementById('drawer-avatar').src = user.photoURL;
+            document.getElementById('drawer-name').innerText = user.displayName || user.email.split('@')[0];
+            document.getElementById('drawer-avatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + (user.displayName || user.email) + '&background=random';
         }
         if (drawerLogout) drawerLogout.style.display = 'block';
         if (drawerDashboard) drawerDashboard.style.display = 'block';
@@ -275,7 +287,6 @@ onAuthStateChanged(auth, async (user) => {
                 cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
                 await syncPermissionUI();
-                updateAuthPermissionUI();
 
                 if (data.practiceCases) {
                     practiceCases = data.practiceCases;
@@ -285,7 +296,7 @@ onAuthStateChanged(auth, async (user) => {
             } else {
                 const today = new Date().toISOString().split('T')[0];
                 await setDoc(userRef, { 
-                    name: user.displayName, 
+                    name: user.displayName || user.email.split('@')[0], 
                     email: user.email, 
                     plan: 'free', 
                     cycleStartDate: today, 
