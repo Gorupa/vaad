@@ -75,10 +75,10 @@
             <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 8px;">
                 <h4 style="font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 12px;">Settings & Permissions</h4>
                 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                     <div style="flex: 1; padding-right: 10px;">
                         <div style="font-weight: 600; font-size: 0.9rem;">Cloud Sync</div>
-                        <div style="font-size: 0.75rem; color: var(--text-muted);">Securely backup ledger to Mumbai servers.</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Securely backup ledger to servers.</div>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="syncPermissionToggle" onchange="window.toggleCloudSyncPermission()">
@@ -86,6 +86,25 @@
                     </label>
                 </div>
                 
+                <div style="background: rgba(0,0,0,0.02); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 0.9rem;">Easy Sign-In</div>
+                            <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 2px;">Native fast login prompt</div>
+                        </div>
+                        <div id="auth-permission-status" style="font-size: 0.75rem; font-weight: 600; text-align: right;">
+                            </div>
+                    </div>
+                    
+                    <div id="auth-permission-help" style="display: none; font-size: 0.7rem; color: var(--warning-text); background: var(--warning-bg); padding: 8px; border-radius: 6px; margin-bottom: 8px;">
+                        Device blocked this feature. To fix: App Info > Site Settings > Allow Third-party sign-in.
+                    </div>
+
+                    <button id="auth-permission-reset" onclick="window.resetAuthPermission()" class="btn-action" style="display: none; width: 100%; justify-content: center; background: white; font-size: 0.75rem;">
+                        I fixed my settings, Re-enable
+                    </button>
+                </div>
+
                 <div style="display: flex; justify-content: space-between; align-items: center; opacity: 0.5;">
                     <div style="flex: 1; padding-right: 10px;">
                         <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-muted);">Notifications (Future)</div>
@@ -99,7 +118,7 @@
         </div>
         
         <div style="margin-top: auto; padding-top: 32px; padding-bottom: 16px;">
-            <a href="#" id="drawer-logout-btn" style="display: none; color: var(--error-text); border-top: 1px solid var(--border); padding-top: 166px; margin-bottom: 16px; font-weight: 600; text-decoration: none;">Log Out</a>
+            <a href="#" id="drawer-logout-btn" style="display: none; color: var(--error-text); border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px; font-weight: 600; text-decoration: none;">Log Out</a>
             
             <div style="border-top: 1px solid var(--border); padding-top: 16px; text-align: left; font-size: 0.7rem; color: var(--text-muted); line-height: 2;">
                 <div style="font-weight: 600;">🔒 256-bit SSL Secure</div>
