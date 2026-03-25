@@ -1,4 +1,4 @@
-window.onerror = function(msg, url, line) { 
+Window.onerror = function(msg, url, line) { 
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
@@ -29,8 +29,8 @@ let cycleStartDate = null;
 let activeTab = 'cnr';
 let activeJurisdiction = 'india';
 
-// Global state for permissions, initialized from defaults
-let permissions = { cloudSync: true };
+// ✨ ADDED: Local state for new Permission Layer (Default True)
+let syncPermission = true;
 
 // Local storage array for dashboard data & DPDP Consent Status
 let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || []; 
@@ -44,56 +44,46 @@ const limits = {
     supreme: { search: 150, pdf: 30 }
 };
 
-// --- BUTTON BINDINGS (Mainly handling auth) ---
+// --- BUTTON BINDINGS (Reverted to original IDs) ---
 document.addEventListener('click', async (e) => {
-    // Handling all possible login buttons including new drawer button
-    const authTargets = [e.target.closest('#drawer-login-btn')];
-    const logoutTargets = [e.target.closest('#drawer-logout-btn')];
+    const loginTarget = e.target.closest('#login-btn');
+    const logoutTarget = e.target.closest('#logout-btn');
+    const mobileLogin = e.target.closest('#drawer-login-btn');
+    const mobileLogout = e.target.closest('#drawer-logout-btn');
     
-    authTargets.forEach(target => {
-        if (target) {
-            target.innerHTML = '<span>Connecting with Google...</span>';
-            try {
-                signInWithPopup(auth, provider);
-                window.toggleMenu(); // Close drawer on success
-            } catch (error) {
-                console.error("Login failed or cancelled:", error);
-                target.innerText = "Sign In with Google";
-            }
+    if (loginTarget || mobileLogin) {
+        if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
+        if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
+        
+        try {
+            await signInWithPopup(auth, provider);
+            if (mobileLogin) window.toggleMenu();
+        } catch (error) {
+            console.error("Login failed or cancelled:", error);
+            if (loginTarget) loginTarget.innerText = "Sign In";
+            if (mobileLogin) mobileLogin.innerText = "Sign In / Register";
         }
-    });
-    
-    logoutTargets.forEach(target => {
-        if (target) {
-            window.toggleMenu(); // Close drawer on success
-            signOut(auth).then(() => {
-                window.location.reload(); 
-            });
-        }
-    });
-});
-
-// =============================================
-// ✨ NEW: Cloud Sync & Permission Management
-// =============================================
-
-// Function to track active cloud sync based on DPDP and permission layer
-async function syncDashboardToCloud() {
-    // 1. MUST have logged-in user
-    if (!currentUser) return; 
-    
-    // 2. DPDP Act Check (Original onboarding consent)
-    if (userConsent !== 'true') {
-        console.warn("[Cloud Sync] Locked. User has not given general DPDP Act consent.");
-        return; 
     }
     
-    // 3. New Permission Layer Check (Specific to Cloud Sync toggle)
-    if (!permissions.cloudSync) {
-        console.warn("[Cloud Sync] Locked. User has revoked Cloud Sync permission.");
-        // Clear local data if revocation means "delete from device too" (optional, but good practice)
-        // practiceCases = []; localStorage.removeItem('vaad_dashboard_cases');
-        return;
+    if (logoutTarget || mobileLogout) {
+        if (mobileLogout) window.toggleMenu();
+        signOut(auth).then(() => {
+            window.location.reload(); 
+        });
+    }
+});
+
+// --- CLOUD SYNC HELPER (✨ MODIFIED for Permission Check) ---
+async function syncDashboardToCloud() {
+    if (!currentUser) return; 
+    
+    // 1. DPDP Compliance Lock (Original onboarding)
+    if (userConsent !== 'true') return; 
+
+    // 2. ✨ NEW: Permission Layer Lock (Drawer Toggle)
+    if (!syncPermission) {
+        console.warn("[Cloud Sync] Syn blocked by user permission setting.");
+        return; 
     }
 
     try {
@@ -103,94 +93,96 @@ async function syncDashboardToCloud() {
         });
         console.log("[Cloud Sync] Dashboard saved to Firestore.");
     } catch (error) {
-        // If they revoked permission on another device, updateDoc will fail with a security rule error. 
-        // We should handle that by disabling sync locally.
+        // If security rules block it because permission was revoked on server, handle gracefully
         console.error("Error syncing dashboard to cloud:", error);
     }
 }
 
-// Function to update Toggle UI based on Firestore state on app start
-async function syncToggleUIWithFirestore() {
+// ✨ ADDED: Function to sync Permission UI with Firestore on login
+async function syncPermissionUI() {
     if (!currentUser) return;
     try {
         const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
         if (userSnap.exists()) {
             const data = userSnap.data();
-            // Sync local permission state from Firestore
             if (data.permissions && data.permissions.cloudSync !== undefined) {
-                permissions.cloudSync = data.permissions.cloudSync;
-                // Update CSS toggle switch in the UI
+                // Update local memory state
+                syncPermission = data.permissions.cloudSync;
+                // Update visual Toggle UI
                 const toggleEl = document.getElementById('syncPermissionToggle');
-                if (toggleEl) toggleEl.checked = permissions.cloudSync;
-                console.log(`[Permission Layer] Synced CloudSync from Firestore: ${permissions.cloudSync}`);
+                if (toggleEl) toggleEl.checked = syncPermission;
+                console.log(`[Permission Layer] Initialized UI from Firestore: ${syncPermission}`);
             }
         }
-    } catch (error) {
-        console.error("[Permission Layer] Error syncing UI with Firestore:", error);
+    } catch (e) {
+        console.error("Error syncing permission UI:", e);
     }
 }
 
-// Global function to handle the Permission toggle in settings UI
+// ✨ ADDED: GLOBAL Function for Drawer Toggle Change
 window.toggleCloudSyncPermission = async function() {
     const toggleEl = document.getElementById('syncPermissionToggle');
-    const isChecked = toggleEl.checked; // the state they are switching TO
+    const isChecked = toggleEl.checked; // state they just switched to
     
     if (!currentUser) {
-        alert("You must be logged in to change permissions.");
-        toggleEl.checked = !isChecked; // revert the visual state
+        alert("Please sign in to change permissions.");
+        toggleEl.checked = !isChecked; // revert visual
         return;
     }
 
     try {
         const userRef = doc(db, 'users', currentUser.uid);
         
-        // 1. Save the new permission choice in the 'permissions' object in Firestore
+        // 1. Save new permission state to Firestore immediately
+        // Uses standard format we discussed previously: { permissions: { cloudSync: boolean } }
         await setDoc(userRef, { 
             permissions: { cloudSync: isChecked } 
         }, { merge: true });
 
         // Update local memory state
-        permissions.cloudSync = isChecked;
+        syncPermission = isChecked;
 
-        // 2. Re-initialize Dashboard/Sync logic based on the new choice
+        // 2. Immediate action based on revocation
         if (!isChecked) {
             // THEY REVOKED SYNC
-            if(confirm("Cloud Sync Revoked. You will still have access to the Practice Dashboard locally on this device, but new changes will not be securely backed up to our servers. Your local data will remain until you log out.")) {
-                alert("Permission revoked. Remember, without cloud sync, you will lose data if you log out or clear browser cache.");
-                // We could also clear cloud data from server (optional premium feature)
+            if(confirm("Cloud Sync Revoked. Data remains locally on this device until you log out, but new changes won't backup. Without backup, data is lost if you use a new device or clear cache.")) {
+                alert("Permission revoked successfully.");
             } else {
-                toggleEl.checked = true; // revert UI
+                toggleEl.checked = true; // revert visual UI
+                // Re-enable in Firestore if they canceled
                 await setDoc(userRef, { permissions: { cloudSync: true } }, { merge: true });
-                permissions.cloudSync = true;
+                syncPermission = true;
                 return;
             }
         } else {
             // THEY ENABLED SYNC
-            alert("Secure Cloud Sync Enabled. Your Practice Dashboard is now backed up safely.");
-            await syncDashboardToCloud(); // Initiate an immediate sync
+            alert("Secure Cloud Sync Enabled.");
+            await syncDashboardToCloud(); // Immediate sync now allowed
         }
 
     } catch (error) {
         console.error("[Permission Layer] Error toggling permission:", error);
-        alert("Could not update permission. Please check internet connection.");
-        toggleEl.checked = !isChecked; // Revert toggle UI
+        alert("Network error. Check connection.");
+        toggleEl.checked = !isChecked; // Revert UI
     }
 };
 
-// ==========================================
-// 🛡️ AUTHENTICATION STATE HANDLING
-// ==========================================
 onAuthStateChanged(auth, async (user) => {
     currentUser = user;
     const limitText = document.getElementById('limit-text');
     if (limitText) limitText.innerText = "Loading limits..."; 
 
     if (user) {
-        // --- Populating Modern Clutter-Free Drawer ---
+        // Original IDs restored
+        document.getElementById('login-btn').style.display = 'none';
+        document.getElementById('user-menu').style.display = 'flex';
+        document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
+        document.getElementById('user-avatar').src = user.photoURL;
+
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
         const drawerLogout = document.getElementById('drawer-logout-btn');
-        const drawerUpgrade = document.getElementById('drawer-upgrade-btn');
+        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
         
         if (drawerUnauth) drawerUnauth.style.display = 'none';
         if (drawerAuth) {
@@ -199,12 +191,11 @@ onAuthStateChanged(auth, async (user) => {
             document.getElementById('drawer-avatar').src = user.photoURL;
         }
         if (drawerLogout) drawerLogout.style.display = 'block';
-        if (drawerUpgrade) drawerUpgrade.style.display = 'inline-flex';
+        if (drawerDashboard) drawerDashboard.style.display = 'block';
 
-        const badge = document.getElementById('drawer-badge');
+        const badge = document.getElementById('user-badge');
         if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
 
-        // Fetch user plan/limit data from Firestore
         try {
             const userRef = doc(db, "users", user.uid);
             const userSnap = await getDoc(userRef);
@@ -215,17 +206,17 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
-                // --- Sync Permission UI state from Firestore ---
-                await syncToggleUIWithFirestore();
+                // ✨ NEW: Initial Permission Check & UI Sync
+                await syncPermissionUI();
 
-                // --- FETCH DASHBOARD DATA FROM CLOUD (DPDP/Permission check inside helper) ---
+                // FETCH DASHBOARD DATA FROM CLOUD (If allowed by rules & permission layer)
                 if (data.practiceCases) {
                     practiceCases = data.practiceCases;
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
                     console.log("[Cloud Sync] Dashboard loaded from Firestore.");
                 }
             } else {
-                // Initial Firestore user creation if not exists
+                // New user init
                 const today = new Date().toISOString().split('T')[0];
                 await setDoc(userRef, { 
                     name: user.displayName, 
@@ -233,7 +224,9 @@ onAuthStateChanged(auth, async (user) => {
                     plan: 'free', 
                     cycleStartDate: today, 
                     joinedAt: new Date().toISOString(),
-                    practiceCases: []
+                    practiceCases: [],
+                    // NEW: Default permission true on init
+                    permissions: { cloudSync: true }
                 });
                 currentPlan = 'free';
                 cycleStartDate = today;
@@ -246,14 +239,22 @@ onAuthStateChanged(auth, async (user) => {
         
         window.renderDashboard(); 
     } else {
-        // --- Unauthenticated State handling ---
+        document.getElementById('login-btn').style.display = 'flex';
+        document.getElementById('user-menu').style.display = 'none';
+        
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
         const drawerLogout = document.getElementById('drawer-logout-btn');
+        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
         
         if (drawerUnauth) drawerUnauth.style.display = 'block';
-        if (drawerAuth) drawerAuth.style.display = 'none';
+        if (drawerAuth) {
+            drawerAuth.style.display = 'none';
+            // RESTORED: Hamburger visible on unauth drawer
+            document.getElementById('menu-btn').style.display = 'block';
+        }
         if (drawerLogout) drawerLogout.style.display = 'none';
+        if (drawerDashboard) drawerDashboard.style.display = 'none';
 
         currentPlan = 'free';
         cycleStartDate = null;
@@ -263,55 +264,12 @@ onAuthStateChanged(auth, async (user) => {
         localStorage.removeItem('vaad_dashboard_cases');
     }
     
+    window.currentUserPlan = currentPlan; 
     updateBadge();
     updateTabLocks();
     updateSearchLimitUI();
 });
 
-// =============================================
-// ✨ NEW: Modern Navigation Logic
-// =============================================
-
-// Universal Function to handle Tab switching in the glossy bottom nav
-window.showTab = function(tabId, el) {
-    // 1. Hide all main content views
-    document.querySelectorAll('.main-view').forEach(tab => {
-        tab.classList.remove('active-view');
-    });
-
-    // 2. Remove active class from all bottom nav items
-    document.querySelectorAll('.bottom-nav .nav-item').forEach(nav => {
-        nav.classList.remove('active');
-    });
-
-    // 3. Show selected view content and make the clicked nav item active
-    const targetView = document.getElementById(tabId);
-    if (targetView) targetView.classList.add('active-view');
-    if (el) el.classList.add('active');
-
-    // 4. Special Handling based on which tab is shown
-    if (tabId === 'view-dashboard') {
-        // Auth Check for My Practice tab
-        if (!currentUser) { 
-            // alert("Please sign in to access your Practice Dashboard."); window.openModal(); return; 
-            // Instead of alert/modal, the HTML should just show a "Sign In required" message in the dashboard area. I updated this in step 4 index.html.
-        } else {
-            window.renderDashboard(); // Re-render if switching TO it
-        }
-    } else if (tabId === 'view-ai') {
-        // Special check if AI assistant is stand-alone or paid tier (Optional logic here)
-    }
-    
-    // Close side drawer if it was open (from 'Menu' click)
-    document.getElementById('side-drawer').classList.remove('open');
-    document.getElementById('drawer-overlay').classList.remove('open');
-};
-
-// Obsolete toggleView and closeAI sidebar logic removed. Replaced by showTab and summarizeJudgmentWithAI helper.
-
-// ==========================================
-// FUP LIMITS & UI HELPERS
-// ==========================================
 function checkFUP(actionType) {
     if (!currentUser) return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: false, daysLeft: 0 };
     if (!currentPlan || !limits[currentPlan]) currentPlan = 'free';
@@ -341,48 +299,35 @@ function checkFUP(actionType) {
 }
 
 function updateBadge() {
-    const badge = document.getElementById('drawer-badge');
+    const badge = document.getElementById('user-badge');
+    const drawerBadge = document.getElementById('drawer-badge');
     if (!badge) return;
     const fup = checkFUP('search');
     
     if (fup.expired) {
         badge.innerText = "EXPIRED"; badge.style.background = "#ef4444"; badge.style.color = "white";
     } else if (currentPlan === 'supreme') {
-        badge.innerText = "SUPREME PLAN"; badge.style.background = "#8b5cf6"; badge.style.color = "white";
+        badge.innerText = "SUPREME"; badge.style.background = "#8b5cf6"; badge.style.color = "white";
     } else if (currentPlan === 'promax') {
-        badge.innerText = "PRO MAX PLAN"; badge.style.background = "#d4af37"; badge.style.color = "black";
+        badge.innerText = "PRO MAX"; badge.style.background = "#d4af37"; badge.style.color = "black";
     } else if (currentPlan === 'pro') {
-        badge.innerText = "PRO PLAN"; badge.style.background = "var(--primary)"; badge.style.color = "white";
+        badge.innerText = "PRO"; badge.style.background = "var(--primary)"; badge.style.color = "white";
     } else {
-        badge.innerText = "FREE PLAN"; badge.style.background = "var(--border)"; badge.style.color = "var(--text-muted)";
+        badge.innerText = "FREE"; badge.style.background = "var(--border)"; badge.style.color = "var(--text-muted)";
+    }
+
+    if (drawerBadge) {
+        drawerBadge.innerText = badge.innerText; drawerBadge.style.background = badge.style.background; drawerBadge.style.color = badge.style.color;
     }
 }
 
 function updateTabLocks() {
-    // Only locking advanced lists for free plan now. CNR and Lawyer stay free.
     const locks = document.querySelectorAll('.tab:not(#tab-cnr):not(#tab-lawyer):not(#tab-us-case) .lock-icon');
     if (currentPlan === 'supreme' || currentPlan === 'promax' || currentPlan === 'pro') {
         locks.forEach(icon => icon.style.display = 'none');
     } else {
         locks.forEach(icon => icon.style.display = 'inline');
         if (activeTab !== 'cnr' && activeTab !== 'us-case' && activeTab !== 'lawyer') window.switchTab('cnr');
-    }
-}
-
-function updateSearchLimitUI() {
-    const limitText = document.getElementById('limit-text');
-    if (!limitText) return;
-    if (!currentUser) { limitText.innerText = "Sign in with Google to get 1 free search"; return; }
-    const fup = checkFUP('search');
-    if (fup.expired) {
-        limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired</span>`;
-        return;
-    }
-    let daysText = currentPlan !== 'free' ? `(${fup.daysLeft} days left) • ` : '';
-    if (currentPlan === 'supreme') {
-        limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
-    } else {
-        limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">${currentPlan.toUpperCase()} ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
     }
 }
 
@@ -409,7 +354,6 @@ window.switchJurisdiction = function(country) {
 };
 
 window.switchTab = function(tab) {
-    // Lock advanced tabs even from non-logged users
     if (!currentUser && tab !== 'cnr' && tab !== 'us-case' && tab !== 'lawyer') {
         window.openModal(); return;
     }
@@ -437,35 +381,59 @@ window.toggleCnrMode = function() {
     document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
 };
 
-// --- MODALS & MENUS TRIGGERING ---
+// --- VIEW SWITCHING LOGIC (Untouched, old sliding menu restored) ---
+window.toggleView = function(viewName) {
+    const searchView = document.getElementById('view-search');
+    const dashboardView = document.getElementById('view-dashboard');
+    
+    if (viewName === 'dashboard') {
+        if (!currentUser) { alert("Please sign in access dashboard."); window.openModal(); return; }
+        searchView.style.display = 'none';
+        dashboardView.style.display = 'block';
+        //Hamburger stays visible
+        document.getElementById('menu-btn').style.display = 'block';
+        window.renderDashboard();
+    } else {
+        dashboardView.style.display = 'none';
+        searchView.style.display = 'block';
+        document.getElementById('menu-btn').style.display = 'block';
+    }
+};
+
+// --- MODALS & MENUS TRIGGERING (Reverted Core logic) ---
 window.toggleMenu = function() {
     document.getElementById('side-drawer').classList.toggle('open');
     document.getElementById('drawer-overlay').classList.toggle('open');
 };
 
 window.openDevModal = function() { 
-    const m = document.getElementById('dev-modal'); m.classList.add('active'); m.style.display = ''; 
+    const m = document.getElementById('dev-modal');
+    m.classList.add('active'); m.style.display = ''; 
 };
 window.closeDevModal = function() { document.getElementById('dev-modal').classList.remove('active'); };
 
 window.openWhatsNewModal = function() { 
-    const m = document.getElementById('whats-new-modal'); m.classList.add('active'); m.style.display = ''; 
+    const m = document.getElementById('whats-new-modal');
+    m.classList.add('active'); m.style.display = ''; 
 };
 window.closeWhatsNewModal = function() { document.getElementById('whats-new-modal').classList.remove('active'); };
 
 window.openFaqModal = function() { 
-    const m = document.getElementById('faq-modal'); m.classList.add('active'); m.style.display = ''; 
+    const m = document.getElementById('faq-modal');
+    m.classList.add('active'); m.style.display = ''; 
 };
 window.closeFaqModal = function() { document.getElementById('faq-modal').classList.remove('active'); };
 
 window.openAddCaseModal = function() { 
-    const m = document.getElementById('add-case-modal'); m.classList.add('active'); m.style.display = ''; 
+    const m = document.getElementById('add-case-modal');
+    m.classList.add('active'); m.style.display = ''; 
 };
 window.closeAddCaseModal = function() { document.getElementById('add-case-modal').classList.remove('active'); };
 
 // ✨ DPDP CONSENT MODAL LOGIC (Untouched, critical core)
 window.openConsentModal = function() {
-    const m = document.getElementById('consent-modal'); m.classList.add('active'); m.style.display = ''; 
+    const m = document.getElementById('consent-modal');
+    m.classList.add('active'); m.style.display = ''; 
 };
 window.closeConsentModal = function() { document.getElementById('consent-modal').classList.remove('active'); };
 
@@ -529,11 +497,22 @@ window.payWithRazorpay = function(planType, amountInINR) {
         alert("Please sign in to create your account before upgrading.");
         window.closeModal(); signInWithPopup(auth, provider); return;
     }
+
     const options = {
-        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", "amount": amountInINR * 100, "currency": "INR", "name": "Vaad", "description": `Upgrade to Vaad ${planType.toUpperCase()}`,
+        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", 
+        "amount": amountInINR * 100,
+        "currency": "INR",
+        "name": "Vaad",
+        "description": `Upgrade to Vaad ${planType.toUpperCase()}`,
         "image": "https://vaad.pages.dev/icon-192.png",
-        "handler": function (response) { const btn = document.getElementById('upi-btn-link'); if (btn) btn.innerText = "Payment Successful! Upgrading..."; setTimeout(() => window.location.reload(), 3000); },
-        "prefill": { "name": currentUser.displayName || "", "email": currentUser.email || "" }, "notes": { "userId": currentUser.uid, "planName": planType }, "theme": { "color": "#8b5cf6" }
+        "handler": function (response) {
+            const btn = document.getElementById('upi-btn-link');
+            if (btn) btn.innerText = "Payment Successful! Upgrading...";
+            setTimeout(() => window.location.reload(), 3000);
+        },
+        "prefill": { "name": currentUser.displayName || "", "email": currentUser.email || "" },
+        "notes": { "userId": currentUser.uid, "planName": planType },
+        "theme": { "color": "#8b5cf6" }
     };
     const rzp = new window.Razorpay(options);
     rzp.on('payment.failed', function (response){ alert(`Payment Failed: ${response.error.description}`); });
@@ -546,14 +525,21 @@ window.selectPlan = function(planType) {
     if (planType === 'pro') { document.getElementById('pro-card').style.border = '2px solid var(--primary)'; amount = 99; }
     else if (planType === 'promax') { document.getElementById('promax-card').style.border = '2px solid #d4af37'; amount = 199; }
     else if (planType === 'supreme') { document.getElementById('supreme-card').style.border = '2px solid #8b5cf6'; amount = 399; }
+
     const upgradeBtn = document.getElementById('upi-btn-link');
-    if (upgradeBtn) { upgradeBtn.removeAttribute('href'); upgradeBtn.innerText = `Pay ₹${amount} Securely`; upgradeBtn.onclick = (e) => { e.preventDefault(); upgradeBtn.innerText = "Opening Checkout..."; window.payWithRazorpay(planType, amount); }; }
+    if (upgradeBtn) {
+        upgradeBtn.removeAttribute('href'); 
+        upgradeBtn.innerText = `Pay ₹${amount} Securely`;
+        upgradeBtn.onclick = (e) => { e.preventDefault(); upgradeBtn.innerText = "Opening Checkout..."; window.payWithRazorpay(planType, amount); };
+    }
 };
 
-// ✨ UNIVERSAL SEARCH LOGIC (Preserved, connected to menu)
+// ✨ UNIVERSAL SEARCH LOGIC (Preserved, critical core)
 window.openUniversalSearch = function() {
-    if (!currentUser) { alert("Please sign in to search your Practice Dashboard."); window.openModal(); return; }
-    const modal = document.getElementById('universal-search-modal'); m.classList.add('active'); m.style.display = ''; 
+    if (!currentUser) { alert("Please sign in search your practice dashboard."); window.openModal(); return; }
+    const modal = document.getElementById('universal-search-modal');
+    modal.classList.add('active');
+    modal.style.display = ''; 
     setTimeout(() => { document.getElementById('uni-search-input').focus(); }, 100);
 };
 
@@ -566,14 +552,32 @@ window.closeUniversalSearch = function() {
 window.runUniversalSearch = function() {
     const query = document.getElementById('uni-search-input').value.toLowerCase().trim();
     const resultsContainer = document.getElementById('uni-search-results');
-    if (!query) { resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>'; return; }
-    const matches = practiceCases.filter(c => c.title.toLowerCase().includes(query) || (c.cnr && c.cnr.toLowerCase().includes(query)) || c.totalFee.toString().includes(query));
-    if (matches.length === 0) { resultsContainer.innerHTML = `<div style="text-align: center; color: var(--warning-text); font-size: 0.9rem; padding: 20px; background: var(--warning-bg); border-radius: 8px;">No dashboard records found for "${query}"</div>`; return; }
+    
+    if (!query) {
+        resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>';
+        return;
+    }
+
+    const matches = practiceCases.filter(c => 
+        c.title.toLowerCase().includes(query) || 
+        (c.cnr && c.cnr.toLowerCase().includes(query)) ||
+        c.totalFee.toString().includes(query)
+    );
+
+    if (matches.length === 0) {
+        resultsContainer.innerHTML = `<div style="text-align: center; color: var(--warning-text); font-size: 0.9rem; padding: 20px; background: var(--warning-bg); border-radius: 8px;">No dashboard records found for "${query}"</div>`;
+        return;
+    }
+
     let html = '';
     matches.forEach(c => {
         const remaining = Math.max(0, c.totalFee - c.collected);
-        html += `<div onclick="window.goToDashboardCase(${c.id})" style="padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; border-radius: 6px;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><div style="font-weight: 600; color: var(--primary);">${c.title}</div><div style="font-size: 0.75rem; font-weight: bold; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid'}</div></div>
+        html += `
+        <div onclick="window.goToDashboardCase(${c.id})" style="padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <div style="font-weight: 600; color: var(--primary);">${c.title}</div>
+                <div style="font-size: 0.75rem; font-weight: bold; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid'}</div>
+            </div>
             <div style="font-size: 0.8rem; color: var(--text-muted);">CNR: ${c.cnr || 'Manual Entry'} • Total: ₹${c.totalFee}</div>
         </div>`;
     });
@@ -582,8 +586,7 @@ window.runUniversalSearch = function() {
 
 window.goToDashboardCase = function(caseId) {
     window.closeUniversalSearch();
-    // Use the new showTab function to navigate to dashboard
-    window.showTab('view-dashboard', document.getElementById('nav-dashboard'));
+    window.toggleView('dashboard');
     setTimeout(() => {
         const caseElement = document.getElementById(`dashboard-case-${caseId}`);
         if (caseElement) {
@@ -599,19 +602,26 @@ window.goToDashboardCase = function(caseId) {
 // ==========================================
 window.handleSearch = async function() {
     if (!currentUser) { signInWithPopup(auth, provider); return; }
+
     const fup = checkFUP('search');
     if (fup.expired) { showError(`Your ${currentPlan.toUpperCase()} subscription expired.`); window.openModal(); return; }
     if (!fup.allowed) { if (currentPlan === 'free') window.openModal(); else showError(`FUP Limit Reached.`); return; }
+
     let endpoint = ''; let bodyData = {}; let renderType = '';
-    if (activeJurisdiction === 'usa' && activeTab === 'us-case') { alert("US Case Law search is coming soon. Stay tuned!"); return; } 
-    else if (activeTab === 'lawyer') { alert("Data-Driven Lawyer Discovery is compilation of records and available soon."); return; } 
-    else if (activeTab === 'cnr') {
+
+    if (activeJurisdiction === 'usa' && activeTab === 'us-case') {
+        alert("US Case Law search is coming soon. Stay tuned!"); return;
+    } else if (activeTab === 'lawyer') {
+        alert("Data-Driven Lawyer Discovery compilation of records, available soon."); return;
+    } else if (activeTab === 'cnr') {
         const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
         if (mode === 'single') {
-            const query = document.getElementById('cnr-input').value.trim(); if (!query) return;
+            const query = document.getElementById('cnr-input').value.trim();
+            if (!query) return;
             endpoint = `${API}/cnr`; bodyData = { cnr: query }; renderType = 'cnr';
         } else {
-            const bulkText = document.getElementById('cnr-bulk-input').value.trim(); if (!bulkText) return;
+            const bulkText = document.getElementById('cnr-bulk-input').value.trim();
+            if (!bulkText) return;
             const cnrs = bulkText.split('\n').map(c => c.trim()).filter(c => c.length > 5);
             if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
             endpoint = `${API}/bulk-refresh`; bodyData = { cnrs: cnrs }; renderType = 'bulk';
@@ -626,44 +636,81 @@ window.handleSearch = async function() {
         if (activeTab === 'litigant') query = document.getElementById('litigant-input').value.trim();
         if (activeTab === 'advocate') query = document.getElementById('advocate-input').value.trim();
         if (activeTab === 'judge') query = document.getElementById('judge-input').value.trim();
-        if (!query) return; endpoint = `${API}/search`; bodyData = { query: query, type: activeTab }; renderType = 'list';
+        if (!query) return;
+        endpoint = `${API}/search`; bodyData = { query: query, type: activeTab }; renderType = 'list';
     }
+
     await performSearch(endpoint, bodyData, fup.storageKey, renderType);
 };
 
-// SEARCH PERFORM HELPER (Preserved)
+// SEARCH PERFORM HELPER (Preserved Core)
 async function performSearch(endpoint, bodyData, storageKey, renderType) {
     setLoading(true); window.clearResults();
     try {
         const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
         const json = await res.json();
-        if (!res.ok || !json.success) return showError(json.error || 'The official API failed to fetch records.');
+        
+        if (!res.ok || !json.success) return showError(json.error || 'The official API failed fetch records.');
+
         if (currentUser) {
             let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
-            localStorage.setItem(storageKey, currentCount + 1); updateSearchLimitUI();
+            localStorage.setItem(storageKey, currentCount + 1);
+            updateSearchLimitUI();
         }
+
         if (renderType === 'cnr') renderCaseDetail(json.data);
         else if (renderType === 'list') renderCaseList(json.data);
         else if (renderType === 'causelist') {
              const resultsContainer = document.getElementById('results');
              let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><h3 style="margin-bottom: 15px;">Today's Cause List</h3>`;
-             if (!json.data || !json.data.results || json.data.results.length === 0) { html += `<div>No cases listed today.</div>`; } 
-             else { json.data.results.forEach(c => { html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 2px 6px; border-radius: 4px;">Room: ${c.courtNo || '—'}</span></div></div>`; }); }
+             if (!json.data || !json.data.results || json.data.results.length === 0) {
+                 html += `<div>No cases listed today.</div>`;
+             } else {
+                 json.data.results.forEach(c => {
+                     html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 2px 6px; border-radius: 4px;">Room: ${c.courtNo || '—'}</span></div></div>`;
+                 });
+             }
              resultsContainer.innerHTML = html;
         }
-        else if (renderType === 'bulk') { document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 8px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs are queued for a fresh scrape. Search them individually in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`; }
+        else if (renderType === 'bulk') {
+             document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 8px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs queued fresh scrape. individually in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`;
+        }
     } catch (e) { showError(`Network Error: ${e.message}`); } finally { setLoading(false); }
 }
 
+function updateSearchLimitUI() {
+    const limitText = document.getElementById('limit-text');
+    const upgradeBtn = document.getElementById('nav-upgrade-btn');
+    if (!currentUser) { if (limitText) limitText.innerText = "Sign in Google get 1 free search"; if (upgradeBtn) upgradeBtn.style.display = 'none'; return; }
+    const fup = checkFUP('search');
+    if (fup.expired) {
+        if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired</span>`;
+        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+        return;
+    }
+    let daysText = currentPlan !== 'free' ? `(${fup.daysLeft} days left) • ` : '';
+    if (currentPlan === 'supreme') {
+        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
+        if (upgradeBtn) upgradeBtn.style.display = 'none'; 
+    } else {
+        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">${currentPlan.toUpperCase()} ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
+        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
+    }
+}
+
 function setLoading(on) {
-    const btn = document.getElementById('search-btn'); if (!btn) return; btn.disabled = on;
+    const btn = document.getElementById('search-btn');
+    if (!btn) return;
+    btn.disabled = on;
     btn.innerHTML = on ? '<div class="spinner"></div><span>Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
 }
 
 function renderCaseList(resultsArray) {
     if (!resultsArray || resultsArray.length === 0) return showError('No cases found.'); 
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main);">Found ${resultsArray.length} cases:</div>`;
-    resultsArray.forEach(data => { html += `<div style="background: var(--bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="padding-right: 15px;"><div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div><div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${data.cnr || '—'}</div></div><div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div></div></div>`; });
+    resultsArray.forEach(data => {
+        html += `<div style="background: var(--bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="padding-right: 15px;"><div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div><div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${data.cnr || '—'}</div></div><div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div></div></div>`;
+    });
     document.getElementById('results').innerHTML = html;
 }
 
@@ -679,10 +726,7 @@ function renderCaseDetail(payload) {
                 <div><div style="font-size: 12px; color: var(--text-muted);">Court</div><div style="font-weight: 500;">${data.courtName}</div></div>
             </div>
             
-            <button class="btn-action btn-ai" onclick="window.summarizeJudgmentWithAI('${data.cnr}')" style="margin-top: 16px; width: 100%; justify-content: center; gap: 8px;">
-               ✨ Summarize Order with AI
-            </button>
-            <button class="btn-action" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 10px; width: 100%; justify-content: center;">
+            <button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 16px; width: 100%; justify-content: center;">
                💼 Add to My Practice Ledger
             </button>
         </div>`;
@@ -697,128 +741,173 @@ window.saveTrackedCase = async function() {
     const title = document.getElementById('track-title').value.trim();
     const total = parseInt(document.getElementById('track-total').value) || 0;
     const perHearing = parseInt(document.getElementById('track-hearing').value) || 0;
-    if (!title) return alert("Case Title / Client Name is required.");
+
+    if (!title) return alert("Case Title / Client Name required.");
 
     const executeSave = async () => {
-        practiceCases.unshift({ id: Date.now(), cnr: cnr, title: title, totalFee: total, perHearing: perHearing, collected: 0, payments: [] });
+        practiceCases.unshift({
+            id: Date.now(),
+            cnr: cnr,
+            title: title,
+            totalFee: total,
+            perHearing: perHearing,
+            collected: 0,
+            payments: []
+        });
+
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        // SAVE TO CLOUD (Helper performs DPDP/Permission checks)
         await syncDashboardToCloud(); 
         
-        document.getElementById('track-cnr').value = ''; document.getElementById('track-title').value = ''; document.getElementById('track-total').value = ''; document.getElementById('track-hearing').value = '';
+        document.getElementById('track-cnr').value = '';
+        document.getElementById('track-title').value = '';
+        document.getElementById('track-total').value = '';
+        document.getElementById('track-hearing').value = '';
+        
         window.closeAddCaseModal();
-        // Use modern navigation helper
-        window.showTab('view-dashboard', document.getElementById('nav-dashboard'));
+        window.toggleView('dashboard');
     };
 
     // DPDP Check: If consent has never been asked, interrupt and ask.
-    if (userConsent === null && currentUser) { pendingSaveAction = executeSave; window.closeAddCaseModal(); window.openConsentModal(); } 
-    else { await executeSave(); }
+    if (userConsent === null && currentUser) {
+        pendingSaveAction = executeSave;
+        window.closeAddCaseModal(); 
+        window.openConsentModal();
+    } else {
+        await executeSave(); 
+    }
 };
 
 window.logPayment = async function(id) {
     const input = document.getElementById('pay-input-' + id);
     const amount = parseInt(input.value);
+    
     if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+
     const caseIndex = practiceCases.findIndex(c => c.id === id);
     if (caseIndex > -1) {
         practiceCases[caseIndex].collected += amount;
-        practiceCases[caseIndex].payments.push({ date: new Date().toLocaleDateString('en-GB'), amount: amount });
+        practiceCases[caseIndex].payments.push({
+            date: new Date().toLocaleDateString('en-GB'),
+            amount: amount
+        });
+        
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
         await syncDashboardToCloud(); 
+        
         window.renderDashboard();
     }
 };
 
 window.deleteDashboardCase = async function(id) {
-    if (!confirm("Are you sure permanently delete this case? payment history lost.")) return;
+    if (!confirm("Are permanently delete this case? payment history lost.")) return;
+    
     practiceCases = practiceCases.filter(c => c.id !== id);
+    
     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-    await syncDashboardToCloud(); window.renderDashboard();
+    await syncDashboardToCloud();
+    window.renderDashboard();
 };
 
 window.deletePaymentLog = async function(caseId, paymentIndex) {
-    if (!confirm("Delete this payment log?")) return;
+    if (!confirm("Delete payment log?")) return;
+
     const caseIndex = practiceCases.findIndex(c => c.id === caseId);
     if (caseIndex > -1) {
-        practiceCases[caseIndex].collected -= practiceCases[caseIndex].payments[paymentIndex].amount; 
+        const pAmount = practiceCases[caseIndex].payments[paymentIndex].amount;
+        practiceCases[caseIndex].collected -= pAmount; 
         practiceCases[caseIndex].payments.splice(paymentIndex, 1);
+        
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud(); window.renderDashboard();
+        await syncDashboardToCloud();
+        window.renderDashboard();
     }
 };
 
-function renderDashboard() {
-    let totalExpected = 0; let totalCollected = 0; let html = '';
-    if (practiceCases.length === 0) { html = `<div style="text-align:center; padding: 40px 20px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 8px;">No cases tracked yet. ledger empty.</div>`; }
+window.renderDashboard = function() {
+    let totalExpected = 0;
+    let totalCollected = 0;
+    let html = '';
+
+    if (practiceCases.length === 0) {
+        html = `<div style="text-align:center; padding: 40px 20px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 8px;">No cases tracked ledger empty.</div>`;
+    }
+
     practiceCases.forEach(c => {
-        totalExpected += c.totalFee; totalCollected += c.collected; const remaining = Math.max(0, c.totalFee - c.collected);
+        totalExpected += c.totalFee;
+        totalCollected += c.collected;
+        const remaining = Math.max(0, c.totalFee - c.collected);
+        
         let paymentsHtml = '';
         if (c.payments && c.payments.length > 0) {
-            paymentsHtml = `<div style="font-size: 0.8rem; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;"><div style="font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">Payment History</div>`;
+            paymentsHtml = `<div style="font-size: 0.8rem; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
+                <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">Payment History</div>`;
+            
             const reversedPayments = c.payments.map((p, i) => ({...p, originalIndex: i})).reverse();
-            reversedPayments.forEach(p => { paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 6px 0; align-items: center;"><span>${p.date}</span><div style="display: flex; gap: 12px; align-items: center;"><span style="color: var(--success-text); font-weight: 600;">+ ₹${p.amount}</span><button onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px;" title="Delete Payment">×</button></div></div>`; });
+            reversedPayments.forEach(p => {
+                paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 6px 0; align-items: center;">
+                    <span>${p.date}</span>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <span style="color: var(--success-text); font-weight: 600;">+ ₹${p.amount}</span>
+                        <button onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px;" title="Delete Payment">×</button>
+                    </div>
+                </div>`;
+            });
             paymentsHtml += `</div>`;
         }
-        html += `<div id="dashboard-case-${c.id}" class="case-card">
+
+        html += `
+        <div id="dashboard-case-${c.id}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; padding: 16px; transition: box-shadow 0.3s ease;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
-                <div><div style="font-weight: 700; font-size: 1.05rem;">${c.title}</div><div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">CNR: ${c.cnr || 'Manual Entry'}</div></div>
-                <div style="text-align: right;"><div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px;"><div style="font-size: 0.8rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">${remaining > 0 ? `₹${remaining} Pending` : 'Paid ✓'}</div><button onclick="window.deleteDashboardCase(${c.id})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 4px; transition: transform 0.1s;" title="Delete Case" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🗑️</button></div></div>
+                <div>
+                    <div style="font-weight: 700; font-size: 1.05rem;">${c.title}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">CNR: ${c.cnr || 'Manual Entry'}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px;">
+                        <div style="font-size: 0.8rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+                            ${remaining > 0 ? `₹${remaining} Pending` : 'Paid ✓'}
+                        </div>
+                        <button onclick="window.deleteDashboardCase(${c.id})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 4px; transition: transform 0.1s;" title="Delete Case" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
+                    </div>
+                </div>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: var(--bg-alt); padding: 12px; border-radius: 6px; margin-bottom: 12px; text-align: center;"><div><div style="font-size: 0.7rem; color: var(--text-muted);">Total Fee</div><div style="font-weight: 600;">₹${c.totalFee}</div></div><div><div style="font-size: 0.7rem; color: var(--text-muted);">Per Hearing</div><div style="font-weight: 600;">₹${c.perHearing}</div></div><div><div style="font-size: 0.7rem; color: var(--text-muted);">Collected</div><div style="font-weight: 600; color: var(--success-text);">₹${c.collected}</div></div></div>
-            <div style="display: flex; gap: 8px;"><input type="number" id="pay-input-${c.id}" placeholder="${c.perHearing > 0 ? '₹' + c.perHearing : '₹ Amount'}" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" ${remaining === 0 ? 'disabled' : ''}><button class="btn-action" onclick="window.logPayment(${c.id})" style="background: var(--success-bg); color: var(--success-text); border-color: #a7f3d0; padding: 8px 16px;" ${remaining === 0 ? 'disabled' : ''}>Log Payment</button></div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: var(--bg-alt); padding: 12px; border-radius: 6px; margin-bottom: 12px; text-align: center;">
+                <div><div style="font-size: 0.7rem; color: var(--text-muted);">Total Fee</div><div style="font-weight: 600;">₹${c.totalFee}</div></div>
+                <div><div style="font-size: 0.7rem; color: var(--text-muted);">Per Hearing</div><div style="font-weight: 600;">₹${c.perHearing}</div></div>
+                <div><div style="font-size: 0.7rem; color: var(--text-muted);">Collected</div><div style="font-weight: 600; color: var(--success-text);">₹${c.collected}</div></div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+                <input type="number" id="pay-input-${c.id}" placeholder="${c.perHearing > 0 ? '₹' + c.perHearing : '₹ Amount'}" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" ${remaining === 0 ? 'disabled' : ''}>
+                <button class="btn-action" onclick="window.logPayment(${c.id})" style="background: var(--success-bg); color: var(--success-text); border-color: #a7f3d0; padding: 8px 16px;" ${remaining === 0 ? 'disabled' : ''}>Log Payment</button>
+            </div>
+            
             ${paymentsHtml}
         </div>`;
     });
-    const casesContainer = document.getElementById('dashboard-cases'); if (casesContainer) casesContainer.innerHTML = html;
-    const expEl = document.getElementById('stat-expected'); if(expEl) expEl.innerText = `₹${totalExpected}`;
-    const colEl = document.getElementById('stat-collected'); if(colEl) colEl.innerText = `₹${totalCollected}`;
-    const penEl = document.getElementById('stat-pending'); if(penEl) penEl.innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
-}
 
-// ==========================================
-// ✨ NEW: AI Legal Assistant (Tab Logic)
-// ==========================================
-
-// Helper function called from search results to summarize a specific judgment
-window.summarizeJudgmentWithAI = async function(cnr) {
-    if (!currentUser) { alert("Please sign in to use AI Legal Assistant."); return; }
-    if (currentPlan === 'free') { alert("AI Judgment Summaries require a Supreme Plan."); window.openModal(); return; }
-
-    // 1. Switch TO the AI Tab visually
-    window.showTab('view-ai', document.getElementById('nav-ai'));
-
-    const aiContentMain = document.getElementById('ai-content-main');
-    if (!aiContentMain) return;
-
-    // 2. Show loading state inside the AI tab
-    aiContentMain.innerHTML = `<div style="text-align: center; padding: 60px 20px; color: var(--text-muted);"><div class="spinner"></div><p style="margin-top: 15px;">AI is reading judgment (CNR: ${cnr}). This usually takes 10-20 seconds...</p></div>`;
-
-    try {
-        // 3. Make API call to your backend for AI summarization (Assuming endpoint exists: API/ai-summarize)
-        const response = await fetch(`${API}/ai-summarize`, { 
-            method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ cnr: cnr }) 
-        });
-        const json = await response.json();
-
-        // 4. Render the AI results inside the tab
-        if (!response.ok || !json.success) {
-            aiContentMain.innerHTML = `<div class="error-box" style="margin-top: 20px;"><span>⚠️</span>AI could not analyze this judgment. It may be too recent or technically unavailable. Error: ${json.error || 'API Error'}</div>`;
-            return;
-        }
-
-        aiContentMain.innerHTML = `<h3 style="margin-bottom: 12px; color: var(--primary);">Case Summary (CNR: ${cnr})</h3>
-            <div style="white-space: pre-wrap; color: var(--text-main); line-height: 1.8;">${json.summary}</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 20px; border-top: 1px dashed var(--border); padding-top: 10px;">Disclaimer: This AI summary is generated for assistance only. Please refer to the official judgment text for legal purposes.</div>`;
-
-    } catch (error) {
-        console.error("AI Summarization Error:", error);
-        aiContentMain.innerHTML = `<div class="error-box" style="margin-top: 20px;"><span>⚠️</span>Network Error. Could not connect to Vaad AI.</div>`;
-    }
+    document.getElementById('dashboard-cases').innerHTML = html;
+    document.getElementById('stat-expected').innerText = `₹${totalExpected}`;
+    document.getElementById('stat-collected').innerText = `₹${totalCollected}`;
+    document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
 };
 
-// Obsolete closeAI and sidebar overlay logic removed.
+// --- RESTORED: AI SIDEBAR LOGIC (Preserved Core) ---
+window.openAI = async function(legalText = null) {
+    if (!currentUser) { alert("Please sign use AI Assistant."); return; }
+    document.getElementById('ai-sidebar').classList.add('active');
+    document.getElementById('ai-overlay').style.display = 'block';
+};
+window.closeAI = function() {
+    document.getElementById('ai-sidebar').classList.remove('active');
+    document.getElementById('ai-overlay').style.display = 'none';
+};
 
 document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
 
-if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); }); }
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+    });
+}
