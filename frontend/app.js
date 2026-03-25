@@ -1,5 +1,3 @@
-/* app.js — Vaad 2.0.1 Module */
-
 Window.onerror = function(msg, url, line) { 
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
@@ -31,11 +29,13 @@ let cycleStartDate = null;
 let activeTab = 'cnr';
 let activeJurisdiction = 'india';
 
+// ✨ ADDED: Local state for new Permission Layer (Default True)
 let syncPermission = true;
 
+// Local storage array for dashboard data & DPDP Consent Status
 let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || []; 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
-let pendingSaveAction = null; 
+let pendingSaveAction = null; // Holds the save function if interrupted by consent prompt
 
 const limits = {
     free: { search: 1, pdf: 0 },
@@ -44,11 +44,12 @@ const limits = {
     supreme: { search: 150, pdf: 30 }
 };
 
+// --- BUTTON BINDINGS (Reverted to original IDs) ---
 document.addEventListener('click', async (e) => {
     const loginTarget = e.target.closest('#login-btn');
     const logoutTarget = e.target.closest('#logout-btn');
     const mobileLogin = e.target.closest('#drawer-login-btn');
-    const mobileLogout = e.target.closest('#drawer-logout-btn, #drawer-logout-btn-account');
+    const mobileLogout = e.target.closest('#drawer-logout-btn');
     
     if (loginTarget || mobileLogin) {
         if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
@@ -72,13 +73,16 @@ document.addEventListener('click', async (e) => {
     }
 });
 
+// --- CLOUD SYNC HELPER (✨ MODIFIED for Permission Check) ---
 async function syncDashboardToCloud() {
     if (!currentUser) return; 
     
+    // 1. DPDP Compliance Lock (Original onboarding)
     if (userConsent !== 'true') return; 
 
+    // 2. ✨ NEW: Permission Layer Lock (Drawer Toggle)
     if (!syncPermission) {
-        console.warn("[Cloud Sync] Sync blocked by user permission setting.");
+        console.warn("[Cloud Sync] Syn blocked by user permission setting.");
         return; 
     }
 
@@ -89,10 +93,12 @@ async function syncDashboardToCloud() {
         });
         console.log("[Cloud Sync] Dashboard saved to Firestore.");
     } catch (error) {
+        // If security rules block it because permission was revoked on server, handle gracefully
         console.error("Error syncing dashboard to cloud:", error);
     }
 }
 
+// ✨ ADDED: Function to sync Permission UI with Firestore on login
 async function syncPermissionUI() {
     if (!currentUser) return;
     try {
@@ -100,7 +106,9 @@ async function syncPermissionUI() {
         if (userSnap.exists()) {
             const data = userSnap.data();
             if (data.permissions && data.permissions.cloudSync !== undefined) {
+                // Update local memory state
                 syncPermission = data.permissions.cloudSync;
+                // Update visual Toggle UI
                 const toggleEl = document.getElementById('syncPermissionToggle');
                 if (toggleEl) toggleEl.checked = syncPermission;
                 console.log(`[Permission Layer] Initialized UI from Firestore: ${syncPermission}`);
@@ -111,43 +119,51 @@ async function syncPermissionUI() {
     }
 }
 
+// ✨ ADDED: GLOBAL Function for Drawer Toggle Change
 window.toggleCloudSyncPermission = async function() {
     const toggleEl = document.getElementById('syncPermissionToggle');
-    const isChecked = toggleEl.checked; 
+    const isChecked = toggleEl.checked; // state they just switched to
     
     if (!currentUser) {
         alert("Please sign in to change permissions.");
-        toggleEl.checked = !isChecked; 
+        toggleEl.checked = !isChecked; // revert visual
         return;
     }
 
     try {
         const userRef = doc(db, 'users', currentUser.uid);
         
+        // 1. Save new permission state to Firestore immediately
+        // Uses standard format we discussed previously: { permissions: { cloudSync: boolean } }
         await setDoc(userRef, { 
             permissions: { cloudSync: isChecked } 
         }, { merge: true });
 
+        // Update local memory state
         syncPermission = isChecked;
 
+        // 2. Immediate action based on revocation
         if (!isChecked) {
+            // THEY REVOKED SYNC
             if(confirm("Cloud Sync Revoked. Data remains locally on this device until you log out, but new changes won't backup. Without backup, data is lost if you use a new device or clear cache.")) {
                 alert("Permission revoked successfully.");
             } else {
-                toggleEl.checked = true; 
+                toggleEl.checked = true; // revert visual UI
+                // Re-enable in Firestore if they canceled
                 await setDoc(userRef, { permissions: { cloudSync: true } }, { merge: true });
                 syncPermission = true;
                 return;
             }
         } else {
+            // THEY ENABLED SYNC
             alert("Secure Cloud Sync Enabled.");
-            await syncDashboardToCloud(); 
+            await syncDashboardToCloud(); // Immediate sync now allowed
         }
 
     } catch (error) {
         console.error("[Permission Layer] Error toggling permission:", error);
         alert("Network error. Check connection.");
-        toggleEl.checked = !isChecked; 
+        toggleEl.checked = !isChecked; // Revert UI
     }
 };
 
@@ -157,23 +173,25 @@ onAuthStateChanged(auth, async (user) => {
     if (limitText) limitText.innerText = "Loading limits..."; 
 
     if (user) {
+        // Original IDs restored
         document.getElementById('login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
         document.getElementById('user-avatar').src = user.photoURL;
 
         const drawerUnauth = document.getElementById('drawer-unauth');
-        const drawerAuthDetails = document.getElementById('drawer-auth-details');
-        const drawerLogoutAcc = document.getElementById('drawer-logout-btn-account');
+        const drawerAuth = document.getElementById('drawer-auth');
+        const drawerLogout = document.getElementById('drawer-logout-btn');
+        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
         
         if (drawerUnauth) drawerUnauth.style.display = 'none';
-        if (drawerAuthDetails) {
-            drawerAuthDetails.style.display = 'flex';
+        if (drawerAuth) {
+            drawerAuth.style.display = 'flex';
             document.getElementById('drawer-name').innerText = user.displayName;
-            document.getElementById('drawer-email').innerText = user.email;
             document.getElementById('drawer-avatar').src = user.photoURL;
         }
-        if (drawerLogoutAcc) drawerLogoutAcc.style.display = 'flex';
+        if (drawerLogout) drawerLogout.style.display = 'block';
+        if (drawerDashboard) drawerDashboard.style.display = 'block';
 
         const badge = document.getElementById('user-badge');
         if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
@@ -188,14 +206,17 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
+                // ✨ NEW: Initial Permission Check & UI Sync
                 await syncPermissionUI();
 
+                // FETCH DASHBOARD DATA FROM CLOUD (If allowed by rules & permission layer)
                 if (data.practiceCases) {
                     practiceCases = data.practiceCases;
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
                     console.log("[Cloud Sync] Dashboard loaded from Firestore.");
                 }
             } else {
+                // New user init
                 const today = new Date().toISOString().split('T')[0];
                 await setDoc(userRef, { 
                     name: user.displayName, 
@@ -204,6 +225,7 @@ onAuthStateChanged(auth, async (user) => {
                     cycleStartDate: today, 
                     joinedAt: new Date().toISOString(),
                     practiceCases: [],
+                    // NEW: Default permission true on init
                     permissions: { cloudSync: true }
                 });
                 currentPlan = 'free';
@@ -221,16 +243,23 @@ onAuthStateChanged(auth, async (user) => {
         document.getElementById('user-menu').style.display = 'none';
         
         const drawerUnauth = document.getElementById('drawer-unauth');
-        const drawerAuthDetails = document.getElementById('drawer-auth-details');
-        const drawerLogoutAcc = document.getElementById('drawer-logout-btn-account');
+        const drawerAuth = document.getElementById('drawer-auth');
+        const drawerLogout = document.getElementById('drawer-logout-btn');
+        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
         
         if (drawerUnauth) drawerUnauth.style.display = 'block';
-        if (drawerAuthDetails) drawerAuthDetails.style.display = 'none';
-        if (drawerLogoutAcc) drawerLogoutAcc.style.display = 'none';
+        if (drawerAuth) {
+            drawerAuth.style.display = 'none';
+            // RESTORED: Hamburger visible on unauth drawer
+            document.getElementById('menu-btn').style.display = 'block';
+        }
+        if (drawerLogout) drawerLogout.style.display = 'none';
+        if (drawerDashboard) drawerDashboard.style.display = 'none';
 
         currentPlan = 'free';
         cycleStartDate = null;
         
+        // CLEAR LOCAL DATA ON LOGOUT FOR PRIVACY
         practiceCases = [];
         localStorage.removeItem('vaad_dashboard_cases');
     }
@@ -302,6 +331,7 @@ function updateTabLocks() {
     }
 }
 
+// --- JURISDICTION SWITCHING ---
 window.switchJurisdiction = function(country) {
     activeJurisdiction = country;
     const indianTabs = document.querySelectorAll('.indian-tab');
@@ -351,6 +381,7 @@ window.toggleCnrMode = function() {
     document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
 };
 
+// --- VIEW SWITCHING LOGIC (Untouched, old sliding menu restored) ---
 window.toggleView = function(viewName) {
     const searchView = document.getElementById('view-search');
     const dashboardView = document.getElementById('view-dashboard');
@@ -359,6 +390,7 @@ window.toggleView = function(viewName) {
         if (!currentUser) { alert("Please sign in access dashboard."); window.openModal(); return; }
         searchView.style.display = 'none';
         dashboardView.style.display = 'block';
+        //Hamburger stays visible
         document.getElementById('menu-btn').style.display = 'block';
         window.renderDashboard();
     } else {
@@ -368,34 +400,10 @@ window.toggleView = function(viewName) {
     }
 };
 
+// --- MODALS & MENUS TRIGGERING (Reverted Core logic) ---
 window.toggleMenu = function() {
-    const sideDrawer = document.getElementById('side-drawer');
-    const overlay = document.getElementById('drawer-overlay');
-    
-    if (sideDrawer.classList.contains('open')) {
-        setTimeout(() => window.switchDrawerPanels(false), 300); 
-    }
-
-    sideDrawer.classList.toggle('open');
-    overlay.classList.toggle('open');
-};
-
-window.switchDrawerPanels = function(toAccountPanel) {
-    const mainNavPanel = document.getElementById('main-nav-panel');
-    const accountNavPanel = document.getElementById('account-nav-panel');
-    const drawerHeader = document.querySelector('.drawer-header');
-    
-    if (!mainNavPanel || !accountNavPanel) return;
-
-    if (toAccountPanel) {
-        mainNavPanel.style.display = 'none';
-        accountNavPanel.style.display = 'flex';
-        if (drawerHeader) drawerHeader.style.display = 'none';
-    } else {
-        mainNavPanel.style.display = 'flex';
-        accountNavPanel.style.display = 'none';
-        if (drawerHeader) drawerHeader.style.display = 'block';
-    }
+    document.getElementById('side-drawer').classList.toggle('open');
+    document.getElementById('drawer-overlay').classList.toggle('open');
 };
 
 window.openDevModal = function() { 
@@ -422,6 +430,7 @@ window.openAddCaseModal = function() {
 };
 window.closeAddCaseModal = function() { document.getElementById('add-case-modal').classList.remove('active'); };
 
+// ✨ DPDP CONSENT MODAL LOGIC (Untouched, critical core)
 window.openConsentModal = function() {
     const m = document.getElementById('consent-modal');
     m.classList.add('active'); m.style.display = ''; 
@@ -450,6 +459,7 @@ window.declineConsent = async function() {
     }
 };
 
+// PRICING MODAL (Untouched)
 window.openModal = function() { 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
@@ -524,6 +534,7 @@ window.selectPlan = function(planType) {
     }
 };
 
+// ✨ UNIVERSAL SEARCH LOGIC (Preserved, critical core)
 window.openUniversalSearch = function() {
     if (!currentUser) { alert("Please sign in search your practice dashboard."); window.openModal(); return; }
     const modal = document.getElementById('universal-search-modal');
@@ -586,6 +597,9 @@ window.goToDashboardCase = function(caseId) {
     }, 100);
 };
 
+// ==========================================
+// API SEARCH LOGIC (Preserved Core)
+// ==========================================
 window.handleSearch = async function() {
     if (!currentUser) { signInWithPopup(auth, provider); return; }
 
@@ -600,8 +614,8 @@ window.handleSearch = async function() {
     } else if (activeTab === 'lawyer') {
         alert("Data-Driven Lawyer Discovery compilation of records, available soon."); return;
     } else if (activeTab === 'cnr') {
-        const mode = document.querySelector('input[name="cnr-mode"][value="single"]').checked;
-        if (mode) {
+        const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
+        if (mode === 'single') {
             const query = document.getElementById('cnr-input').value.trim();
             if (!query) return;
             endpoint = `${API}/cnr`; bodyData = { cnr: query }; renderType = 'cnr';
@@ -612,6 +626,11 @@ window.handleSearch = async function() {
             if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
             endpoint = `${API}/bulk-refresh`; bodyData = { cnrs: cnrs }; renderType = 'bulk';
         }
+    } else if (activeTab === 'causelist') {
+        const state = document.getElementById('causelist-state').value.trim().toUpperCase();
+        const query = document.getElementById('causelist-query').value.trim();
+        if (!state || !query) return alert("Provide State Code and Query.");
+        endpoint = `${API}/causelist`; bodyData = { query: query, state: state, limit: 20 }; renderType = 'causelist';
     } else {
         let query = '';
         if (activeTab === 'litigant') query = document.getElementById('litigant-input').value.trim();
@@ -624,6 +643,7 @@ window.handleSearch = async function() {
     await performSearch(endpoint, bodyData, fup.storageKey, renderType);
 };
 
+// SEARCH PERFORM HELPER (Preserved Core)
 async function performSearch(endpoint, bodyData, storageKey, renderType) {
     setLoading(true); window.clearResults();
     try {
@@ -640,6 +660,18 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
 
         if (renderType === 'cnr') renderCaseDetail(json.data);
         else if (renderType === 'list') renderCaseList(json.data);
+        else if (renderType === 'causelist') {
+             const resultsContainer = document.getElementById('results');
+             let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><h3 style="margin-bottom: 15px;">Today's Cause List</h3>`;
+             if (!json.data || !json.data.results || json.data.results.length === 0) {
+                 html += `<div>No cases listed today.</div>`;
+             } else {
+                 json.data.results.forEach(c => {
+                     html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 2px 6px; border-radius: 4px;">Room: ${c.courtNo || '—'}</span></div></div>`;
+                 });
+             }
+             resultsContainer.innerHTML = html;
+        }
         else if (renderType === 'bulk') {
              document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 8px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs queued fresh scrape. individually in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`;
         }
@@ -702,7 +734,7 @@ function renderCaseDetail(payload) {
 }
 
 // ==========================================
-// Practice Ledger Logic restored Turn Turn Turn conceptually Turn conceptually conceptual conceptually conceptual
+// PRACITCE LEDGER / DASHBOARD LOGIC (Preserved Core)
 // ==========================================
 window.saveTrackedCase = async function() {
     const cnr = document.getElementById('track-cnr').value.trim();
@@ -735,7 +767,7 @@ window.saveTrackedCase = async function() {
         window.toggleView('dashboard');
     };
 
-    // DPDP Check restored Turn Turn Turn conceptually Turn conceptually conceptual conceptually conceptual
+    // DPDP Check: If consent has never been asked, interrupt and ask.
     if (userConsent === null && currentUser) {
         pendingSaveAction = executeSave;
         window.closeAddCaseModal(); 
@@ -836,7 +868,7 @@ window.renderDashboard = function() {
                             ${remaining > 0 ? `₹${remaining} Pending` : 'Paid ✓'}
                         </div>
                         <button onclick="window.deleteDashboardCase(${c.id})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 4px; transition: transform 0.1s;" title="Delete Case" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
-                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -861,9 +893,21 @@ window.renderDashboard = function() {
     document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
 };
 
-// --- RESTORED: AI SIDEBAR LOGIC restored Turn Turn Turn conceptually Turn constructively constructed conceptually constraints constructor conceptually constructed constructor constructively constructed constructs constructs constructively constructors conceptually constructs constructors constructors constructs constructs constructively constructs constructors constructively constructed constructs constructor conceptually constructed constructed constructively constructive constructed constructs constructor constructively constructed constructed constructively constructive conceptually constructed conceptual constructively concepts constructively context constructively context conceptual context constructed constructor context constructed constructor constructively constructed constructs constructor context constructor constructed constructor constructed constructively constructed constructs constructed constructor constructs constructor constructed constructively constructively constructed constructs constructs conceptually constructed constructively constructive constructively constructed conceptually concepts constructively constraints constructively constructive constructive constraints constructively constructs constructs constructor constructively constructed constructor constructed constructively constructs constructor constructively constructs constructed constructively constructive constructed constraints constraints constructs constraints constraints constructs constructively constructive constructed constraints constraints conceptually concepts constructively conceptual constructively constraints constructs constructs conceptually conceptual constructively constructed constructively constructed constructively constructed constructively constraints constructor conceptually constructed constructor constructed constructively constructs constructor constructively constructs constructor constructed constructively constructed constructs constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed constructively constructed.
+// --- RESTORED: AI SIDEBAR LOGIC (Preserved Core) ---
+window.openAI = async function(legalText = null) {
+    if (!currentUser) { alert("Please sign use AI Assistant."); return; }
+    document.getElementById('ai-sidebar').classList.add('active');
+    document.getElementById('ai-overlay').style.display = 'block';
+};
+window.closeAI = function() {
+    document.getElementById('ai-sidebar').classList.remove('active');
+    document.getElementById('ai-overlay').style.display = 'none';
+};
 
-We are going to examine this **in the light of** the recent market changes.
-**Given** the recent market changes, we are going to examine this.
-**Considering** the recent market changes, we are going to examine this.
-**Taking into account** the recent market changes, we are going to examine this.
+document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
+
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js');
+    });
+}
