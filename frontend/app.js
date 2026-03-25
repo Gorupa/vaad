@@ -3,7 +3,8 @@ window.onerror = function(msg, url, line) {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithCredential, signInWithRedirect, getRedirectResult, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+// Reverted the fallback import back to signInWithPopup
+import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -21,33 +22,28 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// ✨ Catch the returning user from a redirect fallback
-getRedirectResult(auth).then((result) => {
-    if (result) {
-        console.log("[Auth] Successfully signed in via redirect fallback");
+// Safely initialize Google Identity using addEventListener
+window.addEventListener('load', () => {
+    if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.initialize({
+            client_id: "649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com", 
+            callback: handleCredentialResponse,
+            use_fedcm_for_prompt: true 
+        });
+        console.log("[Auth] Google Credential Manager Initialized.");
+    } else {
+        console.error("[Auth] Google API script not found. Make sure <script src='https://accounts.google.com/gsi/client' async defer></script> is in your index.html");
     }
-}).catch((error) => {
-    console.error("Firebase Auth redirect failed:", error);
-    resetLoginButtons();
 });
 
-// Initialize Google Identity Services (Credential Manager API)
-window.onload = function () {
-    google.accounts.id.initialize({
-        client_id: "649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com", 
-        callback: handleCredentialResponse,
-        use_fedcm_for_prompt: true 
-    });
-};
-
-// Handle the token returned by Credential Manager
 async function handleCredentialResponse(response) {
     try {
+        console.log("[Auth] Credential response received, authenticating with Firebase...");
         const credential = GoogleAuthProvider.credential(response.credential);
         await signInWithCredential(auth, credential);
-        console.log("[Auth] Successfully signed in via Credential Manager");
+        console.log("[Auth] Successfully signed in via Credential Manager!");
     } catch (error) {
-        console.error("Firebase Auth via Credential Manager failed:", error);
+        console.error("[Auth] Firebase Auth via Credential Manager failed:", error);
         resetLoginButtons();
     }
 }
@@ -63,10 +59,8 @@ const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
 let currentPlan = 'free'; 
 let cycleStartDate = null; 
-
 let activeTab = 'cnr';
 let activeJurisdiction = 'india';
-
 let syncPermission = true;
 
 let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || []; 
@@ -88,32 +82,56 @@ document.addEventListener('click', async (e) => {
     const mobileLogout = e.target.closest('#drawer-logout-btn');
     
     if (loginTarget || mobileLogin) {
+        console.log("[Auth] Sign In button clicked.");
+        
         if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
         if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
         
         try {
-            // ✨ THE BYPASS: Clear Google's 'g_state' cooldown cookie
+            // Check if Google script loaded properly
+            if (typeof google === 'undefined' || !google.accounts) {
+                console.warn("[Auth] Google API not loaded. Forcing direct Firebase Popup fallback.");
+                await signInWithPopup(auth, provider);
+                if (mobileLogin) window.toggleMenu();
+                return;
+            }
+
+            // Clear Google's 'g_state' cooldown cookie
             document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
 
-            // Trigger Credential Manager API native prompt
-            google.accounts.id.prompt((notification) => {
+            console.log("[Auth] Attempting to show native prompt...");
+            
+            google.accounts.id.prompt(async (notification) => {
+                console.log("[Auth] Prompt status:", notification.getMomentType(), notification.getDismissedReason());
                 
-                // 1. User explicitly closed the popup (X button)
                 if (notification.isDismissedMoment() || notification.isSkippedMoment()) {
-                    console.log("User dismissed the prompt. Cancelling login.");
-                    resetLoginButtons(); // Reset UI, no redirect
+                    console.log("[Auth] User explicitly dismissed the prompt. Cancelling.");
+                    resetLoginButtons();
                 } 
-                
-                // 2. Native UI actually blocked by browser (e.g., Safari/Firefox tracking prevention)
                 else if (notification.isNotDisplayed()) {
-                    console.warn("Native UI not supported here. Falling back to redirect.");
-                    signInWithRedirect(auth, provider);
+                    console.warn("[Auth] Native UI blocked/not displayed. Reason:", notification.getNotDisplayedReason());
+                    console.log("[Auth] Falling back to Firebase Popup.");
+                    
+                    // ✨ Trigger Popup Fallback
+                    try {
+                        await signInWithPopup(auth, provider);
+                        if (mobileLogin) window.toggleMenu();
+                    } catch (popupError) {
+                        console.error("[Auth] Popup fallback failed:", popupError);
+                        resetLoginButtons();
+                    }
                 }
             });
-            if (mobileLogin) window.toggleMenu();
+            
         } catch (error) {
-            console.error("Login initialization failed:", error);
-            resetLoginButtons();
+            console.error("[Auth] Login initialization completely failed:", error);
+            // Absolute last resort fallback if prompt throws a hard error
+            try {
+                await signInWithPopup(auth, provider);
+                if (mobileLogin) window.toggleMenu();
+            } catch (fallbackError) {
+                resetLoginButtons();
+            }
         }
     }
     
@@ -128,9 +146,7 @@ document.addEventListener('click', async (e) => {
 // --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
     if (!currentUser) return; 
-    
     if (userConsent !== 'true') return; 
-
     if (!syncPermission) {
         console.warn("[Cloud Sync] Syn blocked by user permission setting.");
         return; 
