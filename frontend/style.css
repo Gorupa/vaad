@@ -1,3 +1,5 @@
+/* style.css — Vaad 2.0.1 Integrated Styles */
+
 :root {
     --bg: #ffffff; --bg-alt: #f9fafb; --border: #e5e7eb;
     --text-main: #111827; --text-muted: #6b7280;
@@ -6,6 +8,9 @@
     --warning-text: #b45309; --warning-bg: #fffbeb;
     --error-text: #b91c1c; --error-bg: #fef2f2;
     --radius: 8px; --max-w: 640px;
+    
+    /* MODIFICATION: Defined standard easing curve for internal panel sliding consistency */
+    --transition-curve: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -25,14 +30,148 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; back
 .btn-text-link { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; text-decoration: underline; padding: 0 4px; margin-left: 5px; }
 
 /* ── Drawer Menu (Mobile & Desktop Sidebar) ── */
-.drawer { position: fixed; top: 0; left: -300px; width: 280px; height: 100vh; background: var(--bg); z-index: 100; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 4px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
+/* MODIFICATION: Force overflow: hidden; to prevent sliding panels from overflowing container */
+.drawer { position: fixed; top: 0; left: -300px; width: 280px; height: 100vh; background: var(--bg); z-index: 100; transition: left 0.3s var(--transition-curve); box-shadow: 4px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; overflow: hidden !important; }
 .drawer.open { left: 0; }
 .drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 99; display: none; opacity: 0; transition: opacity 0.3s; }
 .drawer-overlay.open { display: block; opacity: 1; }
 .drawer-header { padding: 24px 20px; border-bottom: 1px solid var(--border); background: var(--bg-alt); }
+
+/* ✨ START MODIFICATION: Decluttered Drawer Sliding Panel Logic ✨ */
+
+/* 1. Panel Wrapper enables internal stacking and sliding */
+.drawer-panel-wrapper {
+    position: relative;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%; /* Fill the drawer */
+}
+
+/* 2. Common Common Panel Styling: Stacked and optimized for transitions on low-end CPUs */
+.drawer-panel {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg); /* Maintain drawer background */
+    /* Key performance optimized transition for seamless movement */
+    transition: transform 0.3s var(--transition-curve), opacity 0.3s ease;
+}
+
+/* 3. Panel States for Sliding (translateX is hardware accelerated) */
+
+/* Initial state for front panel: Visible */
+#drawer-panel-front {
+    position: relative; /* Base panel is relative */
+    transform: translateX(0%);
+    opacity: 1;
+    z-index: 1; /* Main drawer has priority */
+}
+
+/* When main is hidden: Shift left and fade */
+#drawer-panel-front.hidden {
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none; /* Can't click things while hidden */
+}
+
+/* Initial state for settings/account panel: Hidden off-screen to the right */
+#drawer-panel-settings {
+    transform: translateX(100%);
+    opacity: 0;
+    pointer-events: none; /* Initial hidden means unclickable */
+    z-index: 2; /* Sits above main panel on entry */
+}
+
+/* When settings is active: Slide into view from right */
+#drawer-panel-settings.active {
+    transform: translateX(0%);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* 4. Styling the internal panel content (replaces old .drawer-links padding) */
+.drawer-panel-content {
+    flex: 1;
+    overflow-y: auto; /* Enable vertical scrolling *within* the panel if list is long */
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+/* Update target for link styles to work inside panel content */
+.drawer-panel-content a {
+    color: var(--text-main);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95rem;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    transition: color 0.2s;
+}
+.drawer-panel-content a:hover { color: var(--primary); }
+
+/* Footer container inside the main panel, pushed to absolute bottom */
+.drawer-footer-info {
+    padding: 20px;
+    margin-top: auto;
+    border-top: 1px solid var(--border);
+}
+
+/* Sub-menu indicators visual styling */
+.chevron-right, .chevron-left {
+    margin-left: auto; /* Push indicator right */
+    color: var(--text-muted);
+    font-weight: 800;
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+/* Seamless Back Button visual style */
+.back-button {
+    display: flex !important;
+    align-items: center;
+    padding: 12px;
+    background-color: var(--primary-bg) !important;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    text-decoration: none;
+}
+.back-button:hover { background-color: var(--border) !important; }
+
+/* The new visual indicator entry item into settings */
+.settings-entry-item {
+    border-top: 1px solid var(--border);
+    padding-top: 16px;
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* Styling Settings & Profile grouping blocks */
+.setting-section { margin-bottom: 24px; }
+.setting-label { font-size: 0.8rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.05em; margin-bottom: 12px; font-weight: 700; }
+.setting-block { border: 1px solid var(--border); border-radius: 8px; background: var(--bg-alt); }
+.setting-row { padding: 12px; border-bottom: 1px solid var(--border); font-size: 0.9rem; font-weight: 500;}
+.setting-row:last-child { border-bottom: none; }
+.setting-row.flex-row { display: flex; justify-content: space-between; align-items: center; }
+.setting-value { font-weight: 600; color: var(--text-main); margin-left: auto;}
+.setting-value.FREE { color: var(--text-muted); font-size: 0.8rem; }
+
+/* ✨ END MODIFICATION: Decluttered Drawer Sliding Panel Logic ✨ */
+
+/* REMOVED: Deprecated standalone .drawer-links structure, now managed by panels
 .drawer-links { padding: 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
 .drawer-links a { color: var(--text-main); text-decoration: none; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; transition: color 0.2s; }
 .drawer-links a:hover { color: var(--primary); }
+*/
 
 /* ── Proactive Upgrade Button ── */
 .btn-upgrade { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 6px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; display: inline-block; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
@@ -190,7 +329,7 @@ input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-co
     display: none;
 }
 
-/* ✨ ADDED: Standard CSS Toggle Switch (Permission Layer) */
+/* ✨ ADDED: Standard CSS Toggle Switch (Permission Layer) ✨ */
 .switch {
   position: relative;
   display: inline-block;
@@ -209,7 +348,7 @@ input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-co
   cursor: pointer;
   top: 0; left: 0; right: 0; bottom: 0;
   background-color: var(--border);
-  transition: .3s;
+  transition: .3s var(--transition-curve);
   border-radius: 34px;
 }
 
@@ -219,7 +358,7 @@ input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-co
   height: 16px; width: 16px;
   left: 3px; bottom: 3px;
   background-color: white;
-  transition: .3s;
+  transition: .3s var(--transition-curve);
   border-radius: 50%;
   box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
