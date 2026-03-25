@@ -1,233 +1,442 @@
-:root {
-    --bg: #ffffff; --bg-alt: #f9fafb; --border: #e5e7eb;
-    --text-main: #111827; --text-muted: #6b7280;
-    --primary: #8b5cf6; --primary-hover: #7c3aed; --primary-bg: #f5f3ff;
-    --success-text: #047857; --success-bg: #ecfdf5;
-    --warning-text: #b45309; --warning-bg: #fffbeb;
-    --error-text: #b91c1c; --error-bg: #fef2f2;
-    --radius: 8px; --max-w: 640px;
-}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Vaad 2.0.1 — AI Legal Assistant</title>
+    <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API and AI.">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#8b5cf6">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { scroll-behavior: smooth; }
-body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg-alt); color: var(--text-main); min-height: 100vh; -webkit-font-smoothing: antialiased; display: flex; flex-direction: column; overflow-x: hidden; }
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    
+    <link rel="stylesheet" href="style.css">
 
-/* ── Nav & Branding ── */
-.nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
-.nav-brand { font-size: 1.5rem; font-weight: 800; text-decoration: none; color: var(--primary); letter-spacing: -0.02em; display: flex; align-items: center; gap: 6px; }
-.version-badge { font-size: 0.55rem; background: var(--primary); color: white; padding: 3px 6px; border-radius: 6px; font-weight: 700; letter-spacing: 0.05em; transform: translateY(-2px); }
-.nav-right { display: flex; align-items: center; gap: 12px; font-size: 0.8rem; }
-.hamburger-btn { background: none; border: none; cursor: pointer; color: var(--text-main); display: block; padding: 4px; border-radius: 4px; transition: background 0.2s; }
-.hamburger-btn:hover { background: var(--bg-alt); }
+</head>
+<body>
 
-.btn-auth { background: white; border: 1px solid var(--border); padding: 8px 16px; border-radius: 999px; font-weight: 600; cursor: pointer; color: var(--text-main); transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
-.btn-auth:hover { background: var(--bg-alt); border-color: #d1d5db; }
-.btn-text-link { background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.75rem; text-decoration: underline; padding: 0 4px; margin-left: 5px; }
+<nav class="nav">
+    <div style="display: flex; align-items: center; gap: 12px;">
+        <button id="menu-btn" class="hamburger-btn" style="display: block;" onclick="window.toggleMenu()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <a class="nav-brand" href="#" onclick="window.toggleView('search')">Vaad <span class="version-badge">2.0.1</span></a>
+    </div>
+    
+    <div class="nav-right desktop-only">
+        <span class="nav-badge">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a></span>
+        
+        <button id="login-btn" class="btn-auth">Sign In</button>
 
-/* ── Drawer Menu (Mobile & Desktop Sidebar) ── */
-.drawer { position: fixed; top: 0; left: -300px; width: 280px; height: 100vh; background: var(--bg); z-index: 100; transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 4px 0 15px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-.drawer.open { left: 0; }
-.drawer-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(2px); z-index: 99; display: none; opacity: 0; transition: opacity 0.3s; }
-.drawer-overlay.open { display: block; opacity: 1; }
-.drawer-header { padding: 24px 20px; border-bottom: 1px solid var(--border); background: var(--bg-alt); }
-.drawer-links { padding: 20px; display: flex; flex-direction: column; gap: 16px; flex: 1; }
-.drawer-links a { color: var(--text-main); text-decoration: none; font-weight: 500; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; transition: color 0.2s; }
-.drawer-links a:hover { color: var(--primary); }
+        <div id="user-menu" class="user-profile" style="display: none; align-items: center;">
+            <a href="#" onclick="window.toggleView('dashboard')" id="nav-dashboard-btn" style="font-weight:600; color:var(--primary); text-decoration:none; margin-right:16px; font-size: 0.9rem;">💼 Dashboard</a>
+            <button id="nav-upgrade-btn" class="btn-upgrade" onclick="window.openModal()" style="display: none;">⚡ Upgrade</button>
+            <img id="user-avatar" src="" alt="Avatar">
+            <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1;">
+                <span id="user-name" style="font-size: 13px;">User</span>
+                <span id="user-badge" style="font-size: 9px; padding: 2px 4px; border-radius: 3px; font-weight: bold; margin-top: 2px;">FREE</span>
+            </div>
+            <button id="logout-btn" class="btn-text-link">Log Out</button>
+        </div>
+    </div>
+</nav>
 
-/* ── Proactive Upgrade Button ── */
-.btn-upgrade { background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; padding: 6px 12px; border-radius: 999px; font-size: 0.75rem; font-weight: 700; cursor: pointer; transition: transform 0.1s, box-shadow 0.2s; display: inline-block; box-shadow: 0 2px 4px rgba(245, 158, 11, 0.2); }
-.btn-upgrade:hover { box-shadow: 0 4px 6px rgba(245, 158, 11, 0.3); }
+<div id="drawer-overlay" class="drawer-overlay" onclick="window.toggleMenu()"></div>
+<div id="side-drawer" class="drawer">
+    <div class="drawer-header">
+        <div id="drawer-unauth" style="display: block;">
+            <h3 style="margin-bottom: 8px;">Welcome to Vaad</h3>
+            <button id="drawer-login-btn" class="btn-auth" style="width: 100%; justify-content: center;">Sign In / Register</button>
+        </div>
+        <div id="drawer-auth" style="display: none; align-items: center; gap: 12px;">
+            <img id="drawer-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
+            <div>
+                <div id="drawer-name" style="font-weight: 700;">User</div>
+                <div id="drawer-badge" style="font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin-top: 4px;">FREE</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="drawer-panel-wrapper">
 
-/* ── Modals & Glassmorphism ── */
-.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(6px); z-index: 150; justify-content: center; align-items: center; padding: 20px; }
-.modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
-.modal-box { background: var(--bg); width: 100%; max-width: 420px; border-radius: 16px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative; }
-.modal-close { position: absolute; top: 16px; right: 16px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); border: none; background: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; }
-.modal-close:hover { background: var(--bg-alt); color: var(--text-main); }
+        <div class="drawer-panel active" id="main-nav-panel">
+            <div class="drawer-panel-content">
+                <a href="#" id="drawer-dashboard-btn" onclick="window.toggleMenu(); window.toggleView('dashboard');" style="display:none; color: var(--primary); font-weight: 700; background: var(--primary-bg); padding: 10px; border-radius: 8px;">💼 Practice Dashboard</a>
+                <a href="#" onclick="window.toggleMenu(); window.openUniversalSearch();">🔍 Universal Search</a>
+                <a href="#" onclick="window.toggleMenu(); window.openFaqModal();">❓ Help & FAQ</a>
+                <a href="#" onclick="window.toggleMenu(); window.openWhatsNewModal();">✨ What's New</a>
+                <a href="#" onclick="window.toggleMenu(); window.openModal();">⚡ Upgrade Plan</a>
+                
+                <a href="#" onclick="window.toggleMenu(); window.openDevModal();">👨‍💻 About Developer</a>
+                
+                <a href="#" id="account-entry" class="settings-entry-item" style="color: var(--text-main); font-weight: 600;">
+                    ⚙️ Settings & Account
+                    <span class="chevron-right">&rsaquo;</span>
+                </a>
+            </div>
 
-/* ── Hero & Search ── */
-.hero { max-width: var(--max-w); margin: 0 auto; padding: 48px 24px 24px; text-align: center; }
-.hero h1 { font-size: 2.25rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 12px; }
-.hero p { font-size: 1rem; color: var(--text-muted); line-height: 1.5; }
-.search-card { max-width: var(--max-w); margin: 0 auto 32px; width: 100%; padding: 0 24px; }
-.search-container { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; }
-.tabs { display: flex; border-bottom: 1px solid var(--border); background: var(--bg-alt); }
-.tab { flex: 1; text-align: center; padding: 14px 8px; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; user-select: none; transition: all 0.2s; }
-.tab.active { color: var(--primary); border-bottom-color: var(--primary); background: var(--bg); }
-.search-form { padding: 24px; }
-.field { margin-bottom: 16px; }
-.field-label { display: block; font-size: 0.75rem; font-weight: 700; color: var(--text-main); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em; }
-input[type="text"], input[type="number"], textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; font-family: inherit; font-size: 0.95rem; color: var(--text-main); outline: none; transition: border-color 0.2s, box-shadow 0.2s; }
-input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-bg); }
-.btn-search { width: 100%; margin-top: 24px; padding: 14px; background: var(--primary); color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 1rem; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; justify-content: center; align-items: center; gap: 8px; }
-.btn-search:hover { background: var(--primary-hover); }
-.btn-search:active { transform: scale(0.98); }
+            <div class="drawer-footer-info">
+                <a href="#" id="drawer-logout-btn" style="display: none; color: var(--error-text); border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px; font-weight: 600; text-decoration: none;">Log Out</a>
+                
+                <div style="border-top: 1px solid var(--border); padding-top: 16px; text-align: left; font-size: 0.7rem; color: var(--text-muted); line-height: 2;">
+                    <div style="font-weight: 600;">🔒 256-bit SSL Secure</div>
+                    <div style="font-weight: 600;">⚡ Cloudflare Global CDN</div>
+                    <div style="font-weight: 600;">🛡️ Google Cloud Infrastructure</div>
+                </div>
+            </div>
+        </div>
+        <div class="drawer-panel" id="drawer-panel-settings">
+            
+            <a href="#" class="drawer-item back-button" id="settings-back">
+                <span class="chevron-left">&lsaquo;</span> Back
+            </a>
+            
+            <div class="drawer-panel-content" style="padding-top: 16px;">
+                <h4 style="font-size: 1.1rem; font-weight: 700; color: var(--text-main); margin-bottom: 24px;">Practice Account Settings</h4>
 
-/* ── Results & Shared UI ── */
-.results { max-width: var(--max-w); margin: 0 auto; width: 100%; padding: 0 24px 64px; flex: 1; }
-.cnr-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 6px; }
-.error-box { background: var(--error-bg); border: 1px solid #fecaca; color: var(--error-text); padding: 16px; border-radius: var(--radius); font-size: 0.875rem; display: flex; gap: 12px; align-items: flex-start; }
+                <div class="setting-section">
+                    <h5 class="setting-label">Account Details</h5>
+                    <div class="setting-block">
+                        <div class="setting-row">Name: <span id="settings-user-name" class="setting-value">User</span></div>
+                        <div class="setting-row">Email: <span id="settings-user-email" class="setting-value">user@example.com</span></div>
+                        <div class="setting-row">Plan: <span id="settings-user-plan" class="setting-value FREE">FREE</span></div>
+                    </div>
+                </div>
 
-/* AI Buttons */
-.order-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.btn-action { padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border); transition: all 0.2s; background: var(--bg-alt); color: var(--text-main); }
-.btn-action:hover { background: #e2e8f0; }
-.btn-ai { background: linear-gradient(135deg, #8b5cf6, #6d28d9); color: white; border: none; box-shadow: 0 2px 4px rgba(139, 92, 246, 0.2); }
-.btn-ai:hover { background: linear-gradient(135deg, #7c3aed, #5b21b6); transform: translateY(-1px); }
-.ai-box { background: var(--primary-bg); border: 1px solid #ddd6fe; border-radius: var(--radius); padding: 16px; margin-top: 12px; display: none; font-size: 0.875rem; line-height: 1.6; animation: fadeIn 0.3s ease; }
-.ai-box.active { display: block; }
-@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+                <div class="setting-section">
+                    <h5 class="setting-label">Permissions</h5>
+                    <div class="setting-block">
+                        <div class="setting-row flex-row">
+                            Cloud Sync (ledgers)
+                            <label class="switch">
+                                <input type="checkbox" id="syncPermissionToggle-settings" onchange="window.toggleCloudSyncPermission()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
 
-/* ── Mobile UI Optimization ── */
-@media (max-width: 640px) {
-    .desktop-only { display: none !important; }
-    .nav { padding: 12px 16px; }
-    .hero { padding: 32px 16px 24px; }
-    .hero h1 { font-size: 1.75rem; }
-    .search-card { padding: 0 16px; }
-    .search-form { padding: 20px 16px; }
-    .tab { font-size: 0.75rem; padding: 12px 4px; }
-    .modal-box { padding: 24px 20px; max-width: 95%; }
-}
+                <div class="setting-section">
+                    <h5 class="setting-label">Legal & Disclaimers</h5>
+                    <a href="terms.html">📄 Terms of Service</a>
+                    <a href="privacy.html">🔒 Privacy Policy</a>
+                    <a href="refund.html">💳 Refund & Cancellation</a>
+                </div>
 
-/* ── Jurisdiction Toggle Pill ── */
-.jurisdiction-pill {
-    display: inline-flex;
-    background: var(--bg-alt);
-    border-radius: 30px;
-    padding: 4px;
-    border: 1px solid var(--border);
-}
-.jurisdiction-pill input[type="radio"] { display: none; }
-.jurisdiction-pill label {
-    padding: 8px 20px;
-    border-radius: 26px;
-    cursor: pointer;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    transition: all 0.3s ease;
-}
-.jurisdiction-pill input[type="radio"]:checked + label {
-    background: var(--primary);
-    color: white;
-    box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
-}
+                <a href="#" onclick="window.toggleMenu(); window.openDevModal();">👨‍💻 About Developer</a>
+                
+                <a href="#" id="drawer-logout-btn-settings" onclick="window.toggleMenu();" style="display: none; color: var(--error-text); border-top: 1px solid var(--border); padding-top: 16px; margin-top: auto; font-weight: 600; text-decoration: none;">Log Out</a>
+            </div>
+        </div>
+        </div>
+</div>
 
-/* ── AI Sidebar Sliding Panel ── */
-.ai-sidebar {
-    position: fixed;
-    top: 0;
-    right: -100%;
-    width: 85%;
-    max-width: 400px;
-    height: 100vh;
-    background-color: var(--bg);
-    box-shadow: -4px 0 15px rgba(0,0,0,0.15);
-    transition: right 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    padding: 20px;
-    z-index: 2000;
-}
-.ai-sidebar.active { right: 0; }
-#ai-overlay { display: none; z-index: 1999; }
+<div id="view-search">
+    <div class="hero">
+        <h1>Track court cases simply.</h1>
+        <p>Search Indian and US court cases instantly. Clean interface, official data.</p>
+    </div>
 
-/* ── Dashboard Specific Styles ── */
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 16px;
-    margin-bottom: 32px;
-}
-.stat-card {
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
-}
-.stat-title {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 8px;
-}
-.stat-value { font-size: 1.5rem; font-weight: 800; }
+    <div class="search-card">
+        <div class="search-container">
+            
+            <div style="display: flex; justify-content: center; padding: 16px 0; border-bottom: 1px solid var(--border);">
+                <div class="jurisdiction-pill">
+                    <input type="radio" id="toggle-india" name="jurisdiction" value="india" checked onchange="window.switchJurisdiction('india')">
+                    <label for="toggle-india">🇮🇳 India</label>
+                    
+                    <input type="radio" id="toggle-usa" name="jurisdiction" value="usa" onchange="window.switchJurisdiction('usa')">
+                    <label for="toggle-usa">🇺🇸 USA</label>
+                </div>
+            </div>
 
-/* ── Changelog Accordion Styles ── */
-.changelog-details {
-    background: var(--bg-alt);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 12px;
-}
+            <div class="tabs" style="flex-wrap: wrap; text-transform: uppercase; font-size: 0.75rem;">
+                <div class="tab indian-tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock" style="display:none;">🔒</span></div>
+                <div class="tab indian-tab" id="tab-lawyer" data-tab="lawyer" onclick="window.switchTab('lawyer')">Find Lawyer <span style="font-size:12px;">✨</span></div>
+                <div class="tab indian-tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon" id="list-lock1">🔒</span></div>
+                <div class="tab indian-tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon" id="list-lock2">🔒</span></div>
+                <div class="tab indian-tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon" id="list-lock3">🔒</span></div>
+                <div class="tab indian-tab" id="tab-causelist" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List <span class="lock-icon" id="list-lock4">🔒</span></div>
+                <div class="tab us-tab" id="tab-us-case" data-tab="us-case" style="display: none;" onclick="window.switchTab('us-case')">US Case Law <span class="lock-icon">🔒</span></div>
+            </div>
+            
+            <div class="search-form">
+                <div class="form-panel indian-panel active" id="panel-cnr">
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 600;">
+                        <label style="cursor: pointer;"><input type="radio" name="cnr-mode" value="single" checked onchange="window.toggleCnrMode()"> Single CNR</label>
+                        <label style="cursor: pointer; color: var(--primary);"><input type="radio" name="cnr-mode" value="bulk" onchange="window.toggleCnrMode()"> Bulk Refresh (Pro)</label>
+                    </div>
+                    <div class="field" id="cnr-single-field"><label class="field-label">CNR Number</label><input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" maxlength="20"><div class="cnr-hint">16-character alphanumeric case number</div></div>
+                    <div class="field" id="cnr-bulk-field" style="display: none;"><label class="field-label">Bulk CNRs (Max 50)</label><textarea id="cnr-bulk-input" rows="4" placeholder="Paste up to 50 CNRs here (one per line)..." style="width: 100%; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: inherit; font-size: 0.95rem; background: var(--bg); color: var(--text-main); outline: none; resize: vertical;"></textarea><div class="cnr-hint">Paste each CNR on a new line to queue them for a bulk refresh.</div></div>
+                </div>
 
-.changelog-summary {
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 0.95rem;
-    color: var(--text-main);
-    list-style: none;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
+                <div class="form-panel indian-panel" id="panel-lawyer" style="display: none; text-align: center; padding: 30px 10px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 12px;">⚖️</div>
+                    <h3 style="margin-bottom: 8px; color: var(--text-main); font-size: 1.25rem;">Data-Driven Lawyer Discovery</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5;">We are indexing millions of local court records to help you find the best domain-specific advocates based on actual case history, not advertisements.</p>
+                    <div style="display: inline-block; background: rgba(139, 92, 246, 0.1); color: var(--primary); padding: 6px 166px; border-radius: 999px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Coming Soon</div>
+                </div>
 
-.changelog-summary::after {
-    content: "▼";
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    transition: transform 0.2s ease;
-}
+                <div class="form-panel indian-panel" id="panel-litigant" style="display: none;"><div class="field"><label class="field-label">Litigant / Party Name</label><input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-advocate" style="display: none;"><div class="field"><label class="field-label">Advocate Name</label><input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-judge" style="display: none;"><div class="field"><label class="field-label">Judge Name</label><input type="text" id="judge-input" placeholder="e.g. Smt. Anjali Desai" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-causelist" style="display: none;">
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;"><div class="field" style="flex: 1; margin-bottom: 0;"><label class="field-label">State Code</label><input type="text" id="causelist-state" placeholder="e.g. RJ, MH, DL" maxlength="2" style="text-transform: uppercase;"></div></div>
+                    <div class="field"><label class="field-label">Advocate or Party Name</label><input type="text" id="causelist-query" placeholder="e.g. Sharma"><div class="cnr-hint">Fetches today's live court schedule.</div></div>
+                </div>
 
-.changelog-details[open] .changelog-summary::after {
-    transform: rotate(180deg);
-}
+                <div class="form-panel us-panel" id="panel-us-case" style="display: none; text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 16px;">🇺🇸</div>
+                    <h3 style="margin-bottom: 8px; color: var(--text-main); font-size: 1.25rem;">US Case Law</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5;">We are currently training our AI on millions of US Federal and State court opinions. This feature will be available shortly!</p>
+                    <div style="display: inline-block; background: rgba(139, 92, 246, 0.1); color: var(--primary); padding: 6px 16px; border-radius: 999px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Coming Soon</div>
+                </div>
 
-.changelog-summary::-webkit-details-marker {
-    display: none;
-}
+                <button class="btn-search" id="search-btn" onclick="window.handleSearch()"><span id="btn-text">Search Cases</span></button>
+                <div id="limit-text" class="free-limits" style="margin-top: 12px; font-size: 14px; text-align: center;">Sign in with Google to get 1 free search</div>
+            </div>
+        </div>
+    </div>
+    <div class="results" id="results"></div>
+</div>
 
-/* ✨ ADDED: Standard CSS Toggle Switch (Permission Layer) */
-.switch {
-  position: relative;
-  display: inline-block;
-  width: 44px;
-  height: 22px;
-}
+<div id="view-dashboard" style="display: none; max-width: var(--max-w); margin: 0 auto; padding: 24px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <h2 style="font-size: 1.5rem; color: var(--text-main);">My Practice</h2>
+        <button onclick="window.toggleView('search')" class="btn-text-link" style="font-size: 0.9rem;">← Back to Search</button>
+    </div>
 
-.switch input { 
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="stat-title">Total Expected</div>
+            <div class="stat-value" id="stat-expected" style="color: var(--primary);">₹0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Collected</div>
+            <div class="stat-value" id="stat-collected" style="color: var(--success-text);">₹0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Pending</div>
+            <div class="stat-value" id="stat-pending" style="color: var(--warning-text);">₹0</div>
+        </div>
+    </div>
 
-.slider {
-  position: absolute;
-  cursor: pointer;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-color: var(--border);
-  transition: .3s;
-  border-radius: 34px;
-}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <h3 style="font-size: 1.1rem; margin: 0;">Fee Tracker</h3>
+        <button class="btn-action btn-ai" onclick="window.openAddCaseModal()" style="font-size: 0.8rem; padding: 8px 16px;">+ Add New Case</button>
+    </div>
+    
+    <div id="dashboard-cases">
+        </div>
+</div>
 
-.slider:before {
-  position: absolute;
-  content: "";
-  height: 16px; width: 16px;
-  left: 3px; bottom: 3px;
-  background-color: white;
-  transition: .3s;
-  border-radius: 50%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-}
+<div id="add-case-modal" class="modal-overlay">
+    <div class="modal-box">
+        <button class="modal-close" onclick="window.closeAddCaseModal()">×</button>
+        <h3 style="margin-bottom: 16px;">Add Case to Tracker</h3>
+        <div class="field">
+            <label class="field-label">Link CNR (Optional)</label>
+            <input type="text" id="track-cnr" placeholder="e.g. RJUD010012342025" autocomplete="off">
+            <div class="cnr-hint">If left blank, case will be tracked manually.</div>
+        </div>
+        <div class="field">
+            <label class="field-label">Case Title / Client Name</label>
+            <input type="text" id="track-title" placeholder="e.g. Rahul Sharma Bail" autocomplete="off">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="field">
+                <label class="field-label">Total Agreed Fee</label>
+                <input type="number" id="track-total" placeholder="₹" autocomplete="off">
+            </div>
+            <div class="field">
+                <label class="field-label">Per Hearing Fee</label>
+                <input type="number" id="track-hearing" placeholder="₹" autocomplete="off">
+            </div>
+        </div>
+        <button class="btn-search" onclick="window.saveTrackedCase()" style="margin-top: 8px;">Save Case</button>
+    </div>
+</div>
 
-input:checked + .slider {
-  background-color: var(--primary);
-}
+<div id="consent-modal" class="modal-overlay">
+    <div class="modal-box">
+        <h3 style="margin-bottom: 12px; font-size: 1.25rem;">Enable Cloud Sync ☁️</h3>
+        <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data on our secure servers located in Mumbai. Do you consent to enabling Cloud Sync?
+        </p>
+        <button class="btn-search" onclick="window.acceptConsent()" style="margin-bottom: 12px;">Yes, Enable Secure Sync</button>
+        <button class="btn-action" onclick="window.declineConsent()" style="width: 100%; justify-content: center; padding: 12px;">No, Keep Data Local Only</button>
+        <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 16px;">You can change this later in our <a href="privacy.html" style="color: var(--primary);">Privacy Policy</a>.</p>
+    </div>
+</div>
 
-input:checked + .slider:before {
-  transform: translateX(22px);
-}
+<div id="universal-search-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 15vh;">
+    <div class="modal-box" style="padding: 20px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);">
+        <div style="display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <span style="font-size: 1.2rem;">🔍</span>
+            <input type="text" id="uni-search-input" placeholder="Search clients, CNRs, fees..." autocomplete="off" onkeyup="window.runUniversalSearch()" style="border: none; outline: none; width: 100%; font-size: 1.1rem; background: transparent; color: var(--text-main);">
+            <button onclick="window.closeUniversalSearch()" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">×</button>
+        </div>
+        <div id="uni-search-results" style="max-height: 50vh; overflow-y: auto;">
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>
+        </div>
+    </div>
+</div>
+
+<div id="upgrade-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
+        <button class="modal-close" onclick="window.closeModal()">×</button>
+        <div class="pricing-title" id="modal-title" style="font-size: 1.5rem; font-weight: bold; margin-bottom: 8px;">Upgrade your Plan</div>
+        <div class="pricing-subtitle" id="modal-subtitle" style="color: var(--text-muted); margin-bottom: 24px;">Select a plan to unlock powerful AI and search tools.</div>
+        
+        <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')" style="border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer;">
+            <div style="font-weight: bold; color: var(--primary); font-size: 18px;">Pro Plan</div>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.2rem; font-weight: bold;">₹99<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0;"><li>✓ 30 Searches</li><li>✓ Daily Cause List Search</li><li>✓ Bulk Case Refresh</li></ul>
+        </div>
+        <div id="promax-card" class="pricing-card" onclick="window.selectPlan('promax')" style="border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-bottom: 12px; cursor: pointer;">
+            <div style="color: #d4af37; font-weight: bold; font-size: 18px;">Pro Max</div>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.2rem; font-weight: bold;">₹199<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0;"><li>✓ 100 Searches & Full Cause List</li><li>✓ Download Certified Watermarked PDFs</li><li>✓ Extract Order Markdown Text for Drafting</li></ul>
+        </div>
+        <div id="supreme-card" class="pricing-card" onclick="window.selectPlan('supreme')" style="background: rgba(139, 92, 246, 0.05); border: 1px solid var(--border); padding: 16px; border-radius: 8px; margin-bottom: 16px; cursor: pointer;">
+            <div style="color: #8b5cf6; font-weight: bold; font-size: 18px;">Supreme Plan</div>
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.2rem; font-weight: bold;">₹399<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0;"><li>✓ 150 Searches & All Pro Max Features</li><li>✓ AI Judgment Analysis & Summaries</li><li>✓ Unlimited AI Legal Dictionary</li></ul>
+        </div>
+
+        <div class="upi-box" style="border: 1px solid #8b5cf6; background: rgba(139, 92, 246, 0.05); padding: 16px; border-radius: 8px;">
+            <div class="upi-note" style="font-size: 0.9rem; margin-bottom: 12px; font-weight: 500; color: var(--text-main);">Instant account upgrade via secure gateway:</div>
+            <div class="mobile-upi-btn" style="margin-top: 10px;"><a id="upi-btn-link" href="#" class="btn-primary-intent" style="display: block; text-align: center; background: #8b5cf6; color: white; padding: 12px; border-radius: 6px; text-decoration: none; font-weight: 600;">Select a plan above</a></div>
+        </div>
+    </div>
+</div>
+
+<div id="dev-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 380px;">
+        <button class="modal-close" onclick="window.closeDevModal()">×</button>
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">⚖️</div>
+        <h2 style="margin-bottom: 8px; font-size: 1.5rem;">Vaad 2.0.1</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">The Modern Legal Dashboard</p>
+        
+        <div style="background: var(--bg-alt); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align: left; margin-bottom: 20px; position: relative;">
+            <p style="margin-bottom: 4px; font-size: 0.90rem; color: var(--text-muted);">Designed and Developed by:</p>
+            <p style="font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 4px;">Gaurav Kalal</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">LLB Student, Mohanlal Sukhadia University (MLSU), Udaipur</p>
+            
+            <a href="https://gorupa.github.io/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; background: var(--primary); color: white; padding: 10px; border-radius: 6px; text-decoration: none; font-weight: 600; font-size: 0.85rem; transition: background 0.2s;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                View Developer Portfolio
+            </a>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">A product of <strong>Raghav Communication</strong>.</p>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">Version 2.0.1 • Powered by eCourtsIndia API</p>
+    </div>
+</div>
+
+<div id="faq-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; overflow-y: auto; text-align: left;">
+        <button class="modal-close" onclick="window.closeFaqModal()">×</button>
+        <div style="font-size: 2rem; margin-bottom: 10px; text-align: center;">❓</div>
+        <h2 style="margin-bottom: 24px; font-size: 1.5rem; text-align: center;">Help & FAQ</h2>
+        
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary">How do I track a court case?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                Go to the main search screen. You can search using the 16-digit <strong>CNR Number</strong>, or by Advocate Name, Party Name, and Judge Name. If you have a Pro plan, you can use the Bulk CNR tab to refresh up to 50 cases at once.
+            </div>
+        </details>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary">What is the Practice Dashboard?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                The Practice Dashboard is your personal ledger. It allows you to track the total expected fees for a case, set per-hearing installments, and log payments. The dashboard will automatically calculate your pending dues and total revenue.
+            </div>
+        </details>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary">How do I add a case to my Dashboard?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                <strong>Method 1:</strong> Search for a case on the home screen. In the results, click the "💼 Add to My Dashboard" button to auto-fill the details.<br><br>
+                <strong>Method 2:</strong> Open your Dashboard from the menu and click the "+ Add New Case" button to manually enter a client's details, even if the case isn't filed yet.
+            </div>
+        </details>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary">What is Universal Search?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                Universal Search helps you find your saved dashboard records instantly. Just type a client's name, a CNR number, or even a fee amount, and it will pull up the specific case from your ledger so you can log a payment immediately.
+            </div>
+        </details>
+
+        <details class="changelog-details">
+            <summary class="changelog-summary">How do the FUP (Search Limits) work?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                To prevent abuse of the official API, searches are limited. Free users get 1 trial search. You can upgrade to a Pro (30 searches), Pro Max (100 searches), or Supreme (150 searches) plan. Your limits reset automatically every 30 days based on your billing cycle.
+            </div>
+        </details>
+    </div>
+</div>
+
+<div id="whats-new-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; overflow-y: auto; text-align: left;">
+        <button class="modal-close" onclick="window.closeWhatsNewModal()">×</button>
+        <div style="font-size: 2rem; margin-bottom: 10px; text-align: center;">🚀</div>
+        <h2 style="margin-bottom: 24px; font-size: 1.5rem; text-align: center;">What's New</h2>
+        
+        <div style="border-left: 2px solid var(--primary); padding-left: 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v2.0.1</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">March 2026</span>
+            </div>
+            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main);">Dashboard & Cloud Sync</h3>
+            <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                <li><strong>Practice Dashboard:</strong> Track case fees, set per-hearing installments, and view outstanding balances.</li>
+                <li><strong>Cloud Sync:</strong> Your dashboard data is now securely synced to the cloud. Never lose your ledger data across devices.</li>
+                <li><strong>Universal Search:</strong> Instantly search through your saved clients, CNRs, and fee logs directly from the menu.</li>
+            </ul>
+        </div>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary">v2.0 - The Mobile-First Overhaul</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 16px; opacity: 0.8;">
+                <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                    <li><strong>Native App Feel:</strong> Brand new sliding side-menu and frosted glass UI.</li>
+                    <li><strong>Transparent Pricing:</strong> Browse features and pricing without logging in.</li>
+                    <li><strong>AI Legal Assistant:</strong> Added AI-generated judgment summaries & text extraction.</li>
+                    <li><strong>Bulk Tracking:</strong> Queue up to 50 CNRs at once for instant refreshing.</li>
+                </ul>
+            </div>
+        </details>
+
+        <details class="changelog-details">
+            <summary class="changelog-summary">v1.0 - Initial Launch</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; opacity: 0.6;">
+                <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                    <li>Live eCourts API integration for accurate Indian court data.</li>
+                    <li>Daily Cause List generation.</li>
+                    <li>Razorpay payment gateway integration.</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+</div>
+
+<div id="ai-sidebar" class="ai-sidebar">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 1.1rem; display: flex; align-items: center; gap: 8px;">✨ AI Assistant</h3>
+        <button onclick="window.closeAI()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-main); padding: 0;">×</button>
+    </div>
+    <div id="ai-content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); overflow-y: auto; max-height: calc(100vh - 80px);">
+        <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Select any complex legal term or paste text here to get an instant, plain-English explanation.</p>
+    </div>
+</div>
+<div id="ai-overlay" class="drawer-overlay" onclick="window.closeAI()" style="z-index: 1999;"></div>
+
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
