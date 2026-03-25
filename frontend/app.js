@@ -1,3 +1,5 @@
+/* app.js — Vaad 2.0.1 Module */
+
 Window.onerror = function(msg, url, line) { 
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
@@ -29,7 +31,7 @@ let cycleStartDate = null;
 let activeTab = 'cnr';
 let activeJurisdiction = 'india';
 
-// ✨ ADDED: Local state for new Permission Layer (Default True)
+// ✨ Permission Layer state (Default True)
 let syncPermission = true;
 
 // Local storage array for dashboard data & DPDP Consent Status
@@ -49,7 +51,9 @@ document.addEventListener('click', async (e) => {
     const loginTarget = e.target.closest('#login-btn');
     const logoutTarget = e.target.closest('#logout-btn');
     const mobileLogin = e.target.closest('#drawer-login-btn');
-    const mobileLogout = e.target.closest('#drawer-logout-btn');
+    
+    // Updated selector to catch logouts from both main and account panels
+    const mobileLogout = e.target.closest('#drawer-logout-btn, #drawer-logout-btn-account');
     
     if (loginTarget || mobileLogin) {
         if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
@@ -82,7 +86,7 @@ async function syncDashboardToCloud() {
 
     // 2. ✨ NEW: Permission Layer Lock (Drawer Toggle)
     if (!syncPermission) {
-        console.warn("[Cloud Sync] Syn blocked by user permission setting.");
+        console.warn("[Cloud Sync] Sync blocked by user permission setting.");
         return; 
     }
 
@@ -98,7 +102,7 @@ async function syncDashboardToCloud() {
     }
 }
 
-// ✨ ADDED: Function to sync Permission UI with Firestore on login
+// ✨ Function to sync Permission UI with Firestore on login
 async function syncPermissionUI() {
     if (!currentUser) return;
     try {
@@ -108,7 +112,7 @@ async function syncPermissionUI() {
             if (data.permissions && data.permissions.cloudSync !== undefined) {
                 // Update local memory state
                 syncPermission = data.permissions.cloudSync;
-                // Update visual Toggle UI
+                // Update visual Toggle UI (Restored ID)
                 const toggleEl = document.getElementById('syncPermissionToggle');
                 if (toggleEl) toggleEl.checked = syncPermission;
                 console.log(`[Permission Layer] Initialized UI from Firestore: ${syncPermission}`);
@@ -119,7 +123,7 @@ async function syncPermissionUI() {
     }
 }
 
-// ✨ ADDED: GLOBAL Function for Drawer Toggle Change
+// ✨ GLOBAL Function for Drawer Toggle Change (Restored ID)
 window.toggleCloudSyncPermission = async function() {
     const toggleEl = document.getElementById('syncPermissionToggle');
     const isChecked = toggleEl.checked; // state they just switched to
@@ -134,7 +138,6 @@ window.toggleCloudSyncPermission = async function() {
         const userRef = doc(db, 'users', currentUser.uid);
         
         // 1. Save new permission state to Firestore immediately
-        // Uses standard format we discussed previously: { permissions: { cloudSync: boolean } }
         await setDoc(userRef, { 
             permissions: { cloudSync: isChecked } 
         }, { merge: true });
@@ -181,17 +184,15 @@ onAuthStateChanged(auth, async (user) => {
 
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
-        const drawerLogout = document.getElementById('drawer-logout-btn');
-        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
         
+        // Removed direct references to old specific logout/dashboard buttons as they are now panel-specific
+
         if (drawerUnauth) drawerUnauth.style.display = 'none';
         if (drawerAuth) {
             drawerAuth.style.display = 'flex';
             document.getElementById('drawer-name').innerText = user.displayName;
             document.getElementById('drawer-avatar').src = user.photoURL;
         }
-        if (drawerLogout) drawerLogout.style.display = 'block';
-        if (drawerDashboard) drawerDashboard.style.display = 'block';
 
         const badge = document.getElementById('user-badge');
         if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
@@ -206,10 +207,10 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
-                // ✨ NEW: Initial Permission Check & UI Sync
+                // ✨ Initial Permission Check & UI Sync
                 await syncPermissionUI();
 
-                // FETCH DASHBOARD DATA FROM CLOUD (If allowed by rules & permission layer)
+                // FETCH DASHBOARD DATA FROM CLOUD
                 if (data.practiceCases) {
                     practiceCases = data.practiceCases;
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
@@ -244,8 +245,6 @@ onAuthStateChanged(auth, async (user) => {
         
         const drawerUnauth = document.getElementById('drawer-unauth');
         const drawerAuth = document.getElementById('drawer-auth');
-        const drawerLogout = document.getElementById('drawer-logout-btn');
-        const drawerDashboard = document.getElementById('drawer-dashboard-btn');
         
         if (drawerUnauth) drawerUnauth.style.display = 'block';
         if (drawerAuth) {
@@ -253,8 +252,6 @@ onAuthStateChanged(auth, async (user) => {
             // RESTORED: Hamburger visible on unauth drawer
             document.getElementById('menu-btn').style.display = 'block';
         }
-        if (drawerLogout) drawerLogout.style.display = 'none';
-        if (drawerDashboard) drawerDashboard.style.display = 'none';
 
         currentPlan = 'free';
         cycleStartDate = null;
@@ -381,7 +378,7 @@ window.toggleCnrMode = function() {
     document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
 };
 
-// --- VIEW SWITCHING LOGIC (Untouched, old sliding menu restored) ---
+// --- VIEW SWITCHING LOGIC (Untouched) ---
 window.toggleView = function(viewName) {
     const searchView = document.getElementById('view-search');
     const dashboardView = document.getElementById('view-dashboard');
@@ -400,10 +397,37 @@ window.toggleView = function(viewName) {
     }
 };
 
-// --- MODALS & MENUS TRIGGERING (Reverted Core logic) ---
+// --- MODALS & MENUS TRIGGERING (Reverted Core logic + ✨ Panel sliding logic) ---
 window.toggleMenu = function() {
+    // MODIFICATION: Reset drawer to Main Panel every time it closes, 
+    // ensuring user starts at Core features next time. optimized for low-resource.
+    const sideDrawer = document.getElementById('side-drawer');
+    if (sideDrawer.classList.contains('open')) {
+        // optimized delay to reset after drawer slides shut
+        setTimeout(() => window.switchDrawerPanels(false), 300); 
+    }
+
     document.getElementById('side-drawer').classList.toggle('open');
     document.getElementById('drawer-overlay').classList.toggle('open');
+};
+
+// ✨ NEW GLOBAL FUNCTION for Decluttered Drawer Navigation
+// Using simple class toggles on stacked absolute panels is highly optimized for performance.
+window.switchDrawerPanels = function(toAccountPanel) {
+    const mainNavPanel = document.getElementById('main-nav-panel');
+    const accountNavPanel = document.getElementById('account-nav-panel');
+    
+    if (!mainNavPanel || !accountNavPanel) return;
+
+    if (toAccountPanel) {
+        // Move from Main -> Account: Main shifts left (-100%), Account slides in from right (0%)
+        mainNavPanel.classList.add('hidden');
+        accountNavPanel.classList.add('active');
+    } else {
+        // Move from Account -> Main: Main shifts back right (0%), Account slides back right (100%)
+        mainNavPanel.classList.remove('hidden');
+        accountNavPanel.classList.remove('active');
+    }
 };
 
 window.openDevModal = function() { 
