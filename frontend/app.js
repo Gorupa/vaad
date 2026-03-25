@@ -3,7 +3,6 @@ window.onerror = function(msg, url, line) {
 };
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-// Reverted the fallback import back to signInWithPopup
 import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
@@ -22,7 +21,9 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// Safely initialize Google Identity using addEventListener
+// ✨ ADDED: Memory state for Smart Fallback
+let forcePopupLogin = localStorage.getItem('vaad_force_popup') === 'true';
+
 window.addEventListener('load', () => {
     if (typeof google !== 'undefined' && google.accounts) {
         google.accounts.id.initialize({
@@ -32,18 +33,19 @@ window.addEventListener('load', () => {
         });
         console.log("[Auth] Google Credential Manager Initialized.");
     } else {
-        console.error("[Auth] Google API script not found. Make sure <script src='https://accounts.google.com/gsi/client' async defer></script> is in your index.html");
+        console.error("[Auth] Google API script not found.");
     }
+    updateAuthPermissionUI(); // Update UI on load
 });
 
 async function handleCredentialResponse(response) {
     try {
-        console.log("[Auth] Credential response received, authenticating with Firebase...");
+        console.log("[Auth] Authenticating with Firebase...");
         const credential = GoogleAuthProvider.credential(response.credential);
         await signInWithCredential(auth, credential);
         console.log("[Auth] Successfully signed in via Credential Manager!");
     } catch (error) {
-        console.error("[Auth] Firebase Auth via Credential Manager failed:", error);
+        console.error("[Auth] Auth via Credential Manager failed:", error);
         resetLoginButtons();
     }
 }
@@ -82,50 +84,46 @@ document.addEventListener('click', async (e) => {
     const mobileLogout = e.target.closest('#drawer-logout-btn');
     
     if (loginTarget || mobileLogin) {
-        console.log("[Auth] Sign In button clicked.");
-        
         if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
         if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
         
-        try {
-            // Check if Google script loaded properly
-            if (typeof google === 'undefined' || !google.accounts) {
-                console.warn("[Auth] Google API not loaded. Forcing direct Firebase Popup fallback.");
+        // ✨ SMART FALLBACK: Skip native attempt entirely if blocked previously
+        if (forcePopupLogin || typeof google === 'undefined' || !google.accounts) {
+            console.log("[Auth] Bypassing native prompt. Using Popup Fallback.");
+            try {
                 await signInWithPopup(auth, provider);
                 if (mobileLogin) window.toggleMenu();
-                return;
+            } catch (error) {
+                resetLoginButtons();
             }
+            return;
+        }
 
-            // Clear Google's 'g_state' cooldown cookie
+        try {
             document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-
-            console.log("[Auth] Attempting to show native prompt...");
             
             google.accounts.id.prompt(async (notification) => {
-                console.log("[Auth] Prompt status:", notification.getMomentType(), notification.getDismissedReason());
-                
                 if (notification.isDismissedMoment() || notification.isSkippedMoment()) {
-                    console.log("[Auth] User explicitly dismissed the prompt. Cancelling.");
                     resetLoginButtons();
                 } 
                 else if (notification.isNotDisplayed()) {
-                    console.warn("[Auth] Native UI blocked/not displayed. Reason:", notification.getNotDisplayedReason());
-                    console.log("[Auth] Falling back to Firebase Popup.");
+                    console.warn("[Auth] Native UI blocked. Saving preference and switching to Popup.");
                     
-                    // ✨ Trigger Popup Fallback
+                    // Remember the block so we don't try again
+                    localStorage.setItem('vaad_force_popup', 'true');
+                    forcePopupLogin = true;
+                    updateAuthPermissionUI();
+                    
                     try {
                         await signInWithPopup(auth, provider);
                         if (mobileLogin) window.toggleMenu();
                     } catch (popupError) {
-                        console.error("[Auth] Popup fallback failed:", popupError);
                         resetLoginButtons();
                     }
                 }
             });
             
         } catch (error) {
-            console.error("[Auth] Login initialization completely failed:", error);
-            // Absolute last resort fallback if prompt throws a hard error
             try {
                 await signInWithPopup(auth, provider);
                 if (mobileLogin) window.toggleMenu();
@@ -142,6 +140,33 @@ document.addEventListener('click', async (e) => {
         });
     }
 });
+
+// ✨ ADDED: Updates the Easy Sign-In Permission UI
+window.updateAuthPermissionUI = function() {
+    const statusEl = document.getElementById('auth-permission-status');
+    const helpEl = document.getElementById('auth-permission-help');
+    const resetBtn = document.getElementById('auth-permission-reset');
+    
+    if (!statusEl) return;
+
+    if (forcePopupLogin) {
+        statusEl.innerHTML = `<span style="color: var(--error-text);">Blocked by Device</span>`;
+        if (helpEl) helpEl.style.display = 'block';
+        if (resetBtn) resetBtn.style.display = 'flex';
+    } else {
+        statusEl.innerHTML = `<span style="color: var(--success-text);">Active & Enabled</span>`;
+        if (helpEl) helpEl.style.display = 'none';
+        if (resetBtn) resetBtn.style.display = 'none';
+    }
+};
+
+// ✨ ADDED: Resets the app's memory so it tries Native Login again
+window.resetAuthPermission = function() {
+    localStorage.removeItem('vaad_force_popup');
+    forcePopupLogin = false;
+    updateAuthPermissionUI();
+    alert("Easy Sign-In reset! The app will try the faster login method next time you sign in.");
+};
 
 // --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
@@ -173,7 +198,6 @@ async function syncPermissionUI() {
                 syncPermission = data.permissions.cloudSync;
                 const toggleEl = document.getElementById('syncPermissionToggle');
                 if (toggleEl) toggleEl.checked = syncPermission;
-                console.log(`[Permission Layer] Initialized UI from Firestore: ${syncPermission}`);
             }
         }
     } catch (e) {
@@ -193,11 +217,7 @@ window.toggleCloudSyncPermission = async function() {
 
     try {
         const userRef = doc(db, 'users', currentUser.uid);
-        
-        await setDoc(userRef, { 
-            permissions: { cloudSync: isChecked } 
-        }, { merge: true });
-
+        await setDoc(userRef, { permissions: { cloudSync: isChecked } }, { merge: true });
         syncPermission = isChecked;
 
         if (!isChecked) {
@@ -260,6 +280,7 @@ onAuthStateChanged(auth, async (user) => {
                 cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
                 await syncPermissionUI();
+                updateAuthPermissionUI();
 
                 if (data.practiceCases) {
                     practiceCases = data.practiceCases;
@@ -537,7 +558,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
     if (!currentUser) {
         alert("Please sign in to create your account before upgrading.");
         window.closeModal(); 
-        google.accounts.id.prompt(); 
+        document.getElementById('login-btn').click(); 
         return;
     }
 
@@ -627,7 +648,7 @@ window.runUniversalSearch = function() {
 };
 
 window.handleSearch = async function() {
-    if (!currentUser) { google.accounts.id.prompt(); return; }
+    if (!currentUser) { document.getElementById('login-btn').click(); return; }
 
     const fup = checkFUP('search');
     if (fup.expired) { showError(`Your ${currentPlan.toUpperCase()} subscription expired.`); window.openModal(); return; }
