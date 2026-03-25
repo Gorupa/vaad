@@ -41,7 +41,7 @@ body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif; back
 /* ── Modals & Glassmorphism ── */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(6px); z-index: 150; justify-content: center; align-items: center; padding: 20px; }
 .modal-overlay.active { display: flex; animation: fadeIn 0.2s ease; }
-.modal-box { background: var(--bg); width: 100%; max-width: 420px; border-radius: 16px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative; max-height: 90vh; overflow-y: auto;}
+.modal-box { background: var(--bg); width: 100%; max-width: 420px; border-radius: 16px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative; }
 .modal-close { position: absolute; top: 16px; right: 16px; cursor: pointer; font-size: 1.5rem; color: var(--text-muted); border: none; background: none; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 50%; transition: background 0.2s; }
 .modal-close:hover { background: var(--bg-alt); color: var(--text-main); }
 
@@ -114,7 +114,7 @@ input[type="text"]:focus, input[type="number"]:focus, textarea:focus { border-co
     box-shadow: 0 2px 4px rgba(139, 92, 246, 0.3);
 }
 
-/* ── AI Sidebar Sliding Panel (REVERTED) ── */
+/* ── AI Sidebar Sliding Panel ── */
 .ai-sidebar {
     position: fixed;
     top: 0;
