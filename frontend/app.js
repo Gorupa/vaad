@@ -1,9 +1,10 @@
-Window.onerror = function(msg, url, line) { 
+window.onerror = function(msg, url, line) { 
     console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
+// ✨ MODIFIED: Swapped signInWithPopup for signInWithCredential and signInWithRedirect
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getAuth, signInWithCredential, signInWithRedirect, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -20,6 +21,34 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
+
+// ✨ ADDED: Initialize Google Identity Services (Credential Manager API)
+window.onload = function () {
+    google.accounts.id.initialize({
+        client_id: "649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com", 
+        callback: handleCredentialResponse,
+        use_fedcm_for_prompt: true // Forces the modern Credential Manager API
+    });
+};
+
+// ✨ ADDED: Handle the token returned by Credential Manager
+async function handleCredentialResponse(response) {
+    try {
+        const credential = GoogleAuthProvider.credential(response.credential);
+        await signInWithCredential(auth, credential);
+        console.log("[Auth] Successfully signed in via Credential Manager");
+    } catch (error) {
+        console.error("Firebase Auth via Credential Manager failed:", error);
+        resetLoginButtons();
+    }
+}
+
+function resetLoginButtons() {
+    const loginTarget = document.getElementById('login-btn');
+    const mobileLogin = document.getElementById('drawer-login-btn');
+    if (loginTarget) loginTarget.innerText = "Sign In";
+    if (mobileLogin) mobileLogin.innerText = "Sign In / Register";
+}
 
 const API = 'https://vaad-wnul.onrender.com/api';
 let currentUser = null;
@@ -44,7 +73,7 @@ const limits = {
     supreme: { search: 150, pdf: 30 }
 };
 
-// --- BUTTON BINDINGS (Reverted to original IDs) ---
+// --- BUTTON BINDINGS (✨ MODIFIED for Credential Manager integration) ---
 document.addEventListener('click', async (e) => {
     const loginTarget = e.target.closest('#login-btn');
     const logoutTarget = e.target.closest('#logout-btn');
@@ -56,12 +85,18 @@ document.addEventListener('click', async (e) => {
         if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
         
         try {
-            await signInWithPopup(auth, provider);
+            // Trigger Credential Manager API native prompt
+            google.accounts.id.prompt((notification) => {
+                if (notification.isNotDisplayed() || notification.isSkippedMoment()) {
+                    console.warn("Credential Manager UI blocked or skipped. Falling back to seamless redirect.");
+                    // Fallback: If device blocks the native prompt, use Firebase redirect
+                    signInWithRedirect(auth, provider);
+                }
+            });
             if (mobileLogin) window.toggleMenu();
         } catch (error) {
-            console.error("Login failed or cancelled:", error);
-            if (loginTarget) loginTarget.innerText = "Sign In";
-            if (mobileLogin) mobileLogin.innerText = "Sign In / Register";
+            console.error("Login initialization failed:", error);
+            resetLoginButtons();
         }
     }
     
@@ -93,7 +128,6 @@ async function syncDashboardToCloud() {
         });
         console.log("[Cloud Sync] Dashboard saved to Firestore.");
     } catch (error) {
-        // If security rules block it because permission was revoked on server, handle gracefully
         console.error("Error syncing dashboard to cloud:", error);
     }
 }
@@ -134,7 +168,6 @@ window.toggleCloudSyncPermission = async function() {
         const userRef = doc(db, 'users', currentUser.uid);
         
         // 1. Save new permission state to Firestore immediately
-        // Uses standard format we discussed previously: { permissions: { cloudSync: boolean } }
         await setDoc(userRef, { 
             permissions: { cloudSync: isChecked } 
         }, { merge: true });
@@ -144,26 +177,23 @@ window.toggleCloudSyncPermission = async function() {
 
         // 2. Immediate action based on revocation
         if (!isChecked) {
-            // THEY REVOKED SYNC
             if(confirm("Cloud Sync Revoked. Data remains locally on this device until you log out, but new changes won't backup. Without backup, data is lost if you use a new device or clear cache.")) {
                 alert("Permission revoked successfully.");
             } else {
                 toggleEl.checked = true; // revert visual UI
-                // Re-enable in Firestore if they canceled
                 await setDoc(userRef, { permissions: { cloudSync: true } }, { merge: true });
                 syncPermission = true;
                 return;
             }
         } else {
-            // THEY ENABLED SYNC
             alert("Secure Cloud Sync Enabled.");
-            await syncDashboardToCloud(); // Immediate sync now allowed
+            await syncDashboardToCloud(); 
         }
 
     } catch (error) {
         console.error("[Permission Layer] Error toggling permission:", error);
         alert("Network error. Check connection.");
-        toggleEl.checked = !isChecked; // Revert UI
+        toggleEl.checked = !isChecked; 
     }
 };
 
@@ -173,7 +203,6 @@ onAuthStateChanged(auth, async (user) => {
     if (limitText) limitText.innerText = "Loading limits..."; 
 
     if (user) {
-        // Original IDs restored
         document.getElementById('login-btn').style.display = 'none';
         document.getElementById('user-menu').style.display = 'flex';
         document.getElementById('user-name').innerText = user.displayName.split(' ')[0];
@@ -206,17 +235,14 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = limits[dbPlan] ? dbPlan : 'free';
                 cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
-                // ✨ NEW: Initial Permission Check & UI Sync
                 await syncPermissionUI();
 
-                // FETCH DASHBOARD DATA FROM CLOUD (If allowed by rules & permission layer)
                 if (data.practiceCases) {
                     practiceCases = data.practiceCases;
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
                     console.log("[Cloud Sync] Dashboard loaded from Firestore.");
                 }
             } else {
-                // New user init
                 const today = new Date().toISOString().split('T')[0];
                 await setDoc(userRef, { 
                     name: user.displayName, 
@@ -225,7 +251,6 @@ onAuthStateChanged(auth, async (user) => {
                     cycleStartDate: today, 
                     joinedAt: new Date().toISOString(),
                     practiceCases: [],
-                    // NEW: Default permission true on init
                     permissions: { cloudSync: true }
                 });
                 currentPlan = 'free';
@@ -250,7 +275,6 @@ onAuthStateChanged(auth, async (user) => {
         if (drawerUnauth) drawerUnauth.style.display = 'block';
         if (drawerAuth) {
             drawerAuth.style.display = 'none';
-            // RESTORED: Hamburger visible on unauth drawer
             document.getElementById('menu-btn').style.display = 'block';
         }
         if (drawerLogout) drawerLogout.style.display = 'none';
@@ -259,7 +283,6 @@ onAuthStateChanged(auth, async (user) => {
         currentPlan = 'free';
         cycleStartDate = null;
         
-        // CLEAR LOCAL DATA ON LOGOUT FOR PRIVACY
         practiceCases = [];
         localStorage.removeItem('vaad_dashboard_cases');
     }
@@ -331,7 +354,6 @@ function updateTabLocks() {
     }
 }
 
-// --- JURISDICTION SWITCHING ---
 window.switchJurisdiction = function(country) {
     activeJurisdiction = country;
     const indianTabs = document.querySelectorAll('.indian-tab');
@@ -381,7 +403,6 @@ window.toggleCnrMode = function() {
     document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
 };
 
-// --- VIEW SWITCHING LOGIC (Untouched, old sliding menu restored) ---
 window.toggleView = function(viewName) {
     const searchView = document.getElementById('view-search');
     const dashboardView = document.getElementById('view-dashboard');
@@ -390,7 +411,6 @@ window.toggleView = function(viewName) {
         if (!currentUser) { alert("Please sign in access dashboard."); window.openModal(); return; }
         searchView.style.display = 'none';
         dashboardView.style.display = 'block';
-        //Hamburger stays visible
         document.getElementById('menu-btn').style.display = 'block';
         window.renderDashboard();
     } else {
@@ -400,7 +420,6 @@ window.toggleView = function(viewName) {
     }
 };
 
-// --- MODALS & MENUS TRIGGERING (Reverted Core logic) ---
 window.toggleMenu = function() {
     document.getElementById('side-drawer').classList.toggle('open');
     document.getElementById('drawer-overlay').classList.toggle('open');
@@ -430,7 +449,6 @@ window.openAddCaseModal = function() {
 };
 window.closeAddCaseModal = function() { document.getElementById('add-case-modal').classList.remove('active'); };
 
-// ✨ DPDP CONSENT MODAL LOGIC (Untouched, critical core)
 window.openConsentModal = function() {
     const m = document.getElementById('consent-modal');
     m.classList.add('active'); m.style.display = ''; 
@@ -459,7 +477,6 @@ window.declineConsent = async function() {
     }
 };
 
-// PRICING MODAL (Untouched)
 window.openModal = function() { 
     const modal = document.getElementById('upgrade-modal');
     if (!modal) return;
@@ -495,7 +512,9 @@ window.closeModal = function() { document.getElementById('upgrade-modal').classL
 window.payWithRazorpay = function(planType, amountInINR) {
     if (!currentUser) {
         alert("Please sign in to create your account before upgrading.");
-        window.closeModal(); signInWithPopup(auth, provider); return;
+        window.closeModal(); 
+        google.accounts.id.prompt(); 
+        return;
     }
 
     const options = {
@@ -534,7 +553,6 @@ window.selectPlan = function(planType) {
     }
 };
 
-// ✨ UNIVERSAL SEARCH LOGIC (Preserved, critical core)
 window.openUniversalSearch = function() {
     if (!currentUser) { alert("Please sign in search your practice dashboard."); window.openModal(); return; }
     const modal = document.getElementById('universal-search-modal');
@@ -584,24 +602,8 @@ window.runUniversalSearch = function() {
     resultsContainer.innerHTML = html;
 };
 
-window.goToDashboardCase = function(caseId) {
-    window.closeUniversalSearch();
-    window.toggleView('dashboard');
-    setTimeout(() => {
-        const caseElement = document.getElementById(`dashboard-case-${caseId}`);
-        if (caseElement) {
-            caseElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            caseElement.style.boxShadow = '0 0 0 2px var(--primary)';
-            setTimeout(() => { caseElement.style.boxShadow = 'none'; }, 1500);
-        }
-    }, 100);
-};
-
-// ==========================================
-// API SEARCH LOGIC (Preserved Core)
-// ==========================================
 window.handleSearch = async function() {
-    if (!currentUser) { signInWithPopup(auth, provider); return; }
+    if (!currentUser) { google.accounts.id.prompt(); return; }
 
     const fup = checkFUP('search');
     if (fup.expired) { showError(`Your ${currentPlan.toUpperCase()} subscription expired.`); window.openModal(); return; }
@@ -643,7 +645,6 @@ window.handleSearch = async function() {
     await performSearch(endpoint, bodyData, fup.storageKey, renderType);
 };
 
-// SEARCH PERFORM HELPER (Preserved Core)
 async function performSearch(endpoint, bodyData, storageKey, renderType) {
     setLoading(true); window.clearResults();
     try {
@@ -733,9 +734,6 @@ function renderCaseDetail(payload) {
     document.getElementById('results').innerHTML = html;
 }
 
-// ==========================================
-// PRACITCE LEDGER / DASHBOARD LOGIC (Preserved Core)
-// ==========================================
 window.saveTrackedCase = async function() {
     const cnr = document.getElementById('track-cnr').value.trim();
     const title = document.getElementById('track-title').value.trim();
@@ -767,7 +765,6 @@ window.saveTrackedCase = async function() {
         window.toggleView('dashboard');
     };
 
-    // DPDP Check: If consent has never been asked, interrupt and ask.
     if (userConsent === null && currentUser) {
         pendingSaveAction = executeSave;
         window.closeAddCaseModal(); 
@@ -893,7 +890,6 @@ window.renderDashboard = function() {
     document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
 };
 
-// --- RESTORED: AI SIDEBAR LOGIC (Preserved Core) ---
 window.openAI = async function(legalText = null) {
     if (!currentUser) { alert("Please sign use AI Assistant."); return; }
     document.getElementById('ai-sidebar').classList.add('active');
