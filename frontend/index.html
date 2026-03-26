@@ -30,7 +30,7 @@
     <div class="nav-right desktop-only">
         <span class="nav-badge">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a></span>
         
-        <button id="login-btn" class="btn-auth">Sign In</button>
+        <button id="login-btn" class="btn-auth" onclick="window.openLoginModal()">Sign In</button>
 
         <div id="user-menu" class="user-profile" style="display: none; align-items: center;">
             <a href="#" onclick="window.toggleView('dashboard')" id="nav-dashboard-btn" style="font-weight:600; color:var(--primary); text-decoration:none; margin-right:16px; font-size: 0.9rem;">💼 Dashboard</a>
@@ -48,25 +48,10 @@
 <div id="drawer-overlay" class="drawer-overlay" onclick="window.toggleMenu()"></div>
 <div id="side-drawer" class="drawer">
     <div class="drawer-header">
-        
         <div id="drawer-unauth" style="display: block;">
-            <h3 style="margin-bottom: 16px;">Welcome to Vaad</h3>
-            
-            <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px;">
-                <input type="email" id="auth-email" placeholder="Email Address" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--bg); color: var(--text-main);">
-                <input type="password" id="auth-password" placeholder="Password (min 6 chars)" style="width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem; background: var(--bg); color: var(--text-main);">
-                <button id="email-login-btn" class="btn-search" style="margin-top: 4px; padding: 10px; font-size: 0.9rem;">Sign In / Register</button>
-                <div id="auth-error" style="color: var(--error-text); font-size: 0.75rem; display: none; text-align: center;"></div>
-            </div>
-
-            <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 16px;">— OR —</div>
-
-            <button id="drawer-login-btn" class="btn-auth" style="width: 100%; justify-content: center; background: white; border: 1px solid var(--border);">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px; margin-right: 8px;" alt="G">
-                Continue with Google
-            </button>
+            <h3 style="margin-bottom: 8px;">Welcome to Vaad</h3>
+            <button class="btn-auth" style="width: 100%; justify-content: center;" onclick="window.toggleMenu(); window.openLoginModal();">Sign In / Register</button>
         </div>
-
         <div id="drawer-auth" style="display: none; align-items: center; gap: 12px;">
             <img id="drawer-avatar" src="" alt="Avatar" style="width: 40px; height: 40px; border-radius: 50%;">
             <div>
@@ -187,7 +172,7 @@
                 </div>
 
                 <button class="btn-search" id="search-btn" onclick="window.handleSearch()"><span id="btn-text">Search Cases</span></button>
-                <div id="limit-text" class="free-limits" style="margin-top: 12px; font-size: 14px; text-align: center;">Sign in with Google to get 1 free search</div>
+                <div id="limit-text" class="free-limits" style="margin-top: 12px; font-size: 14px; text-align: center;">Sign in to get 1 free search</div>
             </div>
         </div>
     </div>
@@ -220,8 +205,38 @@
         <button class="btn-action btn-ai" onclick="window.openAddCaseModal()" style="font-size: 0.8rem; padding: 8px 16px;">+ Add New Case</button>
     </div>
     
-    <div id="dashboard-cases">
+    <div id="dashboard-cases"></div>
+</div>
+
+<div id="login-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 360px; padding: 32px 24px;">
+        <button class="modal-close" onclick="window.closeLoginModal()">×</button>
+        <div style="font-size: 2.5rem; margin-bottom: 8px;">👋</div>
+        <h3 style="margin-bottom: 6px; font-size: 1.4rem;">Welcome to Vaad</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Sign in or create a new account.</p>
+
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; text-align: left;">
+            <div>
+                <input type="email" id="auth-email" placeholder="Email Address" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--bg); color: var(--text-main); outline: none;">
+            </div>
+            <div>
+                <input type="password" id="auth-password" placeholder="Password (min 6 chars)" style="width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--bg); color: var(--text-main); outline: none;">
+                <div style="text-align: right; margin-top: 6px; font-size: 0.75rem; color: var(--text-muted);">New user? We'll register you automatically.</div>
+            </div>
+            <button id="email-login-btn" class="btn-search" style="margin-top: 8px; padding: 14px; font-size: 0.95rem;">Sign In / Register</button>
+            <div id="auth-error" style="color: var(--error-text); font-size: 0.8rem; display: none; text-align: center; background: var(--error-bg); padding: 8px; border-radius: 6px; border: 1px solid #fecaca;"></div>
         </div>
+
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 20px; position: relative;">
+            <hr style="border: none; border-top: 1px solid var(--border); position: absolute; width: 100%; top: 50%; z-index: 1;">
+            <span style="background: var(--bg); padding: 0 10px; position: relative; z-index: 2; font-weight: 600;">OR</span>
+        </div>
+
+        <button id="google-login-btn" class="btn-auth" style="width: 100%; justify-content: center; background: white; border: 1px solid var(--border); padding: 12px; font-size: 0.95rem;">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px; margin-right: 10px;" alt="G">
+            Continue with Google
+        </button>
+    </div>
 </div>
 
 <div id="add-case-modal" class="modal-overlay">
