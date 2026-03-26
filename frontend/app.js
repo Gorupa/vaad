@@ -36,25 +36,41 @@ window.addEventListener('load', () => {
 
 async function handleCredentialResponse(response) {
     try {
-        console.log("[Auth] Authenticating with Firebase...");
         const credential = GoogleAuthProvider.credential(response.credential);
         await signInWithCredential(auth, credential);
-        console.log("[Auth] Successfully signed in via Credential Manager!");
+        window.closeLoginModal();
     } catch (error) {
         console.error("[Auth] Auth via Credential Manager failed:", error);
         resetLoginButtons();
     }
 }
 
+// ✨ NEW: Modal Control Functions
+window.openLoginModal = function() {
+    document.getElementById('login-modal').classList.add('active');
+    document.getElementById('login-modal').style.display = 'flex';
+};
+
+window.closeLoginModal = function() {
+    document.getElementById('login-modal').classList.remove('active');
+    document.getElementById('login-modal').style.display = 'none';
+    document.getElementById('auth-error').style.display = 'none';
+    document.getElementById('auth-email').value = '';
+    document.getElementById('auth-password').value = '';
+    resetLoginButtons();
+};
+
 function resetLoginButtons() {
-    const loginTarget = document.getElementById('login-btn');
-    const mobileLogin = document.getElementById('drawer-login-btn');
     const emailLoginBtn = document.getElementById('email-login-btn');
-    if (loginTarget) loginTarget.innerText = "Sign In";
-    if (mobileLogin) mobileLogin.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 18px; margin-right: 8px;" alt="G"> Continue with Google`;
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    
     if (emailLoginBtn) {
         emailLoginBtn.innerText = "Sign In / Register";
         emailLoginBtn.disabled = false;
+    }
+    if (googleLoginBtn) {
+        googleLoginBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px; margin-right: 10px;" alt="G"> Continue with Google`;
+        googleLoginBtn.disabled = false;
     }
 }
 
@@ -79,13 +95,11 @@ const limits = {
 
 // --- BUTTON BINDINGS ---
 document.addEventListener('click', async (e) => {
-    const loginTarget = e.target.closest('#login-btn');
-    const logoutTarget = e.target.closest('#logout-btn');
-    const mobileLogin = e.target.closest('#drawer-login-btn');
-    const mobileLogout = e.target.closest('#drawer-logout-btn');
+    const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
     const emailLoginBtn = e.target.closest('#email-login-btn');
+    const googleLoginBtn = e.target.closest('#google-login-btn');
 
-    // Email & Password Authentication
+    // 1. Email & Password Authentication
     if (emailLoginBtn) {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
@@ -97,21 +111,21 @@ document.addEventListener('click', async (e) => {
             return;
         }
 
-        emailLoginBtn.innerText = 'Connecting...';
+        emailLoginBtn.innerHTML = '<div class="spinner" style="width:14px; height:14px; border-color:white; border-top-color:transparent; margin-right:8px;"></div> Connecting...';
         emailLoginBtn.disabled = true;
         errorDiv.style.display = "none";
 
         try {
             await signInWithEmailAndPassword(auth, email, password);
-            window.toggleMenu();
+            window.closeLoginModal();
         } catch (error) {
             if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
                 try {
                     await createUserWithEmailAndPassword(auth, email, password);
-                    window.toggleMenu();
+                    window.closeLoginModal();
                 } catch (registerError) {
                     if (registerError.code === 'auth/email-already-in-use') {
-                        errorDiv.innerText = "Incorrect password.";
+                        errorDiv.innerText = "This email is registered to a Google account. Try clicking 'Continue with Google'.";
                     } else {
                         errorDiv.innerText = "Error: " + registerError.message.replace('Firebase: ', '');
                     }
@@ -127,48 +141,41 @@ document.addEventListener('click', async (e) => {
         return;
     }
     
-    // Google Sign In Authentication
-    if (loginTarget || mobileLogin) {
-        if (loginTarget) loginTarget.innerHTML = '<span>Connecting...</span>';
-        if (mobileLogin) mobileLogin.innerHTML = '<span>Connecting...</span>';
+    // 2. Google Sign In Authentication
+    if (googleLoginBtn) {
+        googleLoginBtn.innerHTML = '<div class="spinner" style="width:16px; height:16px; border-color:var(--text-muted); border-top-color:transparent; margin-right:8px;"></div> Connecting...';
+        googleLoginBtn.disabled = true;
+
+        const executePopup = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+                window.closeLoginModal();
+            } catch (error) {
+                console.error("Popup error:", error);
+                resetLoginButtons();
+            }
+        };
         
         try {
             document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             
             if (typeof google === 'undefined' || !google.accounts) {
-                await signInWithPopup(auth, provider);
-                if (mobileLogin) window.toggleMenu();
+                await executePopup();
                 return;
             }
 
             google.accounts.id.prompt(async (notification) => {
-                if (notification.isDismissedMoment() || notification.isSkippedMoment()) {
-                    resetLoginButtons();
-                } 
-                else if (notification.isNotDisplayed()) {
-                    console.warn("[Auth] Native UI blocked. Switching to Popup Fallback.");
-                    try {
-                        await signInWithPopup(auth, provider);
-                        if (mobileLogin) window.toggleMenu();
-                    } catch (popupError) {
-                        resetLoginButtons();
-                    }
+                if (notification.isDismissedMoment() || notification.isSkippedMoment() || notification.isNotDisplayed()) {
+                    await executePopup();
                 }
             });
-            
         } catch (error) {
-            console.error("Native prompt threw an error:", error);
-            try {
-                await signInWithPopup(auth, provider);
-                if (mobileLogin) window.toggleMenu();
-            } catch (fallbackError) {
-                resetLoginButtons();
-            }
+            await executePopup();
         }
     }
     
-    if (logoutTarget || mobileLogout) {
-        if (mobileLogout) window.toggleMenu();
+    if (logoutTarget) {
+        if (e.target.closest('#drawer-logout-btn')) window.toggleMenu();
         signOut(auth).then(() => {
             window.location.reload(); 
         });
@@ -179,10 +186,7 @@ document.addEventListener('click', async (e) => {
 async function syncDashboardToCloud() {
     if (!currentUser) return; 
     if (userConsent !== 'true') return; 
-    if (!syncPermission) {
-        console.warn("[Cloud Sync] Syn blocked by user permission setting.");
-        return; 
-    }
+    if (!syncPermission) return; 
 
     try {
         const userRef = doc(db, "users", currentUser.uid);
@@ -564,7 +568,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
     if (!currentUser) {
         alert("Please sign in to create your account before upgrading.");
         window.closeModal(); 
-        document.getElementById('login-btn').click(); 
+        window.openLoginModal(); 
         return;
     }
 
@@ -654,7 +658,7 @@ window.runUniversalSearch = function() {
 };
 
 window.handleSearch = async function() {
-    if (!currentUser) { document.getElementById('login-btn').click(); return; }
+    if (!currentUser) { window.openLoginModal(); return; }
 
     const fup = checkFUP('search');
     if (fup.expired) { showError(`Your ${currentPlan.toUpperCase()} subscription expired.`); window.openModal(); return; }
