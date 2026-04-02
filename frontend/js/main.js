@@ -6,7 +6,7 @@ import { onAuthStateChanged, signInWithCredential, signInWithEmailAndPassword, c
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import * as ui from "./utils/ui.js";
 import * as dashboardRenderer from "./renderers/dashboard.js";
-import * * * searchRenderer from "./renderers/search.js";
+import * as searchRenderer from "./renderers/search.js"; // FIX 1: was "import * * * searchRenderer"
 import { updateSearchLimitUI, checkFUP } from "./services/fup.js";
 import { selectPlan } from "./services/payments.js";
 
@@ -65,7 +65,7 @@ onAuthStateChanged(auth, async (user) => {
             if (userSnap.exists()) {
                 const data = userSnap.data();
                 const dbPlan = String(data.plan || 'free').toLowerCase().replace(/[^a-z]/g, '');
-                state.currentPlan = ui.PLAN_LIMITS ? (ui.PLAN_LIMITS[dbPlan] ? dbPlan : 'free') : 'free'; // Check ui.PLAN_LIMITS
+                state.currentPlan = ui.PLAN_LIMITS ? (ui.PLAN_LIMITS[dbPlan] ? dbPlan : 'free') : 'free';
                 state.cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
                 
                 await syncPermissionUI();
@@ -110,18 +110,17 @@ onAuthStateChanged(auth, async (user) => {
         resetStateOnLogout();
     }
     
-    // We bind these logic-dependent functions to window here to maintain flow
     window.currentUserPlan = state.currentPlan; 
     updateBadge();
     updateTabLocks();
     updateSearchLimitUI();
 });
 
-// --- Consent & Permissions Handling (Bind to window) ---
+// --- Consent & Permissions Handling ---
 window.acceptConsent = async function() {
     localStorage.setItem('vaad_dpdp_consent', 'true');
     state.userConsent = 'true';
-    ui.closeGenericModalCloser('consent-modal')();
+    ui.createGenericModalCloser('consent-modal')();
     if (state.pendingSaveAction) { 
         await state.pendingSaveAction(); 
         state.pendingSaveAction = null; 
@@ -131,7 +130,7 @@ window.acceptConsent = async function() {
 window.declineConsent = function() {
     localStorage.setItem('vaad_dpdp_consent', 'false');
     state.userConsent = 'false';
-    ui.closeGenericModalCloser('consent-modal')();
+    ui.createGenericModalCloser('consent-modal')();
     state.pendingSaveAction = null; 
 };
 
@@ -162,10 +161,6 @@ window.toggleCloudSyncPermission = async function() {
             }
         } else {
             alert("Secure Cloud Sync Enabled.");
-            // Important: We need a way to call syncDashboardToCloud which is inside dashboardRenderer
-            // Since dashboardRenderer isn't exported as a whole, we can import just that function 
-            // but we want to avoid circular dependencies if possible. 
-            // For now, let's assume it's acceptable.
             const { syncDashboardToCloud } = await import("./renderers/dashboard.js");
             await syncDashboardToCloud(); 
         }
@@ -196,7 +191,7 @@ async function syncPermissionUI() {
 
 // --- Universal Search ---
 window.openUniversalSearch = function() {
-    if (!state.currentUser) { alert("Please sign in search your practice dashboard."); ui.openUpgradeModal(); return; }
+    if (!state.currentUser) { alert("Please sign in to search your practice dashboard."); ui.openUpgradeModal(); return; }
     const modal = document.getElementById('universal-search-modal');
     if(!modal) return;
     modal.classList.add('active');
@@ -231,7 +226,7 @@ window.runUniversalSearch = function() {
     );
 
     if (matches.length === 0) {
-        resultsContainer.innerHTML = `<div style="text-align: center; ...">No dashboard records found for "${query}"</div>`;
+        resultsContainer.innerHTML = `<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">No dashboard records found for "${query}"</div>`;
         return;
     }
 
@@ -239,8 +234,8 @@ window.runUniversalSearch = function() {
     matches.forEach(c => {
         const remaining = Math.max(0, c.totalFee - c.collected);
         html += `
-        <div onclick="window.goToDashboardCase(${c.id})" style="...">
-            <div style="...">
+        <div onclick="window.goToDashboardCase(${c.id})" style="padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 8px; cursor: pointer;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div style="font-weight: 600; color: var(--primary);">${c.title}</div>
                 <div style="font-size: 0.75rem; font-weight: bold; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid'}</div>
             </div>
@@ -250,14 +245,14 @@ window.runUniversalSearch = function() {
     resultsContainer.innerHTML = html;
 };
 
-// --- View/Tab management specific to this orchestration layer ---
+// --- View/Tab management ---
 window.toggleView = function(viewName) {
     const searchView = document.getElementById('view-search');
     const dashboardView = document.getElementById('view-dashboard');
     if(!searchView || !dashboardView) return;
     
     if (viewName === 'dashboard') {
-        if (!state.currentUser) { alert("Please sign in access dashboard."); ui.openUpgradeModal(); return; }
+        if (!state.currentUser) { alert("Please sign in to access dashboard."); ui.openUpgradeModal(); return; }
         searchView.style.display = 'none';
         dashboardView.style.display = 'block';
         setDisplay('menu-btn', 'block');
@@ -350,7 +345,7 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
         const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
         const json = await res.json();
         
-        if (!res.ok || !json.success) return ui.showError(json.error || 'The official API failed fetch records.');
+        if (!res.ok || !json.success) return ui.showError(json.error || 'The official API failed to fetch records.');
 
         if (state.currentUser) {
             let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
@@ -378,7 +373,7 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
     } catch (e) { ui.showError(`Network Error: ${e.message}`); } finally { ui.setLoading(false); }
 }
 
-// --- Internal Helper Functions for Main Orchestration ---
+// --- Internal Helper Functions ---
 function setDisplay(id, style) { const el = document.getElementById(id); if(el) el.style.display = style; }
 function setInnerText(id, text) { const el = document.getElementById(id); if(el) el.innerText = text; }
 function setAvatarSrc(id, user, size) { 
@@ -423,36 +418,27 @@ function updateTabLocks() {
     }
 }
 
-// --- BINDING ALL NECESSARY UTILITIES TO WINDOW OBJECT ---
-// This is critical to ensure onclick="window.functionName()" in HTML still works.
+// --- WINDOW BINDINGS ---
+// UI utilities
 window.clearResults = ui.clearResults;
 window.switchTab = ui.switchTab;
 window.toggleMenu = ui.toggleMenu;
 window.toggleCnrMode = ui.toggleCnrMode;
-window.switchJurisdiction = window.switchJurisdiction; // Local orchestration function
-window.toggleView = window.toggleView; // Local orchestration function
-window.runUniversalSearch = window.runUniversalSearch; // Local orchestration function
-window.closeUniversalSearch = window.closeUniversalSearch; // Local orchestration function
-window.openUniversalSearch = window.openUniversalSearch; // Local orchestration function
-window.handleSearch = window.handleSearch; // Local orchestration function
 
 // Service & Renderer Bindings
 window.selectPlan = selectPlan;
-window.acceptConsent = window.acceptConsent;
-window.declineConsent = window.declineConsent;
-window.toggleCloudSyncPermission = window.toggleCloudSyncPermission;
 window.saveTrackedCase = dashboardRenderer.saveTrackedCase;
 window.logPayment = dashboardRenderer.logPayment;
 window.deleteDashboardCase = dashboardRenderer.deleteDashboardCase;
 window.deletePaymentLog = dashboardRenderer.deletePaymentLog;
 window.renderDashboard = dashboardRenderer.renderDashboard;
 
-// Basic Modal Control Bindings
+// Modal Bindings
 window.openLoginModal = ui.openLoginModal;
 window.closeLoginModal = ui.closeLoginModal;
-window.openModal = ui.openUpgradeModal; // Original app.js used openModal for upgrade
-window.closeModal = ui.closeUpgradeModal; // Original app.js used closeModal for upgrade
-window.openGenericModalCloser = ui.openGenericModalCloser; // Original app.js used closeModal for generic
+window.openModal = ui.openUpgradeModal;
+window.closeModal = ui.closeUpgradeModal;
+window.closeGenericModalCloser = ui.createGenericModalCloser; // FIX 4: was openGenericModalCloser
 
 window.openDevModal = ui.createGenericModalOpener('dev-modal');
 window.closeDevModal = ui.createGenericModalCloser('dev-modal');
@@ -465,9 +451,9 @@ window.closeAddCaseModal = ui.createGenericModalCloser('add-case-modal');
 window.openConsentModal = ui.createGenericModalOpener('consent-modal');
 window.closeConsentModal = ui.createGenericModalCloser('consent-modal');
 
-// --- Global Click & Key Listeners (Orchestration logic) ---
+// --- Global Click & Key Listeners ---
 document.addEventListener('click', async (e) => {
-    // 1. Authenticated Logout
+    // 1. Logout
     const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
     if (logoutTarget) {
         if (e.target.closest('#drawer-logout-btn')) ui.toggleMenu();
@@ -484,14 +470,13 @@ document.addEventListener('click', async (e) => {
         if (!errorDiv) return;
         
         if (!email || !password) { errorDiv.innerText = "Provide email/password."; errorDiv.style.display = "block"; return; }
-        emailLoginBtn.innerHTML = '<div class="spinner" style="..."></div> Connecting...';
+        emailLoginBtn.innerHTML = '<div class="spinner" style="width:14px; height:14px; border-color:white; border-top-color:transparent; margin-right:8px; display:inline-block;"></div> Connecting...';
         emailLoginBtn.disabled = true; errorDiv.style.display = "none";
 
         try {
             await signInWithEmailAndPassword(auth, email, password);
             ui.closeLoginModal();
         } catch (error) {
-            // Registration fallback
             if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
                 try {
                     await createUserWithEmailAndPassword(auth, email, password);
@@ -510,15 +495,20 @@ document.addEventListener('click', async (e) => {
     // 3. Google Sign In
     const googleLoginBtn = e.target.closest('#google-login-btn');
     if (googleLoginBtn) {
-        googleLoginBtn.innerHTML = '<div class="spinner" style="..."></div> Connecting...';
+        googleLoginBtn.innerHTML = '<div class="spinner" style="width:16px; height:16px; border-color:var(--text-muted); border-top-color:transparent; margin-right:8px; display:inline-block;"></div> Connecting...';
         googleLoginBtn.disabled = true;
 
-        const executePopup = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); ui.closeLoginModal(); } catch (e) { console.error(e); ui.resetLoginButtons(); } };
+        const executePopup = async () => { 
+            try { await signInWithPopup(auth, new GoogleAuthProvider()); ui.closeLoginModal(); } 
+            catch (e) { console.error(e); ui.resetLoginButtons(); } 
+        };
         
         try {
             document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
             if (typeof google === 'undefined' || !google.accounts) { await executePopup(); return; }
-            google.accounts.id.prompt(async (n) => { if (n.isDismissedMoment() || n.isSkippedMoment() || n.isNotDisplayed()) await executePopup(); });
+            google.accounts.id.prompt(async (n) => { 
+                if (n.isDismissedMoment() || n.isSkippedMoment() || n.isNotDisplayed()) await executePopup(); 
+            });
         } catch (e) { await executePopup(); }
     }
 });
