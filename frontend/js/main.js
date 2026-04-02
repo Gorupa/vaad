@@ -6,7 +6,7 @@ import { onAuthStateChanged, signInWithCredential, signInWithEmailAndPassword, c
 import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 import * as ui from "./utils/ui.js";
 import * as dashboardRenderer from "./renderers/dashboard.js";
-import * as searchRenderer from "./renderers/search.js";
+import * * * searchRenderer from "./renderers/search.js";
 import { updateSearchLimitUI, checkFUP } from "./services/fup.js";
 import { selectPlan } from "./services/payments.js";
 
