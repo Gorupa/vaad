@@ -1,0 +1,531 @@
+// js/main.js
+import { GIS_CLIENT_ID, API_URL } from "./config.js";
+import { state, resetStateOnLogout, updatePracticeCases } from "./state.js";
+import { auth, db } from "./services/firebase.js";
+import { onAuthStateChanged, signInWithCredential, signInWithEmailAndPassword, createUserWithEmailAndPassword, GoogleAuthProvider, signOut, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import * as ui from "./utils/ui.js";
+import * as dashboardRenderer from "./renderers/dashboard.js";
+import * as searchRenderer from "./renderers/search.js";
+import { updateSearchLimitUI, checkFUP } from "./services/fup.js";
+import { selectPlan } from "./services/payments.js";
+
+// --- Google Identity Services (Credential Manager) ---
+window.addEventListener('load', () => {
+    if (typeof google !== 'undefined' && google.accounts) {
+        google.accounts.id.initialize({
+            client_id: GIS_CLIENT_ID, 
+            callback: handleCredentialResponse,
+            use_fedcm_for_prompt: true 
+        });
+        console.log("[Auth] Google Credential Manager Initialized.");
+    } else {
+        console.error("[Auth] Google API script not found.");
+    }
+});
+
+async function handleCredentialResponse(response) {
+    try {
+        const credential = GoogleAuthProvider.credential(response.credential);
+        await signInWithCredential(auth, credential);
+        ui.closeLoginModal();
+    } catch (error) {
+        console.error("[Auth] Auth via Credential Manager failed:", error);
+        ui.resetLoginButtons();
+    }
+}
+
+// --- Auth State Listener ---
+onAuthStateChanged(auth, async (user) => {
+    state.currentUser = user;
+    const limitText = document.getElementById('limit-text');
+    if (limitText) limitText.innerText = "Loading limits..."; 
+
+    if (user) {
+        // UI Updates for Authenticated User
+        setDisplay('login-btn', 'none');
+        setDisplay('user-menu', 'flex');
+        setInnerText('user-name', user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0]);
+        setAvatarSrc('user-avatar', user, 40);
+
+        setDisplay('drawer-unauth', 'none');
+        setDisplay('drawer-auth', 'flex');
+        setInnerText('drawer-name', user.displayName || user.email.split('@')[0]);
+        setAvatarSrc('drawer-avatar', user, 60);
+        setDisplay('drawer-logout-btn', 'block');
+        setDisplay('drawer-dashboard-btn', 'block');
+
+        const badge = document.getElementById('user-badge');
+        if (badge) { badge.innerText = "..."; badge.style.background = "gray"; }
+
+        try {
+            const userRef = doc(db, "users", user.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                const data = userSnap.data();
+                const dbPlan = String(data.plan || 'free').toLowerCase().replace(/[^a-z]/g, '');
+                state.currentPlan = ui.PLAN_LIMITS ? (ui.PLAN_LIMITS[dbPlan] ? dbPlan : 'free') : 'free'; // Check ui.PLAN_LIMITS
+                state.cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
+                
+                await syncPermissionUI();
+
+                if (data.practiceCases) {
+                    updatePracticeCases(data.practiceCases);
+                    console.log("[Cloud Sync] Dashboard loaded from Firestore.");
+                }
+            } else {
+                // New user initialization
+                const today = new Date().toISOString().split('T')[0];
+                await setDoc(userRef, { 
+                    name: user.displayName || user.email.split('@')[0], 
+                    email: user.email, 
+                    plan: 'free', 
+                    cycleStartDate: today, 
+                    joinedAt: new Date().toISOString(),
+                    practiceCases: [],
+                    permissions: { cloudSync: true }
+                });
+                state.currentPlan = 'free';
+                state.cycleStartDate = today;
+            }
+        } catch (error) {
+            console.error("Firebase read error:", error);
+            state.currentPlan = 'free';
+            state.cycleStartDate = new Date().toISOString().split('T')[0];
+        }
+        
+        dashboardRenderer.renderDashboard(); 
+    } else {
+        // UI Updates for Unauthenticated User
+        setDisplay('login-btn', 'flex');
+        setDisplay('user-menu', 'none');
+        
+        setDisplay('drawer-unauth', 'block');
+        setDisplay('drawer-auth', 'none');
+        setDisplay('menu-btn', 'block');
+        setDisplay('drawer-logout-btn', 'none');
+        setDisplay('drawer-dashboard-btn', 'none');
+
+        resetStateOnLogout();
+    }
+    
+    // We bind these logic-dependent functions to window here to maintain flow
+    window.currentUserPlan = state.currentPlan; 
+    updateBadge();
+    updateTabLocks();
+    updateSearchLimitUI();
+});
+
+// --- Consent & Permissions Handling (Bind to window) ---
+window.acceptConsent = async function() {
+    localStorage.setItem('vaad_dpdp_consent', 'true');
+    state.userConsent = 'true';
+    ui.closeGenericModalCloser('consent-modal')();
+    if (state.pendingSaveAction) { 
+        await state.pendingSaveAction(); 
+        state.pendingSaveAction = null; 
+    }
+};
+
+window.declineConsent = function() {
+    localStorage.setItem('vaad_dpdp_consent', 'false');
+    state.userConsent = 'false';
+    ui.closeGenericModalCloser('consent-modal')();
+    state.pendingSaveAction = null; 
+};
+
+window.toggleCloudSyncPermission = async function() {
+    const toggleEl = document.getElementById('syncPermissionToggle');
+    if(!toggleEl) return;
+    const isChecked = toggleEl.checked; 
+    
+    if (!state.currentUser) {
+        alert("Please sign in to change permissions.");
+        toggleEl.checked = !isChecked; 
+        return;
+    }
+
+    try {
+        const userRef = doc(db, 'users', state.currentUser.uid);
+        await setDoc(userRef, { permissions: { cloudSync: isChecked } }, { merge: true });
+        state.syncPermission = isChecked;
+
+        if (!isChecked) {
+            if(confirm("Cloud Sync Revoked. Data remains locally on this device...")) {
+                alert("Permission revoked successfully.");
+            } else {
+                toggleEl.checked = true; 
+                await setDoc(userRef, { permissions: { cloudSync: true } }, { merge: true });
+                state.syncPermission = true;
+                return;
+            }
+        } else {
+            alert("Secure Cloud Sync Enabled.");
+            // Important: We need a way to call syncDashboardToCloud which is inside dashboardRenderer
+            // Since dashboardRenderer isn't exported as a whole, we can import just that function 
+            // but we want to avoid circular dependencies if possible. 
+            // For now, let's assume it's acceptable.
+            const { syncDashboardToCloud } = await import("./renderers/dashboard.js");
+            await syncDashboardToCloud(); 
+        }
+
+    } catch (error) {
+        console.error("[Permission Layer] Error toggling permission:", error);
+        alert("Network error. Check connection.");
+        toggleEl.checked = !isChecked; 
+    }
+};
+
+async function syncPermissionUI() {
+    if (!state.currentUser) return;
+    try {
+        const userSnap = await getDoc(doc(db, 'users', state.currentUser.uid));
+        if (userSnap.exists()) {
+            const data = userSnap.data();
+            if (data.permissions && data.permissions.cloudSync !== undefined) {
+                state.syncPermission = data.permissions.cloudSync;
+                const toggleEl = document.getElementById('syncPermissionToggle');
+                if (toggleEl) toggleEl.checked = state.syncPermission;
+            }
+        }
+    } catch (e) {
+        console.error("Error syncing permission UI:", e);
+    }
+}
+
+// --- Universal Search ---
+window.openUniversalSearch = function() {
+    if (!state.currentUser) { alert("Please sign in search your practice dashboard."); ui.openUpgradeModal(); return; }
+    const modal = document.getElementById('universal-search-modal');
+    if(!modal) return;
+    modal.classList.add('active');
+    modal.style.display = ''; 
+    setTimeout(() => { const input = document.getElementById('uni-search-input'); if(input) input.focus(); }, 100);
+};
+
+window.closeUniversalSearch = function() {
+    const modal = document.getElementById('universal-search-modal');
+    if(!modal) return;
+    modal.classList.remove('active');
+    const input = document.getElementById('uni-search-input');
+    if(input) input.value = '';
+    const results = document.getElementById('uni-search-results');
+    if(results) results.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search...</div>';
+};
+
+window.runUniversalSearch = function() {
+    const query = document.getElementById('uni-search-input').value.toLowerCase().trim();
+    const resultsContainer = document.getElementById('uni-search-results');
+    if(!resultsContainer) return;
+    
+    if (!query) {
+        resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search...</div>';
+        return;
+    }
+
+    const matches = state.practiceCases.filter(c => 
+        c.title.toLowerCase().includes(query) || 
+        (c.cnr && c.cnr.toLowerCase().includes(query)) ||
+        c.totalFee.toString().includes(query)
+    );
+
+    if (matches.length === 0) {
+        resultsContainer.innerHTML = `<div style="text-align: center; ...">No dashboard records found for "${query}"</div>`;
+        return;
+    }
+
+    let html = '';
+    matches.forEach(c => {
+        const remaining = Math.max(0, c.totalFee - c.collected);
+        html += `
+        <div onclick="window.goToDashboardCase(${c.id})" style="...">
+            <div style="...">
+                <div style="font-weight: 600; color: var(--primary);">${c.title}</div>
+                <div style="font-size: 0.75rem; font-weight: bold; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid'}</div>
+            </div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">CNR: ${c.cnr || 'Manual Entry'} • Total: ₹${c.totalFee}</div>
+        </div>`;
+    });
+    resultsContainer.innerHTML = html;
+};
+
+// --- View/Tab management specific to this orchestration layer ---
+window.toggleView = function(viewName) {
+    const searchView = document.getElementById('view-search');
+    const dashboardView = document.getElementById('view-dashboard');
+    if(!searchView || !dashboardView) return;
+    
+    if (viewName === 'dashboard') {
+        if (!state.currentUser) { alert("Please sign in access dashboard."); ui.openUpgradeModal(); return; }
+        searchView.style.display = 'none';
+        dashboardView.style.display = 'block';
+        setDisplay('menu-btn', 'block');
+        dashboardRenderer.renderDashboard();
+    } else {
+        dashboardView.style.display = 'none';
+        searchView.style.display = 'block';
+        setDisplay('menu-btn', 'block');
+    }
+};
+
+window.switchJurisdiction = function(country) {
+    state.activeJurisdiction = country;
+    const elements = {
+        indianTabs: document.querySelectorAll('.indian-tab'),
+        indianPanels: document.querySelectorAll('.indian-panel'),
+        usTabs: document.querySelectorAll('.us-tab'),
+        usPanels: document.querySelectorAll('.us-panel')
+    };
+
+    if (country === 'usa') {
+        elements.indianTabs.forEach(el => el.style.display = 'none');
+        elements.indianPanels.forEach(el => el.style.display = 'none');
+        elements.usTabs.forEach(el => el.style.display = 'block');
+        ui.switchTab('us-case');
+    } else {
+        elements.indianTabs.forEach(el => el.style.display = 'block');
+        elements.usTabs.forEach(el => el.style.display = 'none');
+        elements.usPanels.forEach(el => el.style.display = 'none');
+        ui.switchTab('cnr');
+    }
+    ui.clearResults();
+};
+
+// --- Handle Search Execution ---
+window.handleSearch = async function() {
+    if (!state.currentUser) { ui.openLoginModal(); return; }
+
+    const fup = checkFUP('search');
+    if (fup.expired) { ui.showError(`Your ${state.currentPlan.toUpperCase()} subscription expired.`); window.openModal(); return; }
+    if (!fup.allowed) { if (state.currentPlan === 'free') window.openModal(); else ui.showError(`FUP Limit Reached.`); return; }
+
+    let endpoint = ''; let bodyData = {}; let renderType = '';
+
+    if (state.activeJurisdiction === 'usa' && state.activeTab === 'us-case') {
+        alert("US Case Law search is coming soon."); return;
+    } else if (state.activeTab === 'lawyer') {
+        alert("Available soon."); return;
+    } else if (state.activeTab === 'cnr') {
+        const modeInput = document.querySelector('input[name="cnr-mode"]:checked');
+        const mode = modeInput ? modeInput.value : 'single';
+        if (mode === 'single') {
+            const query = document.getElementById('cnr-input').value.trim();
+            if (!query) return;
+            endpoint = `${API_URL}/cnr`; bodyData = { cnr: query }; renderType = 'cnr';
+        } else {
+            const bulkText = document.getElementById('cnr-bulk-input').value.trim();
+            if (!bulkText) return;
+            const cnrs = bulkText.split('\n').map(c => c.trim()).filter(c => c.length > 5);
+            if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
+            endpoint = `${API_URL}/bulk-refresh`; bodyData = { cnrs: cnrs }; renderType = 'bulk';
+        }
+    } else if (state.activeTab === 'causelist') {
+        const stateEl = document.getElementById('causelist-state');
+        const queryEl = document.getElementById('causelist-query');
+        if(!stateEl || !queryEl) return;
+        const stateVal = stateEl.value.trim().toUpperCase();
+        const queryVal = queryEl.value.trim();
+        if (!stateVal || !queryVal) return alert("Provide State Code and Query.");
+        endpoint = `${API_URL}/causelist`; bodyData = { query: queryVal, state: stateVal, limit: 20 }; renderType = 'causelist';
+    } else {
+        let query = '';
+        const litigantInput = document.getElementById('litigant-input');
+        const advocateInput = document.getElementById('advocate-input');
+        const judgeInput = document.getElementById('judge-input');
+
+        if (state.activeTab === 'litigant' && litigantInput) query = litigantInput.value.trim();
+        if (state.activeTab === 'advocate' && advocateInput) query = advocateInput.value.trim();
+        if (state.activeTab === 'judge' && judgeInput) query = judgeInput.value.trim();
+        if (!query) return;
+        endpoint = `${API_URL}/search`; bodyData = { query: query, type: state.activeTab }; renderType = 'list';
+    }
+
+    await performSearch(endpoint, bodyData, fup.storageKey, renderType);
+};
+
+async function performSearch(endpoint, bodyData, storageKey, renderType) {
+    ui.setLoading(true); ui.clearResults();
+    try {
+        const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
+        const json = await res.json();
+        
+        if (!res.ok || !json.success) return ui.showError(json.error || 'The official API failed fetch records.');
+
+        if (state.currentUser) {
+            let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
+            localStorage.setItem(storageKey, currentCount + 1);
+            updateSearchLimitUI();
+        }
+
+        if (renderType === 'cnr') searchRenderer.renderCaseDetail(json.data);
+        else if (renderType === 'list') searchRenderer.renderCaseList(json.data);
+        else if (renderType === 'causelist') {
+             const resultsContainer = document.getElementById('results');
+             let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><h3 style="margin-bottom: 15px;">Today's Cause List</h3>`;
+             if (!json.data || !json.data.results || json.data.results.length === 0) {
+                 html += `<div>No cases listed today.</div>`;
+             } else {
+                 json.data.results.forEach(c => {
+                     html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 2px 6px; border-radius: 4px;">Room: ${c.courtNo || '—'}</span></div></div>`;
+                 });
+             }
+             resultsContainer.innerHTML = html;
+        }
+        else if (renderType === 'bulk') {
+             document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 8px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs queued... in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`;
+        }
+    } catch (e) { ui.showError(`Network Error: ${e.message}`); } finally { ui.setLoading(false); }
+}
+
+// --- Internal Helper Functions for Main Orchestration ---
+function setDisplay(id, style) { const el = document.getElementById(id); if(el) el.style.display = style; }
+function setInnerText(id, text) { const el = document.getElementById(id); if(el) el.innerText = text; }
+function setAvatarSrc(id, user, size) { 
+    const el = document.getElementById(id); 
+    if(el) el.src = user.photoURL || `https://ui-avatars.com/api/?name=${(user.displayName || user.email)}&background=random&size=${size}`; 
+}
+
+function updateBadge() {
+    const badge = document.getElementById('user-badge');
+    const drawerBadge = document.getElementById('drawer-badge');
+    if (!badge) return;
+    const fup = checkFUP('search');
+    
+    let badgeText = ''; let badgeBg = ''; let badgeColor = '';
+
+    if (fup.expired) {
+        badgeText = "EXPIRED"; badgeBg = "#ef4444"; badgeColor = "white";
+    } else if (state.currentPlan === 'supreme') {
+        badgeText = "SUPREME"; badgeBg = "#8b5cf6"; badgeColor = "white";
+    } else if (state.currentPlan === 'promax') {
+        badgeText = "PRO MAX"; badgeBg = "#d4af37"; badgeColor = "black";
+    } else if (state.currentPlan === 'pro') {
+        badgeText = "PRO"; badgeBg = "var(--primary)"; badgeColor = "white";
+    } else {
+        badgeText = "FREE"; badgeBg = "var(--border)"; badgeColor = "var(--text-muted)";
+    }
+
+    badge.innerText = badgeText; badge.style.background = badgeBg; badge.style.color = badgeColor;
+    if (drawerBadge) { drawerBadge.innerText = badgeText; drawerBadge.style.background = badgeBg; drawerBadge.style.color = badgeColor; }
+}
+
+function updateTabLocks() {
+    const locks = document.querySelectorAll('.tab:not(#tab-cnr):not(#tab-lawyer):not(#tab-us-case) .lock-icon');
+    const hasPaidPlan = state.currentPlan === 'supreme' || state.currentPlan === 'promax' || state.currentPlan === 'pro';
+    
+    if (hasPaidPlan) {
+        locks.forEach(icon => icon.style.display = 'none');
+    } else {
+        locks.forEach(icon => icon.style.display = 'inline');
+        const requiresLock = state.activeTab !== 'cnr' && state.activeTab !== 'us-case' && state.activeTab !== 'lawyer';
+        if (requiresLock) ui.switchTab('cnr');
+    }
+}
+
+// --- BINDING ALL NECESSARY UTILITIES TO WINDOW OBJECT ---
+// This is critical to ensure onclick="window.functionName()" in HTML still works.
+window.clearResults = ui.clearResults;
+window.switchTab = ui.switchTab;
+window.toggleMenu = ui.toggleMenu;
+window.toggleCnrMode = ui.toggleCnrMode;
+window.switchJurisdiction = window.switchJurisdiction; // Local orchestration function
+window.toggleView = window.toggleView; // Local orchestration function
+window.runUniversalSearch = window.runUniversalSearch; // Local orchestration function
+window.closeUniversalSearch = window.closeUniversalSearch; // Local orchestration function
+window.openUniversalSearch = window.openUniversalSearch; // Local orchestration function
+window.handleSearch = window.handleSearch; // Local orchestration function
+
+// Service & Renderer Bindings
+window.selectPlan = selectPlan;
+window.acceptConsent = window.acceptConsent;
+window.declineConsent = window.declineConsent;
+window.toggleCloudSyncPermission = window.toggleCloudSyncPermission;
+window.saveTrackedCase = dashboardRenderer.saveTrackedCase;
+window.logPayment = dashboardRenderer.logPayment;
+window.deleteDashboardCase = dashboardRenderer.deleteDashboardCase;
+window.deletePaymentLog = dashboardRenderer.deletePaymentLog;
+window.renderDashboard = dashboardRenderer.renderDashboard;
+
+// Basic Modal Control Bindings
+window.openLoginModal = ui.openLoginModal;
+window.closeLoginModal = ui.closeLoginModal;
+window.openModal = ui.openUpgradeModal; // Original app.js used openModal for upgrade
+window.closeModal = ui.closeUpgradeModal; // Original app.js used closeModal for upgrade
+window.openGenericModalCloser = ui.openGenericModalCloser; // Original app.js used closeModal for generic
+
+window.openDevModal = ui.createGenericModalOpener('dev-modal');
+window.closeDevModal = ui.createGenericModalCloser('dev-modal');
+window.openWhatsNewModal = ui.createGenericModalOpener('whats-new-modal');
+window.closeWhatsNewModal = ui.createGenericModalCloser('whats-new-modal');
+window.openFaqModal = ui.createGenericModalOpener('faq-modal');
+window.closeFaqModal = ui.createGenericModalCloser('faq-modal');
+window.openAddCaseModal = ui.createGenericModalOpener('add-case-modal');
+window.closeAddCaseModal = ui.createGenericModalCloser('add-case-modal');
+window.openConsentModal = ui.createGenericModalOpener('consent-modal');
+window.closeConsentModal = ui.createGenericModalCloser('consent-modal');
+
+// --- Global Click & Key Listeners (Orchestration logic) ---
+document.addEventListener('click', async (e) => {
+    // 1. Authenticated Logout
+    const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
+    if (logoutTarget) {
+        if (e.target.closest('#drawer-logout-btn')) ui.toggleMenu();
+        signOut(auth).then(() => { window.location.reload(); });
+        return;
+    }
+
+    // 2. Email Login
+    const emailLoginBtn = e.target.closest('#email-login-btn');
+    if (emailLoginBtn) {
+        const email = document.getElementById('auth-email').value.trim();
+        const password = document.getElementById('auth-password').value;
+        const errorDiv = document.getElementById('auth-error');
+        if (!errorDiv) return;
+        
+        if (!email || !password) { errorDiv.innerText = "Provide email/password."; errorDiv.style.display = "block"; return; }
+        emailLoginBtn.innerHTML = '<div class="spinner" style="..."></div> Connecting...';
+        emailLoginBtn.disabled = true; errorDiv.style.display = "none";
+
+        try {
+            await signInWithEmailAndPassword(auth, email, password);
+            ui.closeLoginModal();
+        } catch (error) {
+            // Registration fallback
+            if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
+                try {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                    ui.closeLoginModal();
+                } catch (registerError) {
+                    errorDiv.innerText = registerError.code === 'auth/email-already-in-use' ? "Email registered to Google. Try that." : registerError.message;
+                    errorDiv.style.display = "block"; ui.resetLoginButtons();
+                }
+            } else {
+                errorDiv.innerText = error.message; errorDiv.style.display = "block"; ui.resetLoginButtons();
+            }
+        }
+        return;
+    }
+    
+    // 3. Google Sign In
+    const googleLoginBtn = e.target.closest('#google-login-btn');
+    if (googleLoginBtn) {
+        googleLoginBtn.innerHTML = '<div class="spinner" style="..."></div> Connecting...';
+        googleLoginBtn.disabled = true;
+
+        const executePopup = async () => { try { await signInWithPopup(auth, new GoogleAuthProvider()); ui.closeLoginModal(); } catch (e) { console.error(e); ui.resetLoginButtons(); } };
+        
+        try {
+            document.cookie = "g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+            if (typeof google === 'undefined' || !google.accounts) { await executePopup(); return; }
+            google.accounts.id.prompt(async (n) => { if (n.isDismissedMoment() || n.isSkippedMoment() || n.isNotDisplayed()) await executePopup(); });
+        } catch (e) { await executePopup(); }
+    }
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
+
+// --- Service Worker Registration ---
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); });
+}
