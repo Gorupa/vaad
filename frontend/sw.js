@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-v2.1.7'; // Bump this number (e.g., v2.0.2) to force an immediate update for all users
+const CACHE_NAME = 'vaad-v2.1.8'; // Bump this number (e.g., v2.0.2) to force an immediate update for all users
 
 const ASSETS_TO_CACHE = [
     '/',
