@@ -1,38 +1,93 @@
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
-const Razorpay = require('razorpay'); // Checkpoint A: ADDED
+const Razorpay = require('razorpay');
 
-// Initialize Firebase Admin so the server can securely update user plans
-// NOTE: Ensure FIREBASE_SERVICE_ACCOUNT environment variable is set in Render
+// ── FIREBASE ADMIN INIT ──
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        admin.initializeApp({
-            credential: admin.credential.cert(serviceAccount)
-        });
-        console.log("✅ Firebase Admin Initialized successfully.");
+        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
+        console.log("✅ Firebase Admin Initialized.");
     } catch (e) {
-        console.error("❌ ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT env variable.", e.message);
+        console.error("❌ Failed to parse FIREBASE_SERVICE_ACCOUNT:", e.message);
     }
 } else {
-    console.warn("⚠️ WARNING: FIREBASE_SERVICE_ACCOUNT env variable is missing. Webhooks will fail to update database.");
+    console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT missing. Webhooks will not update database.");
 }
 
 const db = admin.apps.length ? admin.firestore() : null;
 
-// --- ✨ NEW RAZORPAY INITIALIZATION ✨ ---
-// NOTE: Ensure RAZORPAY_KEY_ID and RAZORPAY_SECRET_KEY env variables are set conceptually in Render.
-// These variables are crucial to the coupled logic chain.
-const rzp = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID, 
-  key_secret: process.env.RAZORPAY_SECRET_KEY, 
-});
+// ── RAZORPAY INIT (safe — won't crash if env vars missing) ──
+const rzp = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET_KEY)
+    ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_SECRET_KEY })
+    : null;
+
+if (!rzp) console.warn("⚠️ RAZORPAY_KEY_ID or RAZORPAY_SECRET_KEY missing. Payment orders will fail.");
 
 const app = express();
-app.use(cors());
+
+// ── SECURITY: Helmet (sets safe HTTP headers) ──
+app.use(helmet());
+
+// ── SECURITY: CORS (locked to your Cloudflare domain) ──
+const allowedOrigins = [
+    'https://vaad.pages.dev',
+    'http://localhost:3000',   // for local dev
+    'http://localhost:5500'    // for local dev with Live Server
+];
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow requests with no origin (mobile apps, Razorpay webhook, health checks)
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`⛔ CORS blocked request from: ${origin}`);
+            callback(new Error('Not allowed by CORS'));
+        }
+    }
+}));
+
+// ── SECURITY: Rate Limiting ──
+// General API limit — 60 requests per minute per IP
+const generalLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 60,
+    message: { success: false, error: 'Too many requests. Please slow down.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Stricter limit for search routes — prevents API key abuse
+const searchLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 20,
+    message: { success: false, error: 'Search rate limit exceeded. Try again in a minute.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Payment limiter — prevent order spam
+const paymentLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10,
+    message: { success: false, error: 'Too many payment requests. Please wait.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+// Apply general limiter to all routes
+app.use('/api/', generalLimiter);
+
+// ── IMPORTANT: Webhook needs raw body for signature verification ──
+// Must be before express.json()
+app.use('/api/webhook/razorpay', express.raw({ type: 'application/json' }));
+
+// Parse JSON for all other routes
 app.use(express.json());
 
 const API_KEY = process.env.ECOURTS_API_KEY;
@@ -43,24 +98,24 @@ const headers = {
     'Content-Type': 'application/json'
 };
 
-// ── ROUTE 1: EXACT CNR SEARCH ──
-app.post('/api/cnr', async (req, res) => {
+// ── ROUTE 1: CNR SEARCH ──
+app.post('/api/cnr', searchLimiter, async (req, res) => {
     const { cnr } = req.body;
     if (!cnr) return res.status(400).json({ success: false, error: 'CNR is required' });
 
     try {
         const response = await fetch(`${BASE_URL}/case/${cnr}`, { method: 'GET', headers });
         const data = await response.json();
-        if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Case not found in official database.' });
+        if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Case not found.' });
         return res.json({ success: true, data: data });
     } catch (error) {
-        console.error("API Error:", error);
-        return res.status(500).json({ success: false, error: 'Internal server connection error.' });
+        console.error("CNR Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });
 
 // ── ROUTE 2: LIST SEARCH ──
-app.post('/api/search', async (req, res) => {
+app.post('/api/search', searchLimiter, async (req, res) => {
     const { query, type } = req.body;
     if (!query || !type) return res.status(400).json({ success: false, error: 'Query and type are required' });
 
@@ -74,69 +129,62 @@ app.post('/api/search', async (req, res) => {
         const response = await fetch(url, { method: 'GET', headers });
         const data = await response.json();
         if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Search failed.' });
-        
         return res.json({ success: true, data: data.data.results });
     } catch (error) {
-        console.error("API Error:", error);
-        return res.status(500).json({ success: false, error: 'Internal server connection error.' });
-    }
-});
-
-// ── ROUTE 3: CAUSE LIST SEARCH (Mapped to official API) ──
-app.post('/api/causelist', async (req, res) => {
-    const { query, state, limit } = req.body;
-    if (!query || !state) return res.status(400).json({ success: false, error: 'Query and State are required for Cause List search' });
-
-    const fetchLimit = limit || 10;
-    const url = `${BASE_URL}/causelist/search?q=${encodeURIComponent(query)}&state=${encodeURIComponent(state)}&limit=${fetchLimit}`;
-
-    try {
-        const response = await fetch(url, { method: 'GET', headers });
-        const data = await response.json();
-        if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Cause list fetch failed.' });
-        return res.json({ success: true, data: data });
-    } catch (error) {
-        console.error("API Error:", error);
+        console.error("Search Error:", error);
         return res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });
 
-// ── ROUTE 4: BULK CASE REFRESH (Mapped to official API) ──
-app.post('/api/bulk-refresh', async (req, res) => {
-    const { cnrs } = req.body; 
+// ── ROUTE 3: CAUSE LIST ──
+app.post('/api/causelist', searchLimiter, async (req, res) => {
+    const { query, state, limit } = req.body;
+    if (!query || !state) return res.status(400).json({ success: false, error: 'Query and State are required' });
+
+    const url = `${BASE_URL}/causelist/search?q=${encodeURIComponent(query)}&state=${encodeURIComponent(state)}&limit=${limit || 10}`;
+
+    try {
+        const response = await fetch(url, { method: 'GET', headers });
+        const data = await response.json();
+        if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Cause list failed.' });
+        return res.json({ success: true, data: data });
+    } catch (error) {
+        console.error("Causelist Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
+    }
+});
+
+// ── ROUTE 4: BULK REFRESH ──
+app.post('/api/bulk-refresh', searchLimiter, async (req, res) => {
+    const { cnrs } = req.body;
     if (!cnrs || !Array.isArray(cnrs)) return res.status(400).json({ success: false, error: 'Array of CNRs is required' });
 
     try {
-        const response = await fetch(`${BASE_URL}/case/bulk-refresh`, { 
-            method: 'POST', 
-            headers,
-            body: JSON.stringify({ cnrs })
+        const response = await fetch(`${BASE_URL}/case/bulk-refresh`, {
+            method: 'POST', headers, body: JSON.stringify({ cnrs })
         });
         const data = await response.json();
         if (!response.ok) return res.status(400).json({ success: false, error: data.message || 'Bulk refresh failed.' });
         return res.json({ success: true, data: data });
     } catch (error) {
-        console.error("API Error:", error);
+        console.error("Bulk Refresh Error:", error);
         return res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });
 
-// ── ROUTE 5: AI JUDGMENT SUMMARY & MARKDOWN (Mapped to official API) ──
+// ── ROUTE 5: AI ORDER ANALYSIS ──
 app.post('/api/order/analyze', async (req, res) => {
-    const { cnr, filename, type } = req.body; 
+    const { cnr, filename, type } = req.body;
     if (!cnr || !filename || !type) return res.status(400).json({ success: false, error: 'CNR, filename, and type required' });
 
     try {
         const endpointType = type === 'summary' ? 'order-ai' : 'order-md';
-        const url = `${BASE_URL}/case/${cnr}/${endpointType}/${filename}`;
-        
-        const response = await fetch(url, { method: 'GET', headers });
+        const response = await fetch(`${BASE_URL}/case/${cnr}/${endpointType}/${filename}`, { method: 'GET', headers });
         const data = await response.json();
-        
         if (!response.ok) return res.status(400).json({ success: false, error: data.message || `Failed to fetch ${type}.` });
         return res.json({ success: true, data: data });
     } catch (error) {
-        console.error("API Error:", error);
+        console.error("Analyze Error:", error);
         return res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });
@@ -148,166 +196,136 @@ app.post('/api/download', async (req, res) => {
 
     try {
         const response = await fetch(`${BASE_URL}/case/${cnr}/order/${filename}`, { method: 'GET', headers });
-        
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             const data = await response.json();
-            return res.status(400).json({ success: false, error: data.message || 'Could not fetch PDF.', raw: data });
+            return res.status(400).json({ success: false, error: data.message || 'Could not fetch PDF.' });
         }
-
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
         return response.body.pipe(res);
-
     } catch (error) {
-        console.error("API Error:", error);
-        return res.status(500).json({ success: false, error: 'Internal server connection error.' });
+        console.error("Download Error:", error);
+        return res.status(500).json({ success: false, error: 'Internal server error.' });
     }
 });
 
-// ✨ NEW ✨ ── ROUTE 6A: INITIATE PAYMENT ORDER ──
-// This is the coupled endpoint your modular frontend must call.
-// We are mapping this strictly on backend to prevent tempering.
-app.post('/api/initiate-payment', async (req, res) => {
+// ── ROUTE 7: INITIATE PAYMENT ORDER ──
+app.post('/api/initiate-payment', paymentLimiter, async (req, res) => {
+    if (!rzp) return res.status(500).json({ success: false, error: 'Payment service not configured.' });
+
     const { userId, plan, amount } = req.body;
     if (!userId || !plan || !amount) {
-        return res.status(400).json({ success: false, error: 'UserId, plan, and amount are required' });
+        return res.status(400).json({ success: false, error: 'userId, plan, and amount are required' });
     }
 
-    // MANDATORY SECURITY LAYER: AMOUNT VALIDATION
-    // Define official Pricing Sheet strictly on backend to enforce Majestic Polish
-    const officialPricingPaise = {
-        pro: 99 * 100,      // ₹99.00
-        promax: 199 * 100,   // ₹199.00
-        supreme: 399 * 100   // ₹399.00
-    };
-
+    const officialPricingPaise = { pro: 9900, promax: 19900, supreme: 39900 };
     const expectedAmountPaise = officialPricingPaise[plan];
-    if (expectedAmountPaise === undefined || (amount * 100) !== expectedAmountPaise) {
-        // Amount MISMATCH - Block tampering attempt
-        console.error(`⛔ TAMPERING ATTEMPT BLOCKED: User ${userId} requested invalid amount for plan: ${plan}.`);
-        return res.status(400).json({ success: false, error: 'Invalid plan or amount. Potetntial tampering detected.' });
-    }
 
-    // Amount validated, proceed to create order conceptually on Razorpay servers
-    const options = {
-        amount: expectedAmountPaise, 
-        currency: "INR",
-        receipt: `receipt_plan_${plan}_${Date.now()}`,
-        notes: { userId: userId, planName: plan } // PassuserId and planName in notes for webhook matching later.
-    };
+    if (expectedAmountPaise === undefined || (amount * 100) !== expectedAmountPaise) {
+        console.error(`⛔ TAMPER BLOCKED: User ${userId} sent invalid amount for plan: ${plan}`);
+        return res.status(400).json({ success: false, error: 'Invalid plan or amount.' });
+    }
 
     try {
-        // The coupled logic chain is now initialized
-        const order = await rzp.orders.create(options);
-        return res.json({ success: true, data: { order: order } });
+        const order = await rzp.orders.create({
+            amount: expectedAmountPaise,
+            currency: 'INR',
+            receipt: `vaad_${plan}_${Date.now()}`,
+            notes: { userId, planName: plan }
+        });
+        return res.json({ success: true, data: { order } });
     } catch (error) {
-        console.error("⛔ Razorpay Order Creation Error:", error);
-        return res.status(500).json({ success: false, error: 'Failed to create payment order on payment gateway.' });
+        console.error("Razorpay Order Error:", error);
+        return res.status(500).json({ success: false, error: 'Failed to create payment order.' });
     }
 });
 
-// ── ROUTE 7: SECURE RAZORPAY WEBHOOK (UPDATED WITH AMOUNT VALIDATION) ──
+// ── ROUTE 8: RAZORPAY WEBHOOK ──
+// Note: uses raw body (set up before express.json() above)
 app.post('/api/webhook/razorpay', async (req, res) => {
-    // NOTE: Ensure RAZORPAY_WEBHOOK_SECRET env variable is set in Render
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET; 
-
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
     if (!webhookSecret) {
-        console.error("❌ ERROR: RAZORPAY_WEBHOOK_SECRET env variable is not configured.");
-        return res.status(500).json({ error: "Server config error" });
+        console.error("❌ RAZORPAY_WEBHOOK_SECRET not set.");
+        return res.status(500).json({ error: 'Server config error' });
     }
 
-    // Verify signature to prove request came from Razorpay
     const signature = req.headers['x-razorpay-signature'];
-    const expectedSignature = crypto.createHmac('sha256', webhookSecret)
-                                    .update(JSON.stringify(req.body))
-                                    .digest('hex');
+    const rawBody = req.body; // raw buffer from express.raw()
+    const expectedSignature = crypto
+        .createHmac('sha256', webhookSecret)
+        .update(rawBody)
+        .digest('hex');
 
     if (signature !== expectedSignature) {
-        console.error("⛔ SECURITY ALERT: Invalid Razorpay Webhook Signature Received. Potential tampering.");
-        return res.status(400).json({ error: "Invalid signature" });
+        console.error("⛔ Invalid webhook signature. Possible tampering.");
+        return res.status(400).json({ error: 'Invalid signature' });
     }
 
-    // If signature is valid, proceed
-    console.log("✅ Valid Razorpay Webhook Received & Authenticated.");
+    console.log("✅ Webhook verified.");
 
-    const paymentData = req.body.payload.payment ? req.body.payload.payment.entity : null;
-    
-    // Check if payment is successful
+    let payload;
+    try {
+        payload = JSON.parse(rawBody.toString());
+    } catch (e) {
+        return res.status(400).json({ error: 'Invalid JSON payload' });
+    }
+
+    const paymentData = payload.payload?.payment?.entity;
+
     if (paymentData && paymentData.status === 'captured') {
-        const firebaseUserId = paymentData.notes ? paymentData.notes.userId : null;
-        const purchasedPlan = paymentData.notes ? paymentData.notes.planName : null;
-        
-        // ✨ NEW: Get actual amount paid (Razorpay sends this in PAISE)
-        const actualAmountPaidPaise = paymentData.amount; 
+        const firebaseUserId = paymentData.notes?.userId;
+        const purchasedPlan = paymentData.notes?.planName;
+        const actualAmountPaidPaise = paymentData.amount;
 
         if (!firebaseUserId || !purchasedPlan || !db) {
-            console.warn("⚠️ Webhook valid, but missing userId, planName in notes, or Firebase DB not initialized. Ignored.");
-            return res.status(200).json({ status: "ignored" }); 
+            console.warn("⚠️ Webhook valid but missing userId/planName or Firebase not ready.");
+            return res.status(200).json({ status: 'ignored' });
         }
 
-        // ── ✨ MANDATORY SECURITY LAYER: AMOUNT VALIDATION ✨ ──
-
-        // A. Define official Pricing Sheet (prices in PAISE) strictly on backend
-        const officialPricingPaise = {
-            pro: 99 * 100,      // ₹99.00
-            promax: 199 * 100,   // ₹199.00
-            supreme: 399 * 100   // ₹399.00
-        };
-
+        const officialPricingPaise = { pro: 9900, promax: 19900, supreme: 39900 };
         const expectedAmountPaise = officialPricingPaise[purchasedPlan];
 
-        // B. Handle invalid plan requested
         if (expectedAmountPaise === undefined) {
-            console.error(`⛔ FRAUD ALERT: User ${firebaseUserId} requested unknown plan: ${purchasedPlan}.`);
-            return res.status(200).json({ status: "invalid_plan_ignored" });
+            console.error(`⛔ Unknown plan in webhook: ${purchasedPlan}`);
+            return res.status(200).json({ status: 'invalid_plan_ignored' });
         }
 
-        // C. Compare paid amount vs official price
         if (actualAmountPaidPaise !== expectedAmountPaise) {
-            // Amount MISMATCH - Indicates frontend tampering
-            console.error(`⛔⛔⛔ CRITICAL SECURITY ALERT: Tampering Detected! User ${firebaseUserId} attempted to purchase ${purchasedPlan} (official price ₹${expectedAmountPaise/100}) but only paid ₹${actualAmountPaidPaise/100}. Database update blocked.`);
-            
-            // Revert user to FREE plan due to fraud attempt
+            console.error(`⛔⛔ FRAUD: User ${firebaseUserId} paid ₹${actualAmountPaidPaise/100} for ₹${expectedAmountPaise/100} plan.`);
             try {
                 await db.collection('users').doc(firebaseUserId).update({
                     plan: 'free',
-                    fraudulentAttemptNote: ` Tampering detected: Paid ₹${actualAmountPaidPaise/100} conceptually for ₹${expectedAmountPaise/100} plan on ${new Date().toISOString()}`
+                    fraudulentAttemptNote: `Tamper: paid ₹${actualAmountPaidPaise/100} for ${purchasedPlan} on ${new Date().toISOString()}`
                 });
-                console.log(`Action taken: User ${firebaseUserId} set to FREE plan.`);
-            } catch (fbError) {
-                console.error("Failed to update fraud note in Firebase:", fbError.message);
+            } catch (e) {
+                console.error("Failed to flag fraud in Firebase:", e.message);
             }
-            
-            // Return 200 to Razorpay so they stop retrying, but log as fraud on our end
-            return res.status(200).json({ status: "fraud_handled" }); 
+            return res.status(200).json({ status: 'fraud_handled' });
         }
 
-        // ── D. SUCCESS: Amounts match, process database upgrade ──
+        // ✅ Valid payment — upgrade plan
         try {
             const today = new Date().toISOString().split('T')[0];
             await db.collection('users').doc(firebaseUserId).update({
                 plan: purchasedPlan,
                 cycleStartDate: today,
-                notes_on_account: admin.firestore.FieldValue.delete() // Clean up any old fraud notes
+                fraudulentAttemptNote: admin.firestore.FieldValue.delete()
             });
-            
-            console.log(`✅ SUCCESS: Upgraded user ${firebaseUserId} to ${purchasedPlan} plan based on verified payment of ₹${actualAmountPaidPaise/100}.`);
-            return res.status(200).json({ status: "success" });
-
+            console.log(`✅ Upgraded ${firebaseUserId} → ${purchasedPlan}`);
+            return res.status(200).json({ status: 'success' });
         } catch (error) {
-            console.error("❌ ERROR: Firebase update failed for successful payment:", error.message);
-            // Return 500 so Razorpay retries webhook later
-            return res.status(500).json({ error: "Database error" });
+            console.error("❌ Firebase update failed:", error.message);
+            return res.status(500).json({ error: 'Database error' }); // 500 = Razorpay will retry
         }
     } else {
-        // Payment status not captured, ignore
-        console.log(`Webhook received for payment status: ${paymentData ? paymentData.status : 'unknown'}. Ignored.`);
-        return res.status(200).json({ status: "ignored" });
+        console.log(`Webhook ignored. Status: ${paymentData?.status || 'unknown'}`);
+        return res.status(200).json({ status: 'ignored' });
     }
 });
 
-app.get('/api/health', (req, res) => res.json({ status: 'Live with Official Partner API & Secure Webhooks' }));
+// ── HEALTH CHECK ──
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Vaad Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Vaad backend running on port ${PORT}`));
