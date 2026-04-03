@@ -573,7 +573,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
     }
 
     const options = {
-        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", 
+        "key": "rzp_live_SYzqjL2QNwMNDE", 
         "amount": amountInINR * 100,
         "currency": "INR",
         "name": "Vaad",
