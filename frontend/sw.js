@@ -1,18 +1,19 @@
-const CACHE_NAME = 'vaad-v2.6'; // Bump this number (e.g., v2.0.2) to force an immediate update for all users
+const CACHE_NAME = 'vaad-v2.7'; // Bumped from v2.6 to force cache refresh on all users
 
 const ASSETS_TO_CACHE = [
     '/',
     '/index.html',
     '/style.css',
-    '/app.js',
+    '/js/main.js',        // FIX: was /app.js which no longer exists
     '/manifest.json',
-    '/icon-192.png'
+    '/icon-192.png',
+    '/icon-512.png'
 ];
 
 // 1. INSTALL: Cache assets and force activation
 self.addEventListener('install', (event) => {
     console.log(`[SW] Installing: ${CACHE_NAME}`);
-    self.skipWaiting(); // Forces the waiting SW to become active immediately
+    self.skipWaiting();
     
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
@@ -25,7 +26,7 @@ self.addEventListener('install', (event) => {
 // 2. ACTIVATE: Clean up old caches
 self.addEventListener('activate', (event) => {
     console.log(`[SW] Activated: ${CACHE_NAME}`);
-    event.waitUntil(self.clients.claim()); // Takes control of all open pages immediately
+    event.waitUntil(self.clients.claim());
     
     event.waitUntil(
         caches.keys().then((cacheNames) => {
@@ -45,22 +46,23 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = event.request.url;
 
-    // BYPASS CACHE ENTIRELY for your API, Firebase, Razorpay, and external scripts
+    // Bypass cache for API, Firebase, Razorpay, and Google scripts
     if (
-        url.includes('/api/') || 
-        url.includes('firestore') || 
-        url.includes('identitytoolkit') || 
+        url.includes('/api/') ||
+        url.includes('firestore') ||
+        url.includes('identitytoolkit') ||
         url.includes('googleapis.com') ||
-        url.includes('razorpay.com')
+        url.includes('gstatic.com') ||
+        url.includes('razorpay.com') ||
+        url.includes('accounts.google.com')
     ) {
-        return; // Let the browser handle these normally
+        return;
     }
 
-    // Network-First for HTML, CSS, and JS (Ensures users always see your latest code)
+    // Network-first: always try fresh, fall back to cache if offline
     event.respondWith(
         fetch(event.request)
             .then((networkResponse) => {
-                // If network is successful, update the cache with the fresh file
                 if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
                     const responseClone = networkResponse.clone();
                     caches.open(CACHE_NAME).then((cache) => {
@@ -70,8 +72,7 @@ self.addEventListener('fetch', (event) => {
                 return networkResponse;
             })
             .catch(() => {
-                // If offline or network fails, serve the cached file
-                console.log(`[SW] Network failed for ${url}, falling back to cache.`);
+                console.log(`[SW] Offline fallback for: ${url}`);
                 return caches.match(event.request);
             })
     );
