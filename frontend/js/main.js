@@ -660,10 +660,8 @@ window.runUniversalSearch = function() {
 window.handleSearch = async function() {
     if (!currentUser) { window.openLoginModal(); return; }
 
-    const fup = checkFUP('search');
-    if (fup.expired) { showError(`Your ${currentPlan.toUpperCase()} subscription expired.`); window.openModal(); return; }
-    if (!fup.allowed) { if (currentPlan === 'free') window.openModal(); else showError(`FUP Limit Reached.`); return; }
-
+    // FUP is now enforced server-side via Firebase.
+    // Frontend only blocks obviously invalid tab selections.
     let endpoint = ''; let bodyData = {}; let renderType = '';
 
     if (activeJurisdiction === 'usa' && activeTab === 'us-case') {
@@ -675,44 +673,52 @@ window.handleSearch = async function() {
         if (mode === 'single') {
             const query = document.getElementById('cnr-input').value.trim();
             if (!query) return;
-            endpoint = `${API}/cnr`; bodyData = { cnr: query }; renderType = 'cnr';
+            endpoint = `${API}/cnr`; bodyData = { userId: currentUser.uid, cnr: query }; renderType = 'cnr';
         } else {
             const bulkText = document.getElementById('cnr-bulk-input').value.trim();
             if (!bulkText) return;
             const cnrs = bulkText.split('\n').map(c => c.trim()).filter(c => c.length > 5);
             if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
-            endpoint = `${API}/bulk-refresh`; bodyData = { cnrs: cnrs }; renderType = 'bulk';
+            endpoint = `${API}/bulk-refresh`; bodyData = { userId: currentUser.uid, cnrs: cnrs }; renderType = 'bulk';
         }
     } else if (activeTab === 'causelist') {
         const state = document.getElementById('causelist-state').value.trim().toUpperCase();
         const query = document.getElementById('causelist-query').value.trim();
         if (!state || !query) return alert("Provide State Code and Query.");
-        endpoint = `${API}/causelist`; bodyData = { query: query, state: state, limit: 20 }; renderType = 'causelist';
+        endpoint = `${API}/causelist`; bodyData = { userId: currentUser.uid, query: query, state: state, limit: 20 }; renderType = 'causelist';
     } else {
         let query = '';
         if (activeTab === 'litigant') query = document.getElementById('litigant-input').value.trim();
         if (activeTab === 'advocate') query = document.getElementById('advocate-input').value.trim();
         if (activeTab === 'judge') query = document.getElementById('judge-input').value.trim();
         if (!query) return;
-        endpoint = `${API}/search`; bodyData = { query: query, type: activeTab }; renderType = 'list';
+        endpoint = `${API}/search`; bodyData = { userId: currentUser.uid, query: query, type: activeTab }; renderType = 'list';
     }
 
-    await performSearch(endpoint, bodyData, fup.storageKey, renderType);
+    await performSearch(endpoint, bodyData, renderType);
 };
 
-async function performSearch(endpoint, bodyData, storageKey, renderType) {
+async function performSearch(endpoint, bodyData, renderType) {
     setLoading(true); window.clearResults();
     try {
         const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
         const json = await res.json();
-        
-        if (!res.ok || !json.success) return showError(json.error || 'The official API failed fetch records.');
 
-        if (currentUser) {
-            let currentCount = parseInt(localStorage.getItem(storageKey) || 0);
-            localStorage.setItem(storageKey, currentCount + 1);
-            updateSearchLimitUI();
+        // Handle FUP errors from server
+        if (res.status === 403) {
+            showError(json.error || 'Search limit reached. Please upgrade your plan.');
+            window.openModal();
+            return;
         }
+        if (res.status === 401) {
+            showError('Please sign in to search.');
+            window.openLoginModal();
+            return;
+        }
+        if (!res.ok || !json.success) return showError(json.error || 'The official API failed to fetch records.');
+
+        // Server handled the count — just refresh the UI display
+        updateSearchLimitUI();
 
         if (renderType === 'cnr') renderCaseDetail(json.data);
         else if (renderType === 'list') renderCaseList(json.data);
@@ -734,23 +740,55 @@ async function performSearch(endpoint, bodyData, storageKey, renderType) {
     } catch (e) { showError(`Network Error: ${e.message}`); } finally { setLoading(false); }
 }
 
-function updateSearchLimitUI() {
+// Reads live searchCount from Firestore so it always reflects server-side truth
+async function updateSearchLimitUI() {
     const limitText = document.getElementById('limit-text');
     const upgradeBtn = document.getElementById('nav-upgrade-btn');
-    if (!currentUser) { if (limitText) limitText.innerText = "Sign in Google get 1 free search"; if (upgradeBtn) upgradeBtn.style.display = 'none'; return; }
-    const fup = checkFUP('search');
-    if (fup.expired) {
-        if (limitText) limitText.innerHTML = `<span style="color: #ef4444; font-weight:600;">Subscription Expired</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+
+    if (!currentUser) {
+        if (limitText) limitText.innerText = "Sign in to get 1 free search";
+        if (upgradeBtn) upgradeBtn.style.display = 'none';
         return;
     }
-    let daysText = currentPlan !== 'free' ? `(${fup.daysLeft} days left) • ` : '';
-    if (currentPlan === 'supreme') {
-        if (limitText) limitText.innerHTML = `<span style="color: #8b5cf6; font-weight:600;">Supreme ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
-        if (upgradeBtn) upgradeBtn.style.display = 'none'; 
-    } else {
-        if (limitText) limitText.innerHTML = `<span style="color: var(--primary); font-weight:600;">${currentPlan.toUpperCase()} ${daysText}${fup.remaining}/${fup.limit} Searches</span>`;
-        if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
+
+    const planLimits = { free: 1, pro: 30, promax: 100, supreme: 150 };
+    const limit = planLimits[currentPlan] || 1;
+
+    // Show a quick placeholder while we fetch
+    if (limitText) limitText.innerHTML = `<span style="color:var(--text-muted); font-weight:600;">Loading...</span>`;
+
+    try {
+        const { getFirestore, doc, getDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
+        const userSnap = await getDoc(doc(db, 'users', currentUser.uid));
+        const data = userSnap.exists() ? userSnap.data() : {};
+        const used = data.searchCount || 0;
+        const remaining = Math.max(0, limit - used);
+
+        // Check cycle expiry for display purposes
+        const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : new Date();
+        const diffDays = Math.floor((new Date() - cycleStart) / (1000 * 60 * 60 * 24));
+        const isExpired = currentPlan !== 'free' && diffDays >= 30;
+        const daysLeft = currentPlan !== 'free' ? Math.max(0, 30 - diffDays) : 0;
+
+        if (isExpired) {
+            if (limitText) limitText.innerHTML = `<span style="color:#ef4444; font-weight:600;">Subscription Expired</span>`;
+            if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+            return;
+        }
+
+        const daysText = currentPlan !== 'free' ? `(${daysLeft}d left) • ` : '';
+        const color = currentPlan === 'supreme' ? '#8b5cf6' : 'var(--primary)';
+
+        if (limitText) limitText.innerHTML = `<span style="color:${color}; font-weight:600;">${currentPlan.toUpperCase()} ${daysText}${remaining}/${limit} Searches</span>`;
+
+        if (currentPlan === 'supreme' && !isExpired) {
+            if (upgradeBtn) upgradeBtn.style.display = 'none';
+        } else {
+            if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
+        }
+    } catch (e) {
+        console.error("updateSearchLimitUI error:", e);
+        if (limitText) limitText.innerHTML = `<span style="color:var(--primary); font-weight:600;">${currentPlan.toUpperCase()} Plan</span>`;
     }
 }
 
