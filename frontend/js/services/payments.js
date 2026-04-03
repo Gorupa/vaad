@@ -11,7 +11,7 @@ export function payWithRazorpay(planType, amountInINR) {
     }
 
     const options = {
-        "key": "YOUR_LIVE_RAZORPAY_KEY_ID", // Replace with actual live key in production
+        "key": "rzp_live_SYzqjL2QNwMNDE", // Replace with actual live key in production
         "amount": amountInINR * 100,
         "currency": "INR",
         "name": "Vaad",
