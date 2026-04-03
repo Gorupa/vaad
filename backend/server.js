@@ -3,6 +3,7 @@ const cors = require('cors');
 const fetch = require('node-fetch');
 const crypto = require('crypto');
 const admin = require('firebase-admin');
+const Razorpay = require('razorpay'); // Checkpoint A: ADDED
 
 // Initialize Firebase Admin so the server can securely update user plans
 // NOTE: Ensure FIREBASE_SERVICE_ACCOUNT environment variable is set in Render
@@ -21,6 +22,14 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT) {
 }
 
 const db = admin.apps.length ? admin.firestore() : null;
+
+// --- ✨ NEW RAZORPAY INITIALIZATION ✨ ---
+// NOTE: Ensure RAZORPAY_KEY_ID and RAZORPAY_SECRET_KEY env variables are set conceptually in Render.
+// These variables are crucial to the coupled logic chain.
+const rzp = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID, 
+  key_secret: process.env.RAZORPAY_SECRET_KEY, 
+});
 
 const app = express();
 app.use(cors());
@@ -153,6 +162,48 @@ app.post('/api/download', async (req, res) => {
     } catch (error) {
         console.error("API Error:", error);
         return res.status(500).json({ success: false, error: 'Internal server connection error.' });
+    }
+});
+
+// ✨ NEW ✨ ── ROUTE 6A: INITIATE PAYMENT ORDER ──
+// This is the coupled endpoint your modular frontend must call.
+// We are mapping this strictly on backend to prevent tempering.
+app.post('/api/initiate-payment', async (req, res) => {
+    const { userId, plan, amount } = req.body;
+    if (!userId || !plan || !amount) {
+        return res.status(400).json({ success: false, error: 'UserId, plan, and amount are required' });
+    }
+
+    // MANDATORY SECURITY LAYER: AMOUNT VALIDATION
+    // Define official Pricing Sheet strictly on backend to enforce Majestic Polish
+    const officialPricingPaise = {
+        pro: 99 * 100,      // ₹99.00
+        promax: 199 * 100,   // ₹199.00
+        supreme: 399 * 100   // ₹399.00
+    };
+
+    const expectedAmountPaise = officialPricingPaise[plan];
+    if (expectedAmountPaise === undefined || (amount * 100) !== expectedAmountPaise) {
+        // Amount MISMATCH - Block tampering attempt
+        console.error(`⛔ TAMPERING ATTEMPT BLOCKED: User ${userId} requested invalid amount for plan: ${plan}.`);
+        return res.status(400).json({ success: false, error: 'Invalid plan or amount. Potetntial tampering detected.' });
+    }
+
+    // Amount validated, proceed to create order conceptually on Razorpay servers
+    const options = {
+        amount: expectedAmountPaise, 
+        currency: "INR",
+        receipt: `receipt_plan_${plan}_${Date.now()}`,
+        notes: { userId: userId, planName: plan } // PassuserId and planName in notes for webhook matching later.
+    };
+
+    try {
+        // The coupled logic chain is now initialized
+        const order = await rzp.orders.create(options);
+        return res.json({ success: true, data: { order: order } });
+    } catch (error) {
+        console.error("⛔ Razorpay Order Creation Error:", error);
+        return res.status(500).json({ success: false, error: 'Failed to create payment order on payment gateway.' });
     }
 });
 
