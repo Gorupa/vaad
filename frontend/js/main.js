@@ -313,8 +313,6 @@ window.runUniversalSearch = function() {
     resultsContainer.innerHTML = html;
 };
 
-// ── DATA FETCHING & RENDERING (Using new CSS Classes) ──
-
 window.downloadPDF = async function(cnr, filename) {
     if (!currentUser) { window.openLoginModal(); return; }
     if (currentPlan === 'free') { alert("PDF Downloads are a Premium feature."); window.openModal(); return; }
@@ -490,7 +488,6 @@ function renderCaseList(resultsArray) {
     document.getElementById('results').innerHTML = html;
 }
 
-// ✨ COMPREHENSIVE CASE DETAILS UI (Using pure M3 CSS Classes) ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
