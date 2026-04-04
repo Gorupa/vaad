@@ -4,41 +4,56 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Privacy Policy — Vaad</title>
-    <meta name="theme-color" content="#8b5cf6">
+    <meta name="theme-color" content="#1e40af">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
     <style>
-        .legal-container { max-width: 640px; margin: 0 auto; padding: 32px 24px 64px; line-height: 1.6; color: var(--text-main); }
-        .legal-container h1 { font-size: 1.75rem; margin-bottom: 16px; color: var(--primary); font-weight: 800; }
-        .legal-container h2 { font-size: 1.1rem; margin-top: 24px; margin-bottom: 8px; color: var(--text-main); border-bottom: 1px solid var(--border); padding-bottom: 4px; }
-        .legal-container p, .legal-container ul { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px; }
-        .legal-container ul { padding-left: 20px; }
-        .back-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; position: sticky; top: 0; z-index: 10; }
-        .back-btn { text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+        .legal-container { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; line-height: 1.7; color: var(--text-main); }
+        .legal-container h1 { font-size: 2.2rem; margin-bottom: 8px; color: var(--primary); font-weight: 800; letter-spacing: -0.5px; }
+        .last-updated { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 32px; font-weight: 500; }
         
-        /* Danger Zone Styles */
-        .danger-zone { margin-top: 48px; border: 1px solid #fca5a5; background: #fef2f2; border-radius: 8px; padding: 20px; }
-        .danger-zone h3 { color: #b91c1c; font-size: 1.1rem; margin-bottom: 8px; }
-        .danger-zone p { color: #991b1b; font-size: 0.85rem; margin-bottom: 16px; }
-        .btn-danger { background: #dc2626; color: white; border: none; padding: 10px 16px; border-radius: 6px; font-weight: 600; cursor: pointer; width: 100%; transition: background 0.2s; }
-        .btn-danger:hover { background: #b91c1c; }
+        .legal-container h2 { font-size: 1.25rem; margin-top: 32px; margin-bottom: 12px; color: var(--text-main); font-weight: 700; }
+        .legal-container p, .legal-container ul { font-size: 0.95rem; color: var(--text-muted); margin-bottom: 16px; }
+        .legal-container ul { padding-left: 20px; }
+        .legal-container li { margin-bottom: 8px; }
+        
+        .back-nav { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; position: sticky; top: 0; z-index: 10; }
+        .back-btn { text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; transition: color 0.2s; }
+        .back-btn:hover { color: var(--primary); }
+        
+        /* Danger Zone Styles (M3) */
+        .danger-zone { margin-top: 56px; border: 1px solid #fecaca; background: var(--error-bg); border-radius: 24px; padding: 24px; box-shadow: var(--shadow-sm); }
+        .danger-zone h3 { color: var(--error-text); font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
+        .danger-zone p { color: #991b1b; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6; }
+        
+        .btn-danger { background: #dc2626; color: white; border: none; padding: 14px 20px; border-radius: 50px; font-weight: 600; font-size: 0.95rem; cursor: pointer; width: 100%; transition: all 0.2s; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.2); }
+        .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3); }
 
         /* Standalone Modal Styles */
-        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(17, 24, 39, 0.6); backdrop-filter: blur(6px); z-index: 150; justify-content: center; align-items: center; padding: 20px; }
-        .modal-overlay.active { display: flex; }
-        .modal-box { background: var(--bg, #ffffff); width: 100%; max-width: 420px; border-radius: 16px; padding: 32px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); position: relative; }
-        .btn-primary { background: #8b5cf6; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer; margin-bottom: 8px; }
-        .btn-secondary { background: transparent; color: var(--text-muted, #6b7280); border: 1px solid var(--border, #e5e7eb); padding: 12px; border-radius: 8px; font-weight: 600; width: 100%; cursor: pointer; }
+        .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(15, 23, 42, 0.6); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); z-index: 150; justify-content: center; align-items: center; padding: 20px; }
+        .modal-overlay.active { display: flex; animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1); }
+        .modal-box { background: var(--bg); width: 100%; max-width: 420px; border-radius: 24px; padding: 32px; box-shadow: var(--shadow-modal); position: relative; border: 1px solid rgba(255,255,255,0.1); }
+        
+        .btn-primary { background: var(--primary); color: white; border: none; padding: 14px; border-radius: 50px; font-weight: 600; font-size: 0.95rem; width: 100%; cursor: pointer; margin-bottom: 12px; transition: all 0.2s; box-shadow: 0 4px 10px rgba(30, 64, 175, 0.2); }
+        .btn-primary:hover { background: var(--primary-hover); transform: translateY(-1px); }
+        
+        .btn-secondary { background: var(--bg-alt); color: var(--text-main); border: 1px solid var(--border); padding: 14px; border-radius: 50px; font-weight: 600; font-size: 0.95rem; width: 100%; cursor: pointer; transition: all 0.2s; }
+        .btn-secondary:hover { background: #e2e8f0; }
+
+        @keyframes fadeIn { from { opacity:0; transform:scale(0.98); } to { opacity:1; transform:scale(1); } }
     </style>
 </head>
 <body>
     <nav class="back-nav">
-        <a href="index.html" class="back-btn">← Back to App</a>
+        <a href="index.html" class="back-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg>
+            Back to App
+        </a>
     </nav>
     
     <div class="legal-container">
         <h1>Privacy Policy</h1>
-        <p>Last updated: March 24, 2026</p>
+        <div class="last-updated">Last updated: March 2026</div>
 
         <h2>1. Information We Collect</h2>
         <p>When you use Vaad, we collect basic authentication data via Google Sign-In (Name, Email, Profile Picture) to create and manage your account. If you use the Practice Dashboard, we collect the case titles, CNR numbers, and fee data you choose to input.</p>
@@ -63,7 +78,7 @@
         <p>Under the Digital Personal Data Protection Act, 2023, you have the following rights regarding your data:</p>
         <ul>
             <li><strong>Right to Notice & Consent:</strong> We will explicitly ask for your consent before syncing your Practice Dashboard data to the cloud.</li>
-            <li><strong>Right to Erasure:</strong> You can delete specific case data directly from your dashboard, or permanently erase your entire account and all associated data using the "Danger Zone" below.</li>
+            <li><strong>Right to Erasure:</strong> You can delete specific case data directly from your dashboard, or permanently erase your entire account and all associated data using the account deletion tool below.</li>
             <li><strong>Grievance Redressal:</strong> If you have concerns regarding your data privacy, you may contact our Grievance Officer at Raghav Communication, Udaipur, Rajasthan. Support Email: gauravkalal1719@gmail.com.</li>
         </ul>
 
@@ -77,8 +92,8 @@
     <div id="delete-modal" class="modal-overlay">
         <div class="modal-box" style="text-align: center;">
             <div style="font-size: 3rem; margin-bottom: 16px;">⚠️</div>
-            <h3 style="margin-bottom: 12px; font-size: 1.25rem;">Are you absolutely sure?</h3>
-            <p style="font-size: 0.9rem; color: var(--text-muted, #6b7280); margin-bottom: 24px;">This will wipe your Practice Dashboard ledger and instantly cancel any active subscriptions. This cannot be undone.</p>
+            <h3 style="margin-bottom: 12px; font-size: 1.4rem; font-weight: 700; color: var(--text-main);">Are you absolutely sure?</h3>
+            <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">This will wipe your Practice Dashboard ledger and instantly cancel any active subscriptions. This cannot be undone.</p>
             <button class="btn-danger" id="confirm-delete-btn" onclick="window.executeAccountDeletion()" style="margin-bottom: 12px;">Yes, Erase My Data</button>
             <button class="btn-secondary" onclick="window.closeDeleteModal()">Cancel</button>
         </div>
@@ -86,13 +101,13 @@
 
     <div id="consent-modal" class="modal-overlay">
         <div class="modal-box">
-            <h3 style="margin-bottom: 12px; font-size: 1.25rem;">Enable Cloud Sync ☁️</h3>
-            <p style="font-size: 0.9rem; color: var(--text-muted, #6b7280); margin-bottom: 24px; line-height: 1.6;">
+            <h3 style="margin-bottom: 12px; font-size: 1.4rem; font-weight: 700; color: var(--text-main);">Enable Cloud Sync ☁️</h3>
+            <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
                 To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data on our secure servers located in Mumbai. Do you consent to enabling Cloud Sync?
             </p>
             <button class="btn-primary" onclick="window.acceptConsent()">Yes, Enable Secure Sync</button>
             <button class="btn-secondary" onclick="window.declineConsent()">No, Keep Data Local Only</button>
-            <p style="font-size: 0.75rem; color: var(--text-muted, #6b7280); text-align: center; margin-top: 16px;">You can change this later. Read our <a href="#" style="color: var(--primary);">Privacy Policy</a>.</p>
+            <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 16px;">You can change this later.</p>
         </div>
     </div>
 
@@ -137,17 +152,12 @@
             btn.disabled = true;
 
             try {
-                // 1. Delete Firestore Document (The Dashboard Data)
                 await deleteDoc(doc(db, "users", user.uid));
-                
-                // 2. Clear Local Storage
                 localStorage.removeItem('vaad_dashboard_cases');
-                
-                // 3. Delete Google Auth Account
                 await deleteUser(user);
                 
                 alert("Your account and all associated data have been permanently erased.");
-                window.location.href = "index.html"; // Redirect to home
+                window.location.href = "index.html"; 
             } catch (error) {
                 console.error("Error deleting account:", error);
                 if (error.code === 'auth/requires-recent-login') {
