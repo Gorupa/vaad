@@ -473,7 +473,7 @@ function renderCaseList(resultsArray) {
     html += `<div class="orders-section-title" style="margin-top:10px; margin-bottom: 16px;">Found ${resultsArray.length} cases</div>`;
     
     resultsArray.forEach(data => {
-        const isDisposed = data.caseStatus === 'Disposed';
+        const isDisposed = data.caseStatus === 'Disposed' || data.caseStatus === 'DISPOSED';
         const statusClass = isDisposed ? 'status-disposed' : 'status-pending';
         
         html += `
@@ -492,22 +492,18 @@ function renderCaseList(resultsArray) {
     document.getElementById('results').innerHTML = html;
 }
 
-// ✨ UPGRADED PARSER: Captures all known eCourts JSON formats (historyOfCaseHearings, interimOrders, etc.) ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
     
-    // Safely parse petitioners and advocates
     const pet = data.petitioners && data.petitioners.length > 0 ? data.petitioners.join('<br>') : '—';
     const res = data.respondents && data.respondents.length > 0 ? data.respondents.join('<br>') : '—';
     const petAdvs = data.petitionerAdvocates && data.petitionerAdvocates.length > 0 ? data.petitionerAdvocates.join(', ') : '—';
     const resAdvs = data.respondentAdvocates && data.respondentAdvocates.length > 0 ? data.respondentAdvocates.join(', ') : '—';
-    
-    // Extract disposal nature
     const disposalNature = data.natureOfDisposal || data.disposalTypeRaw || '—';
 
     let html = `<button class="back-link" onclick="window.clearResults()">← Back to search</button>
-        <div class="case-detail-card">
+        <div class="case-detail-card" id="printable-docket">
             
             <div class="case-detail-header">
                 <div class="case-detail-court">${data.courtName || '—'}</div>
@@ -549,9 +545,7 @@ function renderCaseDetail(payload) {
                 </div>
             </div>`;
 
-    // FIR & Hearing logic
     const hasFirDetails = data.firNumber || data.policeStation || (data.firDetails && Object.keys(data.firDetails).length > 0);
-    
     if (hasFirDetails || data.firstHearingDate || data.nextHearingDate || data.decisionDate) {
         html += `<div class="case-info-grid">
                 ${hasFirDetails ? `
@@ -575,7 +569,6 @@ function renderCaseDetail(payload) {
 
     html += `<div class="case-detail-body">`;
 
-    // 1. Acts & Sections
     if (data.acts && data.acts.length > 0) {
         html += `<div class="orders-section-title">Acts & Sections</div>
         <div style="margin-bottom: 24px;">
@@ -583,7 +576,6 @@ function renderCaseDetail(payload) {
         </div>`;
     }
 
-    // 2. Processes (Warrants, Summons)
     const allProcesses = data.processes || [];
     if (allProcesses.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Court Processes & Summons</div>`;
@@ -598,8 +590,6 @@ function renderCaseDetail(payload) {
         });
     }
 
-    // 3. Hearing History
-    // Combine standard array names used across different states
     const allHearings = data.historyOfCaseHearings || data.history || data.caseHistory || [];
     if (allHearings.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Hearing History</div>`;
@@ -618,19 +608,10 @@ function renderCaseDetail(payload) {
         });
     }
 
-    // 4. Orders & Judgments (PDFs)
-    // Safely combine all possible order arrays into one master list
-    const allOrders = [
-        ...(data.judgmentOrders || []),
-        ...(data.interimOrders || []),
-        ...(data.orders || []),
-        ...(data.judgements || [])
-    ];
-    
+    const allOrders = [ ...(data.judgmentOrders || []), ...(data.interimOrders || []), ...(data.orders || []), ...(data.judgements || []) ];
     if (allOrders.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Orders & Judgments</div>`;
         allOrders.forEach(item => {
-            // Find the filename/URL regardless of what key the state used
             const filename = item.orderUrl || item.judgement || item.orderPdf || item.pdfFilename; 
             const date = item.orderDate || item.dateOfOrder || 'N/A';
             const type = item.description || item.orderType || item.purpose || 'Order';
@@ -653,9 +634,33 @@ function renderCaseDetail(payload) {
         });
     }
 
-    html += `<button class="add-ledger-btn" style="margin-top: 24px;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';">
-               💼 Track this Case in Ledger
+    const existingCase = practiceCases.find(c => c.cnr && c.cnr.replace(/\s+/g,'').toUpperCase() === data.cnr.toUpperCase());
+    
+    let trackButtonHtml = '';
+    if (existingCase) {
+        trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0; background: var(--success-bg); color: var(--success-text); border-color: var(--success-border);" onclick="window.goToDashboardCase(${existingCase.id})">
+           ✅ View in Practice Dashboard
+        </button>`;
+    } else {
+        trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';">
+           💼 Track this Case in Ledger
+        </button>`;
+    }
+
+    html += `
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 32px;">
+            <div id="ai-summary-box-${data.cnr}"></div>
+            
+            <button class="add-ledger-btn" style="margin: 0; background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: white; border: none; box-shadow: 0 4px 12px rgba(156,107,30,0.25);" onclick="window.generateAISummary('${data.cnr}')">
+               ✨ Generate AI Summary
             </button>
+            
+            ${trackButtonHtml}
+
+            <button class="add-ledger-btn" style="margin: 0; background: var(--bg-alt); color: var(--text-main); border-color: var(--border);" onclick="window.print()">
+               🖨️ Print / Save as PDF
+            </button>
+        </div>
         </div></div>`;
         
     document.getElementById('results').innerHTML = html;
@@ -790,4 +795,39 @@ window.renderDashboard = function() {
     document.getElementById('stat-expected').innerText = `₹${totalExpected}`;
     document.getElementById('stat-collected').innerText = `₹${totalCollected}`;
     document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
+};
+
+window.generateAISummary = async function(cnr) {
+    if (!currentUser) { window.openLoginModal(); return; }
+    if (currentPlan !== 'supreme') { window.openModal(); return; }
+
+    const box = document.getElementById('ai-summary-box-' + cnr);
+    if (box) box.innerHTML = `<div style="padding: 16px; background: var(--gold-bg); border: 1px solid var(--gold-border); border-radius: 12px; margin-bottom: 12px; font-size: 0.9rem; color: var(--gold); display: flex; align-items: center; gap: 10px;"><div class="spinner" style="border-top-color: var(--gold); width: 16px; height: 16px;"></div> <strong>Analyzing legal docket...</strong></div>`;
+
+    try {
+        const res = await fetch(`${API}/ai-summary`, { 
+            method: 'POST', 
+            headers: { 'Content-Type': 'application/json' }, 
+            body: JSON.stringify({ cnr: cnr, userId: currentUser.uid }) 
+        });
+        const json = await res.json();
+
+        if (res.status === 403) {
+            box.innerHTML = '';
+            alert(json.message || "AI limit reached. Please upgrade.");
+            window.openModal(); return;
+        }
+        if (!res.ok) throw new Error(json.error || "Failed to generate AI summary.");
+
+        const summaryText = json.data || json.summary || json.message || "AI analysis complete.";
+        
+        box.innerHTML = `<div style="padding: 16px; background: var(--gold-bg); border: 1px solid var(--gold-border); border-radius: 12px; margin-bottom: 12px; font-size: 0.9rem; line-height: 1.6; color: var(--text-main);">
+            <strong style="color: var(--gold); font-size: 1rem; display: block; margin-bottom: 8px;">✨ AI Case Analysis</strong>
+            ${summaryText}
+        </div>`;
+        
+        updateSearchLimitUI(); 
+    } catch (e) {
+        box.innerHTML = `<div class="error-box" style="margin-bottom: 12px;">⚠️ Error: ${e.message}</div>`;
+    }
 };
