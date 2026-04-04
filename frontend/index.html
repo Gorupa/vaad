@@ -2,26 +2,44 @@
 <html lang="en">
 <head>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Vaad 2.0.2 — Legal Assistant</title>
+    <title>Vaad 2.0.2 — AI Legal Assistant</title>
+    <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API and AI.">
+    
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1e40af">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <nav class="nav">
     <div style="display: flex; align-items: center; gap: 12px;">
-        <button id="menu-btn" class="hamburger-btn" onclick="window.toggleMenu()"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg></button>
-        <a class="nav-brand" href="#" onclick="window.toggleView('search')">Vaad <span class="version-badge">2.0.2</span></a>
+        <button id="menu-btn" class="hamburger-btn" style="display: block;" onclick="window.toggleMenu()">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        </button>
+        <a class="nav-brand" href="#" onclick="window.toggleView('search')" style="font-weight: 700; letter-spacing: -0.5px;">Vaad <span class="version-badge">2.0.2</span></a>
     </div>
+    
     <div class="nav-right desktop-only">
+        <span class="nav-badge">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a></span>
+        
         <button id="login-btn" class="btn-auth" onclick="window.openLoginModal()">Sign In</button>
+
         <div id="user-menu" class="user-profile" style="display: none; align-items: center;">
-            <a href="#" onclick="window.toggleView('dashboard')" style="font-weight:600; color:var(--primary); text-decoration:none; margin-right:16px;">💼 Dashboard</a>
+            <a href="#" onclick="window.toggleView('dashboard')" id="nav-dashboard-btn" style="font-weight:600; color:var(--primary); text-decoration:none; margin-right:16px; font-size: 0.9rem;">💼 Dashboard</a>
             <button id="nav-upgrade-btn" class="btn-upgrade" onclick="window.openModal()" style="display: none;">⚡ Upgrade</button>
-            <img id="user-avatar" src="" alt="Avatar" style="border-radius: 50%; width:32px; margin: 0 8px;">
+            <img id="user-avatar" src="" alt="Avatar" style="border-radius: 50%;">
+            <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1;">
+                <span id="user-name" style="font-size: 13px; font-weight: 600;">User</span>
+                <span id="user-badge" style="font-size: 9px; padding: 2px 6px; border-radius: 8px; font-weight: bold; margin-top: 2px;">FREE</span>
+            </div>
             <button id="logout-btn" class="btn-text-link">Log Out</button>
         </div>
     </div>
@@ -29,58 +47,122 @@
 
 <div id="drawer-overlay" class="drawer-overlay" onclick="window.toggleMenu()"></div>
 <div id="side-drawer" class="drawer">
-    <div class="drawer-header">
+    <div class="drawer-header" style="border-bottom: 1px solid var(--border); padding-bottom: 16px;">
         <div id="drawer-unauth" style="display: block;">
-            <button class="btn-auth" style="width: 100%; justify-content: center;" onclick="window.toggleMenu(); window.openLoginModal();">Sign In</button>
+            <h3 style="margin-bottom: 8px; font-weight: 600;">Welcome to Vaad</h3>
+            <button class="btn-auth" style="width: 100%; justify-content: center; border-radius: 50px;" onclick="window.toggleMenu(); window.openLoginModal();">Sign In / Register</button>
         </div>
         <div id="drawer-auth" style="display: none; align-items: center; gap: 12px;">
-            <div id="drawer-name" style="font-weight: 700;">User</div>
-            <div id="drawer-badge" style="font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 8px; background:var(--border);">FREE</div>
+            <img id="drawer-avatar" src="" alt="Avatar" style="width: 44px; height: 44px; border-radius: 50%;">
+            <div>
+                <div id="drawer-name" style="font-weight: 700; font-size: 1.1rem;">User</div>
+                <div id="drawer-badge" style="font-size: 10px; font-weight: bold; padding: 2px 8px; border-radius: 8px; display: inline-block; margin-top: 4px;">FREE</div>
+            </div>
         </div>
     </div>
-    <div class="drawer-links">
-        <a href="#" onclick="window.toggleMenu(); window.toggleView('dashboard');" style="color: var(--primary); background: var(--primary-bg); padding: 12px; border-radius: 12px;">💼 Practice Dashboard</a>
-        <a href="#" onclick="window.toggleMenu(); window.openModal();">⚡ Upgrade Plan</a>
-        <a href="terms.html">📄 Terms of Service</a>
-        <a href="privacy.html">🔒 Privacy Policy</a>
-        <a href="refund.html">💳 Refund & Cancellation</a>
-        <a href="#" id="drawer-logout-btn" style="color: var(--error-text); margin-top: auto;">Log Out</a>
+    <div class="drawer-links" style="display: flex; flex-direction: column; flex: 1; overflow-y: auto; padding-top: 16px;">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+            <a href="#" id="drawer-dashboard-btn" onclick="window.toggleMenu(); window.toggleView('dashboard');" style="display:none; color: var(--primary); font-weight: 700; background: var(--primary-bg); padding: 12px; border-radius: 12px;">💼 Practice Dashboard</a>
+            <a href="#" onclick="window.toggleMenu(); window.openUniversalSearch();" style="color: var(--text-main); font-weight: 500;">🔍 Universal Search</a>
+            <a href="#" onclick="window.toggleMenu(); window.openFaqModal();" style="color: var(--text-main); font-weight: 500;">❓ Help & FAQ</a>
+            <a href="#" onclick="window.toggleMenu(); window.openWhatsNewModal();" style="color: var(--text-main); font-weight: 500;">✨ What's New</a>
+            <a href="#" onclick="window.toggleMenu(); window.openModal();" style="color: var(--text-main); font-weight: 500;">⚡ Upgrade Plan</a>
+            <a href="#" onclick="window.toggleMenu(); window.openDevModal();" style="color: var(--text-main); font-weight: 500;">👨‍💻 About Developer</a>
+            <a href="terms.html" style="color: var(--text-muted); font-weight: 400;">📄 Terms of Service</a>
+            <a href="privacy.html" style="color: var(--text-muted); font-weight: 400;">🔒 Privacy Policy</a>
+            <a href="refund.html" style="color: var(--text-muted); font-weight: 400;">💳 Refund & Cancellation</a>
+            
+            <div style="border-top: 1px solid var(--border); padding-top: 16px; margin-top: 8px;">
+                <h4 style="font-size: 0.75rem; text-transform: uppercase; color: var(--primary); font-weight: 700; letter-spacing: 0.05em; margin-bottom: 12px;">Settings & Permissions</h4>
+                
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                    <div style="flex: 1; padding-right: 10px;">
+                        <div style="font-weight: 600; font-size: 0.9rem;">Cloud Sync</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Securely backup ledger to servers.</div>
+                    </div>
+                    <label class="switch">
+                        <input type="checkbox" id="syncPermissionToggle" onchange="window.toggleCloudSyncPermission()">
+                        <span class="slider"></span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        
+        <div style="margin-top: auto; padding-top: 32px; padding-bottom: 16px;">
+            <a href="#" id="drawer-logout-btn" style="display: none; color: var(--error-text); border-top: 1px solid var(--border); padding-top: 16px; margin-bottom: 16px; font-weight: 600; text-decoration: none;">Log Out</a>
+            
+            <div style="border-top: 1px solid var(--border); padding-top: 16px; text-align: left; font-size: 0.7rem; color: var(--text-muted); line-height: 2;">
+                <div style="font-weight: 600;">🔒 256-bit SSL Secure</div>
+                <div style="font-weight: 600;">⚡ Cloudflare Global CDN</div>
+                <div style="font-weight: 600;">🛡️ Google Cloud Infrastructure</div>
+            </div>
+        </div>
     </div>
 </div>
 
 <div id="view-search">
-    <div class="hero">
-        <h1 style="font-size: 2.2rem; font-weight: 700; color: var(--text-main); text-align:center;">Truth. Clarity. Speed.</h1>
+    <div class="hero" style="padding: 40px 20px; text-align: center;">
+        <h1 style="font-size: 2.2rem; font-weight: 700; color: var(--text-main); margin-bottom: 12px; letter-spacing: -0.5px;">Truth. Clarity. Speed.</h1>
+        <p style="font-size: 1.05rem; color: var(--text-muted); max-width: 500px; margin: 0 auto;">Search Indian court cases instantly. A clean, authoritative interface powered by official eCourts data.</p>
     </div>
 
     <div class="search-card">
         <div class="search-container">
-            <div class="tabs" style="font-size: 0.8rem; font-weight: 600;">
-                <div class="tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR</div>
-                <div class="tab" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant</div>
-                <div class="tab" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
-                <div class="tab" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List <span class="lock-icon">🔒</span></div>
+            
+            <div style="display: flex; justify-content: center; padding: 16px 0; border-bottom: 1px solid var(--border);">
+                <div class="jurisdiction-pill">
+                    <input type="radio" id="toggle-india" name="jurisdiction" value="india" checked onchange="window.switchJurisdiction('india')">
+                    <label for="toggle-india">🇮🇳 India</label>
+                    
+                    <input type="radio" id="toggle-usa" name="jurisdiction" value="usa" onchange="window.switchJurisdiction('usa')">
+                    <label for="toggle-usa">🇺🇸 USA</label>
+                </div>
+            </div>
+
+            <div class="tabs" style="flex-wrap: wrap; font-size: 0.8rem; font-weight: 600;">
+                <div class="tab indian-tab active" id="tab-cnr" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number <span class="lock-icon" id="cnr-lock" style="display:none;">🔒</span></div>
+                <div class="tab indian-tab" id="tab-lawyer" data-tab="lawyer" onclick="window.switchTab('lawyer')">Find Lawyer <span style="font-size:12px;">✨</span></div>
+                <div class="tab indian-tab" id="tab-litigant" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant <span class="lock-icon" id="list-lock1" style="display:none;">🔒</span></div>
+                <div class="tab indian-tab" id="tab-advocate" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate <span class="lock-icon" id="list-lock2" style="display:none;">🔒</span></div>
+                <div class="tab indian-tab" id="tab-judge" data-tab="judge" onclick="window.switchTab('judge')">Judge <span class="lock-icon" id="list-lock3" style="display:none;">🔒</span></div>
+                <div class="tab indian-tab" id="tab-causelist" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List <span class="lock-icon" id="list-lock4">🔒</span></div>
+                <div class="tab us-tab" id="tab-us-case" data-tab="us-case" style="display: none;" onclick="window.switchTab('us-case')">US Case Law <span class="lock-icon">🔒</span></div>
             </div>
             
             <div class="search-form">
-                <div class="form-panel active" id="panel-cnr">
-                    <div style="display: flex; gap: 16px; margin-bottom: 16px;">
-                        <label><input type="radio" name="cnr-mode" value="single" checked onchange="window.toggleCnrMode()"> Single CNR</label>
-                        <label style="color: var(--primary);"><input type="radio" name="cnr-mode" value="bulk" onchange="window.toggleCnrMode()"> Bulk Refresh <span class="lock-icon" style="font-size:10px;">🔒 Pro Max</span></label>
+                <div class="form-panel indian-panel active" id="panel-cnr">
+                    <div style="display: flex; gap: 16px; margin-bottom: 16px; font-size: 0.85rem; font-weight: 600;">
+                        <label style="cursor: pointer;"><input type="radio" name="cnr-mode" value="single" checked onchange="window.toggleCnrMode()"> Single CNR</label>
+                        <label style="cursor: pointer; color: var(--primary);"><input type="radio" name="cnr-mode" value="bulk" onchange="window.toggleCnrMode()"> Bulk Refresh <span class="lock-icon" style="font-size:10px;">🔒 Pro Max</span></label>
                     </div>
-                    <div class="field" id="cnr-single-field"><input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" maxlength="20"></div>
-                    <div class="field" id="cnr-bulk-field" style="display: none;"><textarea id="cnr-bulk-input" rows="4" placeholder="Paste up to 50 CNRs... (1 search credit deducted per CNR)"></textarea></div>
+                    <div class="field" id="cnr-single-field"><label class="field-label">CNR Number</label><input type="text" id="cnr-input" placeholder="e.g. MHAU010012342023" maxlength="20"><div class="cnr-hint">16-character alphanumeric case number</div></div>
+                    <div class="field" id="cnr-bulk-field" style="display: none;"><label class="field-label">Bulk CNRs (Max 50)</label><textarea id="cnr-bulk-input" rows="4" placeholder="Paste up to 50 CNRs here (one per line)..." style="width: 100%; border: 1px solid var(--border); border-radius: 12px; padding: 12px; font-family: inherit; font-size: 0.95rem; background: var(--bg-alt); color: var(--text-main); outline: none; resize: vertical;"></textarea><div class="cnr-hint">Paste each CNR on a new line. (1 search credit deducted per CNR)</div></div>
                 </div>
 
-                <div class="form-panel" id="panel-litigant" style="display: none;"><div class="field"><input type="text" id="litigant-input" placeholder="Party Name"></div></div>
-                <div class="form-panel" id="panel-advocate" style="display: none;"><div class="field"><input type="text" id="advocate-input" placeholder="Advocate Name"></div></div>
-                <div class="form-panel" id="panel-causelist" style="display: none;">
-                    <div style="display: flex; gap: 12px;"><div class="field" style="flex: 1;"><input type="text" id="causelist-state" placeholder="State (e.g. RJ)"></div></div>
-                    <div class="field"><input type="text" id="causelist-query" placeholder="Advocate or Party"></div>
+                <div class="form-panel indian-panel" id="panel-lawyer" style="display: none; text-align: center; padding: 30px 10px;">
+                    <div style="font-size: 2.5rem; margin-bottom: 12px;">⚖️</div>
+                    <h3 style="margin-bottom: 8px; color: var(--text-main); font-size: 1.25rem;">Data-Driven Lawyer Discovery</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5;">We are indexing millions of local court records to help you find the best domain-specific advocates based on actual case history, not advertisements.</p>
+                    <div style="display: inline-block; background: var(--primary-bg); color: var(--primary); padding: 6px 16px; border-radius: 50px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Coming Soon</div>
+                </div>
+
+                <div class="form-panel indian-panel" id="panel-litigant" style="display: none;"><div class="field"><label class="field-label">Litigant / Party Name</label><input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-advocate" style="display: none;"><div class="field"><label class="field-label">Advocate Name</label><input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-judge" style="display: none;"><div class="field"><label class="field-label">Judge Name</label><input type="text" id="judge-input" placeholder="e.g. Smt. Anjali Desai" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-causelist" style="display: none;">
+                    <div style="display: flex; gap: 12px; margin-bottom: 12px;"><div class="field" style="flex: 1; margin-bottom: 0;"><label class="field-label">State Code</label><input type="text" id="causelist-state" placeholder="e.g. RJ, MH, DL" maxlength="2" style="text-transform: uppercase;"></div></div>
+                    <div class="field"><label class="field-label">Advocate or Party Name</label><input type="text" id="causelist-query" placeholder="e.g. Sharma"><div class="cnr-hint">Fetches today's live court schedule.</div></div>
+                </div>
+
+                <div class="form-panel us-panel" id="panel-us-case" style="display: none; text-align: center; padding: 40px 20px;">
+                    <div style="font-size: 3rem; margin-bottom: 16px;">🇺🇸</div>
+                    <h3 style="margin-bottom: 8px; color: var(--text-main); font-size: 1.25rem;">US Case Law</h3>
+                    <p style="color: var(--text-muted); font-size: 0.95rem; margin-bottom: 24px; line-height: 1.5;">We are currently training our AI on millions of US Federal and State court opinions. This feature will be available shortly!</p>
+                    <div style="display: inline-block; background: var(--primary-bg); color: var(--primary); padding: 6px 16px; border-radius: 50px; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Coming Soon</div>
                 </div>
 
                 <button class="btn-search" id="search-btn" onclick="window.handleSearch()"><span id="btn-text">Search Cases</span></button>
-                <div id="limit-text" class="free-limits" style="margin-top: 16px; text-align: center; font-weight: 500;">Sign in to search</div>
+                <div id="limit-text" class="free-limits" style="margin-top: 16px; font-size: 14px; text-align: center; font-weight: 500;">Sign in to search</div>
             </div>
         </div>
     </div>
@@ -89,62 +171,263 @@
 
 <div id="view-dashboard" style="display: none; max-width: var(--max-w); margin: 0 auto; padding: 24px;">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
-        <h2 style="font-size: 1.5rem; font-weight: 700;">My Practice</h2>
-        <button onclick="window.toggleView('search')" class="btn-text-link">← Back</button>
+        <h2 style="font-size: 1.5rem; font-weight: 700; color: var(--text-main);">My Practice</h2>
+        <button onclick="window.toggleView('search')" class="btn-text-link" style="font-size: 0.9rem; font-weight: 600;">← Back to Search</button>
     </div>
-    <div style="display: flex; justify-content: space-between; margin-bottom: 16px;">
-        <h3 style="font-size: 1.1rem; font-weight: 600;">Fee Tracker</h3>
-        <button class="btn-action btn-ai" onclick="window.openAddCaseModal()">+ Add New Case</button>
+
+    <div class="dashboard-grid">
+        <div class="stat-card">
+            <div class="stat-title">Total Expected</div>
+            <div class="stat-value" id="stat-expected" style="color: var(--primary);">₹0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Collected</div>
+            <div class="stat-value" id="stat-collected" style="color: var(--success-text);">₹0</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-title">Pending</div>
+            <div class="stat-value" id="stat-pending" style="color: var(--warning-text);">₹0</div>
+        </div>
     </div>
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 1px solid var(--border); padding-bottom: 12px;">
+        <h3 style="font-size: 1.1rem; font-weight: 600; margin: 0;">Fee Tracker</h3>
+        <button class="btn-action btn-ai" onclick="window.openAddCaseModal()" style="font-size: 0.8rem; padding: 8px 16px; border-radius: 50px;">+ Add New Case</button>
+    </div>
+    
     <div id="dashboard-cases"></div>
 </div>
 
 <div id="upgrade-modal" class="modal-overlay">
-    <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
+    <div class="modal-box" style="max-height: 90vh; overflow-y: auto; border-radius: 24px;">
         <button class="modal-close" onclick="window.closeModal()">×</button>
-        <div style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">Transparent Pricing</div>
-        <div style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem;">Powered by official eCourts API. You pay for secure, ad-free API access.</div>
+        <div class="pricing-title" id="modal-title" style="font-size: 1.5rem; font-weight: 700; margin-bottom: 8px;">Transparent Pricing</div>
+        <div class="pricing-subtitle" id="modal-subtitle" style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem; line-height: 1.5;">Powered by official eCourts API. You pay for secure, ad-free API access.</div>
         
-        <div id="pro-card" onclick="window.selectPlan('pro')" style="border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer;">
+        <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')" style="border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;">
             <div style="font-weight: 700; color: var(--primary); font-size: 18px;">Pro Plan</div>
-            <div style="font-size: 1.4rem; font-weight: 700; margin: 4px 0;">₹99<span style="font-size: 14px; font-weight: normal;"> / mo</span></div>
-            <ul style="font-size: 13px; list-style: none; padding: 0; color: var(--text-muted); line-height: 1.8;">
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.4rem; font-weight: 700;">₹99<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted); line-height: 1.8;">
                 <li>✓ <strong>30 Searches</strong> per month</li>
                 <li>✓ <strong>5 PDF Downloads</strong> per month</li>
                 <li>✓ Unlock Cause List Search</li>
             </ul>
         </div>
 
-        <div id="promax-card" onclick="window.selectPlan('promax')" style="border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer;">
+        <div id="promax-card" class="pricing-card" onclick="window.selectPlan('promax')" style="border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;">
             <div style="color: #d4af37; font-weight: 700; font-size: 18px;">Pro Max</div>
-            <div style="font-size: 1.4rem; font-weight: 700; margin: 4px 0;">₹199<span style="font-size: 14px; font-weight: normal;"> / mo</span></div>
-            <ul style="font-size: 13px; list-style: none; padding: 0; color: var(--text-muted); line-height: 1.8;">
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.4rem; font-weight: 700;">₹199<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted); line-height: 1.8;">
                 <li>✓ <strong>100 Searches</strong> per month</li>
                 <li>✓ <strong>20 PDF Downloads</strong> per month</li>
                 <li>✓ <strong>Unlock Bulk Refresh</strong> (1 credit per CNR)</li>
             </ul>
         </div>
 
-        <div id="supreme-card" onclick="window.selectPlan('supreme')" style="background: var(--primary-bg); border: 1px solid var(--primary); padding: 16px; border-radius: 16px; margin-bottom: 16px; cursor: pointer;">
+        <div id="supreme-card" class="pricing-card" onclick="window.selectPlan('supreme')" style="background: var(--primary-bg); border: 1px solid var(--primary); padding: 16px; border-radius: 16px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s;">
             <div style="color: var(--primary); font-weight: 700; font-size: 18px;">Supreme Plan</div>
-            <div style="font-size: 1.4rem; font-weight: 700; margin: 4px 0;">₹399<span style="font-size: 14px; font-weight: normal;"> / mo</span></div>
-            <ul style="font-size: 13px; list-style: none; padding: 0; color: var(--text-main); line-height: 1.8;">
+            <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.4rem; font-weight: 700;">₹399<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-main); line-height: 1.8;">
                 <li>✓ <strong>150 Searches</strong> per month</li>
                 <li>✓ <strong>50 PDF Downloads</strong> per month</li>
                 <li>✓ <strong>20 AI Summaries</strong> (Coming Soon)</li>
             </ul>
         </div>
 
-        <div style="margin-top: 10px;"><a id="upi-btn-link" href="#" style="display: block; text-align: center; background: var(--primary); color: white; padding: 14px; border-radius: 50px; text-decoration: none; font-weight: 600;">Select a plan above</a></div>
+        <div class="upi-box" style="border: 1px solid var(--border); background: var(--bg-alt); padding: 16px; border-radius: 16px;">
+            <div class="mobile-upi-btn"><a id="upi-btn-link" href="#" class="btn-primary-intent" style="display: block; text-align: center; background: var(--primary); color: white; padding: 14px; border-radius: 50px; text-decoration: none; font-weight: 600;">Select a plan above</a></div>
+        </div>
     </div>
 </div>
 
-<div id="login-modal" class="modal-overlay"><div class="modal-box"><button class="modal-close" onclick="window.closeLoginModal()">×</button><h3>Welcome</h3><input type="email" id="auth-email" placeholder="Email" style="margin: 10px 0;"><input type="password" id="auth-password" placeholder="Password"><button id="email-login-btn" class="btn-search" style="margin-top: 10px;">Sign In / Register</button><div id="auth-error"></div><button id="google-login-btn" class="btn-auth" style="width:100%; margin-top:10px;">Google Sign In</button></div></div>
-<div id="add-case-modal" class="modal-overlay"><div class="modal-box"><button class="modal-close" onclick="window.closeAddCaseModal()">×</button><h3>Add Case</h3><input type="text" id="track-cnr" placeholder="CNR"><input type="text" id="track-title" placeholder="Title"><input type="number" id="track-total" placeholder="Total Fee"><input type="number" id="track-hearing" placeholder="Per Hearing"><button onclick="window.saveTrackedCase()" class="btn-search">Save</button></div></div>
+<div id="login-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 360px; padding: 32px 24px; border-radius: 24px;">
+        <button class="modal-close" onclick="window.closeLoginModal()">×</button>
+        <div style="font-size: 2.5rem; margin-bottom: 8px;">👋</div>
+        <h3 style="margin-bottom: 6px; font-size: 1.4rem; font-weight: 700;">Welcome to Vaad</h3>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 20px;">Sign in or create a new account.</p>
 
-<footer style="text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 60px;">
-    <div style="font-weight: 600; color: var(--text-main);">Vaad by Raghav Communication</div>
+        <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; text-align: left;">
+            <div><input type="email" id="auth-email" placeholder="Email Address" style="width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 12px; font-size: 0.95rem; background: var(--bg-alt); color: var(--text-main); outline: none;"></div>
+            <div>
+                <input type="password" id="auth-password" placeholder="Password (min 6 chars)" style="width: 100%; padding: 14px; border: 1px solid var(--border); border-radius: 12px; font-size: 0.95rem; background: var(--bg-alt); color: var(--text-main); outline: none;">
+                <div style="text-align: right; margin-top: 6px; font-size: 0.75rem; color: var(--text-muted);">New user? We'll register you automatically.</div>
+            </div>
+            <button id="email-login-btn" class="btn-search" style="margin-top: 8px; padding: 14px; font-size: 0.95rem; border-radius: 50px;">Sign In / Register</button>
+            <div id="auth-error" style="color: var(--error-text); font-size: 0.8rem; display: none; text-align: center; background: var(--error-bg); padding: 8px; border-radius: 8px; border: 1px solid #fecaca;"></div>
+        </div>
+
+        <div style="text-align: center; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 20px; position: relative;">
+            <hr style="border: none; border-top: 1px solid var(--border); position: absolute; width: 100%; top: 50%; z-index: 1;">
+            <span style="background: var(--bg); padding: 0 10px; position: relative; z-index: 2; font-weight: 600;">OR</span>
+        </div>
+
+        <button id="google-login-btn" class="btn-auth" style="width: 100%; justify-content: center; background: white; border: 1px solid var(--border); padding: 12px; font-size: 0.95rem; border-radius: 50px;">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px; margin-right: 10px;" alt="G">
+            Continue with Google
+        </button>
+    </div>
+</div>
+
+<div id="add-case-modal" class="modal-overlay">
+    <div class="modal-box" style="border-radius: 24px;">
+        <button class="modal-close" onclick="window.closeAddCaseModal()">×</button>
+        <h3 style="margin-bottom: 16px; font-weight: 700;">Add Case to Tracker</h3>
+        <div class="field">
+            <label class="field-label">Link CNR (Optional)</label>
+            <input type="text" id="track-cnr" placeholder="e.g. RJUD010012342025" autocomplete="off" style="border-radius: 12px;">
+            <div class="cnr-hint">If left blank, case will be tracked manually.</div>
+        </div>
+        <div class="field">
+            <label class="field-label">Case Title / Client Name</label>
+            <input type="text" id="track-title" placeholder="e.g. Rahul Sharma Bail" autocomplete="off" style="border-radius: 12px;">
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div class="field"><label class="field-label">Total Agreed Fee</label><input type="number" id="track-total" placeholder="₹" autocomplete="off" style="border-radius: 12px;"></div>
+            <div class="field"><label class="field-label">Per Hearing Fee</label><input type="number" id="track-hearing" placeholder="₹" autocomplete="off" style="border-radius: 12px;"></div>
+        </div>
+        <button class="btn-search" onclick="window.saveTrackedCase()" style="margin-top: 8px; border-radius: 50px;">Save Case</button>
+    </div>
+</div>
+
+<div id="consent-modal" class="modal-overlay">
+    <div class="modal-box" style="border-radius: 24px;">
+        <h3 style="margin-bottom: 12px; font-size: 1.25rem; font-weight: 700;">Enable Cloud Sync ☁️</h3>
+        <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+            To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data on our secure servers located in Mumbai. Do you consent to enabling Cloud Sync?
+        </p>
+        <button class="btn-search" onclick="window.acceptConsent()" style="margin-bottom: 12px; border-radius: 50px;">Yes, Enable Secure Sync</button>
+        <button class="btn-action" onclick="window.declineConsent()" style="width: 100%; justify-content: center; padding: 12px; border-radius: 50px;">No, Keep Data Local Only</button>
+        <p style="font-size: 0.75rem; color: var(--text-muted); text-align: center; margin-top: 16px;">You can change this later in our <a href="privacy.html" style="color: var(--primary); font-weight: 600;">Privacy Policy</a>.</p>
+    </div>
+</div>
+
+<div id="universal-search-modal" class="modal-overlay" style="align-items: flex-start; padding-top: 15vh;">
+    <div class="modal-box" style="padding: 20px; border-radius: 24px;">
+        <div style="display: flex; gap: 12px; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 12px;">
+            <span style="font-size: 1.2rem;">🔍</span>
+            <input type="text" id="uni-search-input" placeholder="Search clients, CNRs, fees..." autocomplete="off" onkeyup="window.runUniversalSearch()" style="border: none; outline: none; width: 100%; font-size: 1.1rem; background: transparent; color: var(--text-main);">
+            <button onclick="window.closeUniversalSearch()" style="background: none; border: none; font-size: 1.5rem; color: var(--text-muted); cursor: pointer;">×</button>
+        </div>
+        <div id="uni-search-results" style="max-height: 50vh; overflow-y: auto;">
+            <div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>
+        </div>
+    </div>
+</div>
+
+<div id="dev-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 380px; border-radius: 24px;">
+        <button class="modal-close" onclick="window.closeDevModal()">×</button>
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">⚖️</div>
+        <h2 style="margin-bottom: 8px; font-size: 1.5rem; font-weight: 700;">Vaad 2.0.2</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">The Modern Legal Dashboard</p>
+        
+        <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; border: 1px solid var(--border); text-align: left; margin-bottom: 20px; position: relative;">
+            <p style="margin-bottom: 4px; font-size: 0.90rem; color: var(--text-muted);">Designed and Developed by:</p>
+            <p style="font-weight: 700; font-size: 1.1rem; color: var(--text-main); margin-bottom: 4px;">Gaurav Kalal</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">LLB Student, Mohanlal Sukhadia University (MLSU)</p>
+            
+            <a href="https://gorupa.github.io/" target="_blank" rel="noopener noreferrer" style="display: inline-flex; align-items: center; justify-content: center; width: 100%; background: var(--primary); color: white; padding: 12px; border-radius: 50px; text-decoration: none; font-weight: 600; font-size: 0.85rem; transition: background 0.2s;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                View Developer Portfolio
+            </a>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">A product of <strong>Raghav Communication</strong>.</p>
+        <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 8px;">Powered by eCourtsIndia API</p>
+    </div>
+</div>
+
+<div id="faq-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; overflow-y: auto; text-align: left; border-radius: 24px;">
+        <button class="modal-close" onclick="window.closeFaqModal()">×</button>
+        <div style="font-size: 2rem; margin-bottom: 10px; text-align: center;">❓</div>
+        <h2 style="margin-bottom: 24px; font-size: 1.5rem; font-weight: 700; text-align: center;">Help & FAQ</h2>
+                
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary" style="font-weight: 600;">Login or Google Sign-In isn't working?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                If you are having trouble signing in, your device's security settings might be blocking it. To fix this:<br><br>
+                <strong>1.</strong> Long-press the Vaad app icon on your home screen and select <strong>App Info</strong>.<br>
+                <strong>2.</strong> Tap on <strong>Site Settings</strong>.<br>
+                <strong>3.</strong> Ensure the following are set to <strong>Allow</strong>:<br>
+                <ul style="padding-left: 20px; margin-top: 6px; margin-bottom: 6px; color: var(--text-main); font-weight: 500;">
+                    <li>Third-party sign-in (Allows Google Login)</li>
+                    <li>Pop-ups and redirects (Allows login windows)</li>
+                </ul>
+                <em>Tip: You can always use the standard Email & Password form to log in securely without changing device settings.</em>
+            </div>
+        </details>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary" style="font-weight: 600;">How do I track a court case?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                Go to the main search screen. You can search using the 16-digit <strong>CNR Number</strong>, or by Advocate Name, Party Name, and Judge Name. If you have a Pro Max plan, you can use the Bulk CNR tab to refresh up to 50 cases at once.
+            </div>
+        </details>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary" style="font-weight: 600;">What is the Practice Dashboard?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                The Practice Dashboard is your personal ledger. It allows you to track the total expected fees for a case, set per-hearing installments, and log payments. The dashboard will automatically calculate your pending dues and total revenue.
+            </div>
+        </details>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary" style="font-weight: 600;">How do the FUP (Search Limits) work?</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                To prevent abuse of the official API, searches and PDF downloads are limited based on your tier. Free users get 1 trial search. You can upgrade to a Pro (30 searches, 5 PDFs), Pro Max (100 searches, 20 PDFs), or Supreme (150 searches, 50 PDFs) plan. Your limits reset automatically every 30 days based on your billing cycle.
+            </div>
+        </details>
+    </div>
+</div>
+
+<div id="whats-new-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; overflow-y: auto; text-align: left; border-radius: 24px;">
+        <button class="modal-close" onclick="window.closeWhatsNewModal()">×</button>
+        <div style="font-size: 2rem; margin-bottom: 10px; text-align: center;">🚀</div>
+        <h2 style="margin-bottom: 24px; font-size: 1.5rem; font-weight: 700; text-align: center;">What's New</h2>
+        
+        <div style="border-left: 2px solid var(--primary); padding-left: 16px; margin-bottom: 24px;">
+            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+                <span style="background: var(--primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: bold;">v2.0.2</span>
+                <span style="font-size: 0.8rem; color: var(--text-muted);">March 2026</span>
+            </div>
+            <h3 style="font-size: 1.1rem; margin-bottom: 8px; color: var(--text-main); font-weight: 600;">Transparent Pricing & PDF Limits</h3>
+            <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                <li><strong>Transparent Tiers:</strong> You can now view exactly how many searches and PDFs you get on each plan before upgrading.</li>
+                <li><strong>Bulk Tracking Update:</strong> The Bulk CNR refresh tool is now exclusive to the Pro Max and Supreme tiers.</li>
+                <li><strong>UI Enhancements:</strong> Upgraded the interface to Google's Material 3 standard for a smoother, softer native app feel.</li>
+            </ul>
+        </div>
+
+        <details class="changelog-details" style="margin-bottom: 12px;">
+            <summary class="changelog-summary" style="font-weight: 600;">v2.0 - The Mobile-First Overhaul</summary>
+            <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 16px; opacity: 0.8;">
+                <ul style="font-size: 0.9rem; color: var(--text-muted); padding-left: 16px; line-height: 1.6;">
+                    <li><strong>Practice Dashboard:</strong> Track case fees, set per-hearing installments, and view outstanding balances.</li>
+                    <li><strong>Cloud Sync:</strong> Your dashboard data is securely synced to the cloud.</li>
+                    <li><strong>Universal Search:</strong> Search through your saved clients, CNRs, and fee logs instantly.</li>
+                </ul>
+            </div>
+        </details>
+    </div>
+</div>
+
+<div id="ai-sidebar" class="ai-sidebar">
+    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 16px;">
+        <h3 style="margin: 0; font-size: 1.1rem; font-weight: 700; display: flex; align-items: center; gap: 8px;">✨ AI Assistant</h3>
+        <button onclick="window.closeAI()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-main); padding: 0;">×</button>
+    </div>
+    <div id="ai-content" style="font-size: 0.95rem; line-height: 1.6; color: var(--text-main); overflow-y: auto; max-height: calc(100vh - 80px);">
+        <p style="color: var(--text-muted); text-align: center; margin-top: 40px;">Select any complex legal term or paste text here to get an instant, plain-English explanation.</p>
+    </div>
+</div>
+<div id="ai-overlay" class="drawer-overlay" onclick="window.closeAI()" style="z-index: 1999;"></div>
+
+<footer style="text-align: center; padding: 32px 20px; color: var(--text-muted); font-size: 0.75rem; border-top: 1px solid var(--border); margin-top: 60px; line-height: 1.6;">
+    <div style="font-weight: 600; margin-bottom: 4px; color: var(--text-main);">Vaad by Raghav Communication</div>
     <div>A legally registered MSME under the Government of India (Udyam).</div>
+    <div style="margin-top: 8px; opacity: 0.7;">&copy; 2026 All Rights Reserved.</div>
 </footer>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
