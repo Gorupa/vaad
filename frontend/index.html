@@ -274,6 +274,7 @@
 
 <div id="consent-modal" class="modal-overlay">
     <div class="modal-box">
+        <button class="modal-close" onclick="window.closeConsentModal()">×</button>
         <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.6rem; margin-bottom: 12px; color: var(--primary);">Cloud Sync ☁️</h3>
         <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
             To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data securely. Do you consent to enabling Cloud Sync?
@@ -329,8 +330,71 @@
     </div>
 </div>
 
-<div id="dev-modal" class="modal-overlay">...</div>
-<div id="faq-modal" class="modal-overlay">...</div>
+<div id="dev-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align: center; max-width: 380px;">
+        <button class="modal-close" onclick="window.closeDevModal()">×</button>
+        <div style="font-size: 2.5rem; margin-bottom: 10px;">⚖️</div>
+        <h2 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--primary); margin-bottom: 8px;">Vaad 2.1</h2>
+        <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">The Modern Legal Dashboard</p>
+        
+        <div style="background: var(--bg-alt); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border-soft); text-align: left; margin-bottom: 20px;">
+            <p style="margin-bottom: 4px; font-size: 0.85rem; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Designed & Developed by:</p>
+            <p style="font-weight: 800; font-size: 1.15rem; color: var(--text-main); margin-bottom: 4px;">Gaurav Kalal</p>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 16px;">LLB Student, Mohanlal Sukhadia University (MLSU)</p>
+            
+            <a href="https://gorupa.github.io/" target="_blank" rel="noopener noreferrer" class="btn-search" style="margin-top: 0; padding: 12px; font-size: 0.9rem; text-decoration: none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 6px;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                View Developer Portfolio
+            </a>
+        </div>
+        <p style="font-size: 0.8rem; color: var(--text-muted);">A product of <strong>Raghav Communication</strong>.</p>
+        <p style="font-size: 0.75rem; color: var(--text-subtle); margin-top: 4px;">Powered by eCourtsIndia API</p>
+    </div>
+</div>
+
+<div id="faq-modal" class="modal-overlay">
+    <div class="modal-box" style="max-height: 85vh; overflow-y: auto;">
+        <button class="modal-close" onclick="window.closeFaqModal()">×</button>
+        <div class="hero-eyebrow" style="margin-bottom: 16px;">Support</div>
+        <h2 style="font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--primary); margin-bottom: 24px;">Help & FAQ</h2>
+                
+        <details class="changelog-details">
+            <summary class="changelog-summary">Login or Google Sign-In isn't working?</summary>
+            <div style="padding-top: 12px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                If you are having trouble signing in, your device's security settings might be blocking it. To fix this:<br><br>
+                <strong>1.</strong> Long-press the Vaad app icon on your home screen and select <strong>App Info</strong>.<br>
+                <strong>2.</strong> Tap on <strong>Site Settings</strong>.<br>
+                <strong>3.</strong> Ensure the following are set to <strong>Allow</strong>:<br>
+                <ul style="padding-left: 20px; margin-top: 6px; margin-bottom: 6px; color: var(--text-main); font-weight: 500;">
+                    <li>Third-party sign-in (Allows Google Login)</li>
+                    <li>Pop-ups and redirects (Allows login windows)</li>
+                </ul>
+                <em>Tip: You can always use the standard Email & Password form to log in securely without changing device settings.</em>
+            </div>
+        </details>
+
+        <details class="changelog-details">
+            <summary class="changelog-summary">How do I track a court case?</summary>
+            <div style="padding-top: 12px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                Go to the main search screen. You can search using the 16-digit <strong>CNR Number</strong>, or by Advocate Name, Party Name, and Judge Name. If you have a Pro Max plan, you can use the Bulk CNR tab to refresh up to 50 cases at once.
+            </div>
+        </details>
+
+        <details class="changelog-details">
+            <summary class="changelog-summary">What is the Practice Dashboard?</summary>
+            <div style="padding-top: 12px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                The Practice Dashboard is your personal ledger. It allows you to track the total expected fees for a case, set per-hearing installments, and log payments. The dashboard will automatically calculate your pending dues and total revenue.
+            </div>
+        </details>
+
+        <details class="changelog-details">
+            <summary class="changelog-summary">How do the FUP (Search Limits) work?</summary>
+            <div style="padding-top: 12px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
+                To prevent abuse of the official API, searches and PDF downloads are limited based on your tier. Free users get 1 trial search. You can upgrade to a Pro, Pro Max, or Supreme plan. Your limits reset automatically every 30 days based on your billing cycle.
+            </div>
+        </details>
+    </div>
+</div>
 
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 <script type="module" src="js/main.js"></script>
