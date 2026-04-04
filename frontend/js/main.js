@@ -127,7 +127,11 @@ document.addEventListener('click', async (e) => {
 
 async function syncDashboardToCloud() {
     if (!currentUser || userConsent !== 'true' || !syncPermission) return; 
-    try { await updateDoc(doc(db, "users", currentUser.uid), { practiceCases: practiceCases }); } catch (e) {}
+    try { 
+        await updateDoc(doc(db, "users", currentUser.uid), { practiceCases: practiceCases }); 
+    } catch (e) {
+        console.error("Cloud Sync Failed (Firebase Rule or Network Issue):", e);
+    }
 }
 
 async function syncPermissionUI() {
@@ -187,7 +191,12 @@ onAuthStateChanged(auth, async (user) => {
                 const data = snap.data();
                 currentPlan = data.plan || 'free';
                 await syncPermissionUI();
-                if (data.practiceCases) { practiceCases = data.practiceCases; localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases)); }
+                
+                // ✨ CRITICAL BUG FIX: Only pull from cloud if user gave consent to avoid overwriting local saves
+                if (data.practiceCases && userConsent === 'true') { 
+                    practiceCases = data.practiceCases; 
+                    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases)); 
+                }
             } else {
                 await setDoc(doc(db, "users", user.uid), { name: user.displayName || user.email.split('@')[0], email: user.email, plan: 'free', cycleStartDate: new Date().toISOString().split('T')[0], joinedAt: new Date().toISOString(), practiceCases: [], permissions: { cloudSync: true }});
                 currentPlan = 'free';
@@ -636,13 +645,16 @@ function renderCaseDetail(payload) {
 
     const existingCase = practiceCases.find(c => c.cnr && c.cnr.replace(/\s+/g,'').toUpperCase() === data.cnr.toUpperCase());
     
+    // ✨ CRITICAL BUG FIX: Make title safe so apostrophes don't break the HTML button ✨
+    const safeTitle = `${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}`.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+
     let trackButtonHtml = '';
     if (existingCase) {
         trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0; background: var(--success-bg); color: var(--success-text); border-color: var(--success-border);" onclick="window.goToDashboardCase(${existingCase.id})">
            ✅ View in Practice Dashboard
         </button>`;
     } else {
-        trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';">
+        trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${safeTitle}';">
            💼 Track this Case in Ledger
         </button>`;
     }
@@ -667,10 +679,17 @@ function renderCaseDetail(payload) {
 }
 
 window.saveTrackedCase = async function() {
-    const cnr = document.getElementById('track-cnr').value.trim();
-    const title = document.getElementById('track-title').value.trim();
-    const total = parseInt(document.getElementById('track-total').value) || 0;
-    const perHearing = parseInt(document.getElementById('track-hearing').value) || 0;
+    const cnrEl = document.getElementById('track-cnr');
+    const titleEl = document.getElementById('track-title');
+    const totalEl = document.getElementById('track-total');
+    const hearingEl = document.getElementById('track-hearing');
+    
+    if (!cnrEl || !titleEl) return;
+    
+    const cnr = cnrEl.value.trim();
+    const title = titleEl.value.trim();
+    const total = parseInt(totalEl.value) || 0;
+    const perHearing = parseInt(hearingEl.value) || 0;
 
     if (!title) return alert("Case Title / Client Name required.");
 
@@ -679,12 +698,18 @@ window.saveTrackedCase = async function() {
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
         await syncDashboardToCloud(); 
         
-        document.getElementById('track-cnr').value = ''; document.getElementById('track-title').value = ''; document.getElementById('track-total').value = ''; document.getElementById('track-hearing').value = '';
-        window.closeAddCaseModal(); window.toggleView('dashboard');
+        cnrEl.value = ''; titleEl.value = ''; totalEl.value = ''; hearingEl.value = '';
+        window.closeAddCaseModal(); 
+        window.toggleView('dashboard');
     };
 
-    if (userConsent === null && currentUser) { pendingSaveAction = executeSave; window.closeAddCaseModal(); window.openConsentModal(); } 
-    else { await executeSave(); }
+    if (userConsent === null && currentUser) { 
+        pendingSaveAction = executeSave; 
+        window.closeAddCaseModal(); 
+        window.openConsentModal(); 
+    } else { 
+        await executeSave(); 
+    }
 };
 
 window.logPayment = async function(id) {
