@@ -9,7 +9,8 @@
     <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API and AI.">
     
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#1e3a8a"> <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#1e3a8a">
+    <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icon-192.png">
 
@@ -81,16 +82,6 @@
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="syncPermissionToggle" onchange="window.toggleCloudSyncPermission()">
-                        <span class="slider"></span>
-                    </label>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; opacity: 0.5;">
-                    <div style="flex: 1; padding-right: 10px;">
-                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--text-muted);">Notifications (Future)</div>
-                    </div>
-                    <label class="switch">
-                        <input type="checkbox" disabled>
                         <span class="slider"></span>
                     </label>
                 </div>
@@ -299,17 +290,31 @@
         <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')" style="border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;">
             <div style="font-weight: 700; color: var(--primary); font-size: 18px;">Pro Plan</div>
             <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.4rem; font-weight: 700;">₹99<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted);"><li>✓ 30 Searches</li><li>✓ Daily Cause List Search</li><li>✓ Bulk Case Refresh</li></ul>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted);">
+                <li>✓ <strong>30 Searches</strong> per month</li>
+                <li>✓ <strong>5 PDF Downloads</strong> per month</li>
+                <li>✓ Full Cause List Access</li>
+            </ul>
         </div>
+
         <div id="promax-card" class="pricing-card" onclick="window.selectPlan('promax')" style="border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 12px; cursor: pointer; transition: all 0.2s;">
             <div style="color: #d4af37; font-weight: 700; font-size: 18px;">Pro Max</div>
             <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.4rem; font-weight: 700;">₹199<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted);"><li>✓ 100 Searches & Full Cause List</li><li>✓ Download Certified Watermarked PDFs</li><li>✓ Extract Order Markdown Text</li></ul>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted);">
+                <li>✓ <strong>100 Searches</strong> per month</li>
+                <li>✓ <strong>20 PDF Downloads</strong> per month</li>
+                <li>✓ Bulk Case Refreshing</li>
+            </ul>
         </div>
+
         <div id="supreme-card" class="pricing-card" onclick="window.selectPlan('supreme')" style="background: var(--primary-bg); border: 1px solid var(--border); padding: 16px; border-radius: 16px; margin-bottom: 16px; cursor: pointer; transition: all 0.2s;">
             <div style="color: var(--primary); font-weight: 700; font-size: 18px;">Supreme Plan</div>
             <div class="price-tag" style="margin: 5px 0; color: var(--text-main); font-size: 1.4rem; font-weight: 700;">₹399<span style="font-size: 14px; color: var(--text-muted); font-weight: normal;"> / month</span></div>
-            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted);"><li>✓ 150 Searches & All Pro Max Features</li><li>✓ AI Judgment Analysis & Summaries</li><li>✓ Unlimited AI Legal Dictionary</li></ul>
+            <ul class="feature-list" style="margin-bottom: 0px; font-size: 13px; list-style: none; padding: 0; color: var(--text-muted);">
+                <li>✓ <strong>150 Searches</strong> per month</li>
+                <li>✓ <strong>50 PDF Downloads</strong> per month</li>
+                <li>✓ <strong>20 AI Case Summaries</strong> & Analysis</li>
+            </ul>
         </div>
 
         <div class="upi-box" style="border: 1px solid var(--primary); background: var(--primary-bg); padding: 16px; border-radius: 16px;">
@@ -395,7 +400,7 @@
         <details class="changelog-details">
             <summary class="changelog-summary" style="font-weight: 600;">How do the FUP (Search Limits) work?</summary>
             <div style="border-left: 2px solid var(--border); padding-left: 16px; margin-top: 12px; margin-bottom: 8px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
-                To prevent abuse of the official API, searches are limited. Free users get 1 trial search. You can upgrade to a Pro (30 searches), Pro Max (100 searches), or Supreme (150 searches) plan. Your limits reset automatically every 30 days based on your billing cycle.
+                To prevent abuse of the official API, searches are limited. Free users get 1 trial search. You can upgrade to a Pro (30 searches, 5 PDFs), Pro Max (100 searches, 20 PDFs), or Supreme (150 searches, 50 PDFs) plan. Your limits reset automatically every 30 days based on your billing cycle.
             </div>
         </details>
     </div>
