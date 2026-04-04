@@ -1,44 +1,33 @@
-// ═══════════════════════════════════════════════════════════════
-//  VAAD — THE DHARMA UPDATE v2.1
-//  Self-contained monolith main.js
-//  Loaded as: <script type="module" src="js/main.js">
-// ═══════════════════════════════════════════════════════════════
-
-window.onerror = function(msg, url, line) {
-    console.error('Script Error: ' + msg + ' (Line ' + line + ')');
+window.onerror = function(msg, url, line) { 
+    console.error("Script Error: " + msg + " (Line " + line + ")"); 
 };
 
-import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js';
-import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js';
-import { getFirestore, doc, getDoc, setDoc, updateDoc } from 'https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js';
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ── Firebase Init ──────────────────────────────────────────────
 const firebaseConfig = {
-    apiKey:            'AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU',
-    authDomain:        'vaad-87fed.firebaseapp.com',
-    projectId:         'vaad-87fed',
-    storageBucket:     'vaad-87fed.firebasestorage.app',
-    messagingSenderId: '649989985981',
-    appId:             '1:649989985981:web:6dcbcdd0babd45f2cb09d4',
-    measurementId:     'G-36J186LSR4'
+    apiKey: "AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU",
+    authDomain: "vaad-87fed.firebaseapp.com",
+    projectId: "vaad-87fed",
+    storageBucket: "vaad-87fed.firebasestorage.app",
+    messagingSenderId: "649989985981",
+    appId: "1:649989985981:web:6dcbcdd0babd45f2cb09d4",
+    measurementId: "G-36J186LSR4"
 };
 
-const app      = initializeApp(firebaseConfig);
-const auth     = getAuth(app);
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
-const db       = getFirestore(app);
+const db = getFirestore(app);
 
-// ── Google Identity Services Init ─────────────────────────────
 window.addEventListener('load', () => {
     if (typeof google !== 'undefined' && google.accounts) {
         google.accounts.id.initialize({
-            client_id:            '649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com',
-            callback:             handleCredentialResponse,
-            use_fedcm_for_prompt: true
+            client_id: "649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com", 
+            callback: handleCredentialResponse,
+            use_fedcm_for_prompt: true 
         });
-        console.log('[Auth] Google Credential Manager Initialized.');
-    } else {
-        console.error('[Auth] Google API script not found.');
     }
 });
 
@@ -47,833 +36,762 @@ async function handleCredentialResponse(response) {
         const credential = GoogleAuthProvider.credential(response.credential);
         await signInWithCredential(auth, credential);
         window.closeLoginModal();
-    } catch (error) {
-        console.error('[Auth] Credential Manager failed:', error);
-        resetLoginButtons();
-    }
+    } catch (error) { resetLoginButtons(); }
 }
 
-// ── App State ──────────────────────────────────────────────────
-const API = 'https://vaad-wnul.onrender.com/api';
+// ── Modal Control Functions ──
+window.openLoginModal = () => { document.getElementById('login-modal').classList.add('active'); document.getElementById('login-modal').style.display = 'flex'; };
+window.closeLoginModal = () => { document.getElementById('login-modal').classList.remove('active'); document.getElementById('login-modal').style.display = 'none'; document.getElementById('auth-error').style.display = 'none'; resetLoginButtons(); };
 
-let currentUser    = null;
-let currentPlan    = 'free';
-let cycleStartDate = null;
-let activeTab      = 'cnr';
+window.openDevModal = () => { document.getElementById('dev-modal').classList.add('active'); document.getElementById('dev-modal').style.display = 'flex'; };
+window.closeDevModal = () => { document.getElementById('dev-modal').classList.remove('active'); document.getElementById('dev-modal').style.display = 'none';};
+
+window.openWhatsNewModal = () => { document.getElementById('whats-new-modal').classList.add('active'); document.getElementById('whats-new-modal').style.display = 'flex'; };
+window.closeWhatsNewModal = () => { document.getElementById('whats-new-modal').classList.remove('active'); document.getElementById('whats-new-modal').style.display = 'none';};
+
+window.openFaqModal = () => { document.getElementById('faq-modal').classList.add('active'); document.getElementById('faq-modal').style.display = 'flex';};
+window.closeFaqModal = () => { document.getElementById('faq-modal').classList.remove('active'); document.getElementById('faq-modal').style.display = 'none';};
+
+window.openAddCaseModal = () => { document.getElementById('add-case-modal').classList.add('active'); document.getElementById('add-case-modal').style.display = 'flex';};
+window.closeAddCaseModal = () => { document.getElementById('add-case-modal').classList.remove('active'); document.getElementById('add-case-modal').style.display = 'none';};
+
+window.openConsentModal = () => { document.getElementById('consent-modal').classList.add('active'); document.getElementById('consent-modal').style.display = 'flex';};
+window.closeConsentModal = () => { document.getElementById('consent-modal').classList.remove('active'); document.getElementById('consent-modal').style.display = 'none';};
+
+// ✨ DYNAMIC PRICING MODAL ✨
+window.openModal = () => { 
+    const modal = document.getElementById('upgrade-modal');
+    if (!modal) return;
+    
+    const proCard = document.getElementById('pro-card');
+    const promaxCard = document.getElementById('promax-card');
+    const supremeCard = document.getElementById('supreme-card');
+    const upiBox = document.querySelector('.upi-box');
+    const subtitle = document.getElementById('modal-subtitle');
+    
+    if (currentPlan === 'supreme') {
+        if(proCard) proCard.style.display = 'none';
+        if(promaxCard) promaxCard.style.display = 'none';
+        if(supremeCard) { supremeCard.style.display = 'block'; supremeCard.style.border = '2px solid var(--primary)'; }
+        if(upiBox) upiBox.style.display = 'none'; 
+        if(subtitle) subtitle.innerText = "You are currently on the highest tier. Enjoy maximum limits and AI tools!";
+    } else if (currentPlan === 'promax') {
+        if(proCard) proCard.style.display = 'none';
+        if(promaxCard) promaxCard.style.display = 'none';
+        if(supremeCard) supremeCard.style.display = 'block';
+        if(upiBox) upiBox.style.display = 'block';
+        if(subtitle) subtitle.innerText = "Upgrade to Supreme for AI features and maximum limits.";
+        window.selectPlan('supreme');
+    } else if (currentPlan === 'pro') {
+        if(proCard) proCard.style.display = 'none';
+        if(promaxCard) promaxCard.style.display = 'block';
+        if(supremeCard) supremeCard.style.display = 'block';
+        if(upiBox) upiBox.style.display = 'block';
+        if(subtitle) subtitle.innerText = "Select a plan to unlock more powerful tools.";
+        window.selectPlan('promax');
+    } else {
+        if(proCard) proCard.style.display = 'block';
+        if(promaxCard) promaxCard.style.display = 'block';
+        if(supremeCard) supremeCard.style.display = 'block';
+        if(upiBox) upiBox.style.display = 'block';
+        if(subtitle) subtitle.innerText = "Powered by official eCourts API. You pay for secure, ad-free API access.";
+        window.selectPlan('pro');
+    }
+    
+    modal.style.display = 'flex'; 
+    modal.classList.add('active'); 
+};
+window.closeModal = () => { document.getElementById('upgrade-modal').classList.remove('active'); document.getElementById('upgrade-modal').style.display = 'none';};
+
+function resetLoginButtons() {
+    const emailLoginBtn = document.getElementById('email-login-btn');
+    const googleLoginBtn = document.getElementById('google-login-btn');
+    if (emailLoginBtn) { emailLoginBtn.innerText = "Sign In / Register"; emailLoginBtn.disabled = false; }
+    if (googleLoginBtn) { googleLoginBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px; margin-right: 10px;" alt="G"> Continue with Google`; googleLoginBtn.disabled = false; }
+}
+
+const API = 'https://vaad-wnul.onrender.com/api';
+let currentUser = null;
+let currentPlan = 'free'; 
+let activeTab = 'cnr';
 let activeJurisdiction = 'india';
 let syncPermission = true;
 
-let practiceCases    = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || [];
-let userConsent      = localStorage.getItem('vaad_dpdp_consent');
-let pendingSaveAction = null;
+let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || []; 
+let userConsent = localStorage.getItem('vaad_dpdp_consent');
+let pendingSaveAction = null; 
 
+// THE 3-WALLET PLAN LIMITS
 const limits = {
-    free:    { search: 1,   pdf: 0  },
-    pro:     { search: 30,  pdf: 0  },
-    promax:  { search: 100, pdf: 0  },
-    supreme: { search: 150, pdf: 30 }
+    free: { search: 1, pdf: 0, ai: 0 },
+    pro: { search: 30, pdf: 5, ai: 0 },
+    promax: { search: 100, pdf: 20, ai: 0 },
+    supreme: { search: 150, pdf: 50, ai: 20 }
 };
 
-// ══════════════════════════════════════════════════════════════
-//  AUTH
-// ══════════════════════════════════════════════════════════════
-
-window.openLoginModal = function() {
-    document.getElementById('login-modal').classList.add('active');
-    document.getElementById('login-modal').style.display = 'flex';
-};
-
-window.closeLoginModal = function() {
-    document.getElementById('login-modal').classList.remove('active');
-    document.getElementById('login-modal').style.display = 'none';
-    const e = document.getElementById('auth-error');
-    if (e) e.style.display = 'none';
-    const em = document.getElementById('auth-email');
-    if (em) em.value = '';
-    const pw = document.getElementById('auth-password');
-    if (pw) pw.value = '';
-    resetLoginButtons();
-};
-
-function resetLoginButtons() {
-    const emailBtn  = document.getElementById('email-login-btn');
-    const googleBtn = document.getElementById('google-login-btn');
-    if (emailBtn) {
-        emailBtn.innerText = 'Sign In / Register';
-        emailBtn.disabled  = false;
-    }
-    if (googleBtn) {
-        googleBtn.innerHTML = `<img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width:20px;margin-right:10px;" alt="G"> Continue with Google`;
-        googleBtn.disabled  = false;
-    }
-}
-
-// Global click — login buttons + logout
 document.addEventListener('click', async (e) => {
-    const logoutTarget   = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
-    const emailLoginBtn  = e.target.closest('#email-login-btn');
+    const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
+    const emailLoginBtn = e.target.closest('#email-login-btn');
     const googleLoginBtn = e.target.closest('#google-login-btn');
 
-    // Email / Password
     if (emailLoginBtn) {
-        const email    = document.getElementById('auth-email').value.trim();
+        const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
         const errorDiv = document.getElementById('auth-error');
-        if (!email || !password) {
-            errorDiv.innerText = 'Please enter both email and password.';
-            errorDiv.style.display = 'block';
-            return;
-        }
-        emailLoginBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-color:white;border-top-color:transparent;margin-right:8px;display:inline-block;"></div> Connecting...';
-        emailLoginBtn.disabled  = true;
-        errorDiv.style.display  = 'none';
+        if (!email || !password) { errorDiv.innerText = "Please enter both email and password."; errorDiv.style.display = "block"; return; }
+        emailLoginBtn.innerHTML = '<div class="spinner" style="margin-right:8px;"></div> Connecting...';
+        emailLoginBtn.disabled = true; errorDiv.style.display = "none";
         try {
             await signInWithEmailAndPassword(auth, email, password);
             window.closeLoginModal();
         } catch (error) {
             if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-                try {
-                    await createUserWithEmailAndPassword(auth, email, password);
-                    window.closeLoginModal();
-                } catch (regErr) {
-                    errorDiv.innerText = regErr.code === 'auth/email-already-in-use'
-                        ? "This email is linked to a Google account. Try 'Continue with Google'."
-                        : 'Error: ' + regErr.message.replace('Firebase: ', '');
-                    errorDiv.style.display = 'block';
-                    resetLoginButtons();
-                }
-            } else {
-                errorDiv.innerText = 'Error: ' + error.message.replace('Firebase: ', '');
-                errorDiv.style.display = 'block';
-                resetLoginButtons();
-            }
+                try { await createUserWithEmailAndPassword(auth, email, password); window.closeLoginModal(); } 
+                catch (registerError) { errorDiv.innerText = "Error: " + registerError.message.replace('Firebase: ', ''); errorDiv.style.display = "block"; resetLoginButtons(); }
+            } else { errorDiv.innerText = "Error: " + error.message.replace('Firebase: ', ''); errorDiv.style.display = "block"; resetLoginButtons(); }
         }
         return;
     }
-
-    // Google Sign In
+    
     if (googleLoginBtn) {
-        googleLoginBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-color:var(--text-muted);border-top-color:transparent;margin-right:8px;display:inline-block;"></div> Connecting...';
-        googleLoginBtn.disabled  = true;
-        const executePopup = async () => {
-            try {
-                await signInWithPopup(auth, provider);
-                window.closeLoginModal();
-            } catch (err) {
-                console.error('Popup error:', err);
-                resetLoginButtons();
-            }
-        };
-        try {
-            document.cookie = 'g_state=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
-            if (typeof google === 'undefined' || !google.accounts) { await executePopup(); return; }
-            google.accounts.id.prompt(async (n) => {
-                if (n.isDismissedMoment() || n.isSkippedMoment() || n.isNotDisplayed()) await executePopup();
-            });
-        } catch (err) { await executePopup(); }
+        googleLoginBtn.innerHTML = '<div class="spinner" style="border-color:var(--text-muted); border-top-color:transparent; margin-right:8px;"></div> Connecting...';
+        googleLoginBtn.disabled = true;
+        try { await signInWithPopup(auth, provider); window.closeLoginModal(); } 
+        catch (error) { resetLoginButtons(); }
     }
-
-    // Logout
+    
     if (logoutTarget) {
         if (e.target.closest('#drawer-logout-btn')) window.toggleMenu();
-        signOut(auth).then(() => window.location.reload());
+        signOut(auth).then(() => { window.location.reload(); });
     }
 });
 
-// ── Auth State Observer ────────────────────────────────────────
-onAuthStateChanged(auth, async (user) => {
-    currentUser = user;
-    const limitText = document.getElementById('limit-text');
-    if (limitText) limitText.innerText = 'Loading limits...';
-
-    if (user) {
-        const avatarUrl   = user.photoURL || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(user.displayName || user.email) + '&background=1a3a8a&color=fff';
-        const displayName = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
-
-        const set = (id, prop, val) => { const el = document.getElementById(id); if (el) el[prop] = val; };
-        const setStyle = (id, prop, val) => { const el = document.getElementById(id); if (el) el.style[prop] = val; };
-
-        setStyle('login-btn', 'display', 'none');
-        setStyle('user-menu', 'display', 'flex');
-        set('user-name', 'innerText', displayName);
-        set('user-avatar', 'src', avatarUrl);
-        setStyle('drawer-unauth', 'display', 'none');
-
-        const drawerAuth = document.getElementById('drawer-auth');
-        if (drawerAuth) drawerAuth.style.display = 'flex';
-        set('drawer-name', 'innerText', user.displayName || user.email.split('@')[0]);
-        set('drawer-avatar', 'src', avatarUrl);
-        setStyle('drawer-logout-btn', 'display', 'block');
-        setStyle('drawer-dashboard-btn', 'display', 'block');
-
-        const badge = document.getElementById('user-badge');
-        if (badge) { badge.innerText = '...'; badge.style.background = 'gray'; }
-
-        try {
-            const userRef  = doc(db, 'users', user.uid);
-            const userSnap = await getDoc(userRef);
-
-            if (userSnap.exists()) {
-                const data   = userSnap.data();
-                const dbPlan = String(data.plan || 'free').toLowerCase().replace(/[^a-z]/g, '');
-                currentPlan    = limits[dbPlan] ? dbPlan : 'free';
-                cycleStartDate = data.cycleStartDate || new Date().toISOString().split('T')[0];
-                await syncPermissionUI();
-                if (data.practiceCases) {
-                    practiceCases = data.practiceCases;
-                    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-                    console.log('[Cloud Sync] Dashboard loaded from Firestore.');
-                }
-            } else {
-                const today = new Date().toISOString().split('T')[0];
-                await setDoc(userRef, {
-                    name:           user.displayName || user.email.split('@')[0],
-                    email:          user.email,
-                    plan:           'free',
-                    cycleStartDate: today,
-                    searchCount:    0,
-                    joinedAt:       new Date().toISOString(),
-                    practiceCases:  [],
-                    permissions:    { cloudSync: true }
-                });
-                currentPlan    = 'free';
-                cycleStartDate = today;
-            }
-        } catch (error) {
-            console.error('Firebase read error:', error);
-            currentPlan    = 'free';
-            cycleStartDate = new Date().toISOString().split('T')[0];
-        }
-
-        window.renderDashboard();
-
-    } else {
-        const setStyle = (id, prop, val) => { const el = document.getElementById(id); if (el) el.style[prop] = val; };
-        setStyle('login-btn',          'display', 'flex');
-        setStyle('user-menu',          'display', 'none');
-        setStyle('drawer-unauth',      'display', 'block');
-        setStyle('drawer-logout-btn',  'display', 'none');
-        setStyle('drawer-dashboard-btn','display','none');
-        setStyle('menu-btn',           'display', 'block');
-        const da = document.getElementById('drawer-auth');
-        if (da) da.style.display = 'none';
-
-        currentPlan    = 'free';
-        cycleStartDate = null;
-        practiceCases  = [];
-        localStorage.removeItem('vaad_dashboard_cases');
-    }
-
-    window.currentUserPlan = currentPlan;
-    updateBadge();
-    updateTabLocks();
-    updateSearchLimitUI();
-});
-
-// ── Cloud Sync ─────────────────────────────────────────────────
+// ── CLOUD SYNC HELPER ──
 async function syncDashboardToCloud() {
-    if (!currentUser)           return;
-    if (userConsent !== 'true') return;
-    if (!syncPermission)        return;
-    try {
-        await updateDoc(doc(db, 'users', currentUser.uid), { practiceCases });
-        console.log('[Cloud Sync] Dashboard saved.');
-    } catch (err) {
-        console.error('Cloud sync error:', err);
-    }
+    if (!currentUser || userConsent !== 'true' || !syncPermission) return; 
+    try { await updateDoc(doc(db, "users", currentUser.uid), { practiceCases: practiceCases }); } 
+    catch (error) { console.error("Sync error:", error); }
 }
 
 async function syncPermissionUI() {
     if (!currentUser) return;
     try {
         const snap = await getDoc(doc(db, 'users', currentUser.uid));
-        if (snap.exists()) {
-            const data = snap.data();
-            if (data.permissions && data.permissions.cloudSync !== undefined) {
-                syncPermission = data.permissions.cloudSync;
-                const toggle = document.getElementById('syncPermissionToggle');
-                if (toggle) toggle.checked = syncPermission;
-            }
+        if (snap.exists() && snap.data().permissions && snap.data().permissions.cloudSync !== undefined) {
+            syncPermission = snap.data().permissions.cloudSync;
+            const toggleEl = document.getElementById('syncPermissionToggle');
+            if (toggleEl) toggleEl.checked = syncPermission;
         }
-    } catch (e) { console.error('syncPermissionUI error:', e); }
+    } catch (e) { console.error(e); }
 }
 
 window.toggleCloudSyncPermission = async function() {
-    const toggle = document.getElementById('syncPermissionToggle');
-    if (!toggle) return;
-    const isChecked = toggle.checked;
-    if (!currentUser) {
-        alert('Please sign in to change permissions.');
-        toggle.checked = !isChecked;
-        return;
-    }
+    const toggleEl = document.getElementById('syncPermissionToggle');
+    const isChecked = toggleEl.checked; 
+    if (!currentUser) { alert("Please sign in to change permissions."); toggleEl.checked = !isChecked; return; }
     try {
-        const userRef = doc(db, 'users', currentUser.uid);
-        await setDoc(userRef, { permissions: { cloudSync: isChecked } }, { merge: true });
+        await setDoc(doc(db, 'users', currentUser.uid), { permissions: { cloudSync: isChecked } }, { merge: true });
         syncPermission = isChecked;
-        if (!isChecked) {
-            if (confirm("Cloud Sync disabled. Data stays local until you log out. Confirm?")) {
-                alert('Permission revoked.');
+        if (!isChecked) { alert("Permission revoked successfully."); } 
+        else { alert("Secure Cloud Sync Enabled."); await syncDashboardToCloud(); }
+    } catch (error) { alert("Network error."); toggleEl.checked = !isChecked; }
+};
+
+window.acceptConsent = async function() {
+    localStorage.setItem('vaad_dpdp_consent', 'true'); userConsent = 'true'; window.closeConsentModal();
+    if (pendingSaveAction) { await pendingSaveAction(); pendingSaveAction = null; } else { await syncDashboardToCloud(); }
+};
+
+window.declineConsent = async function() {
+    localStorage.setItem('vaad_dpdp_consent', 'false'); userConsent = 'false'; window.closeConsentModal();
+    if (pendingSaveAction) { await pendingSaveAction(); pendingSaveAction = null; }
+};
+
+onAuthStateChanged(auth, async (user) => {
+    currentUser = user;
+    const limitText = document.getElementById('limit-text');
+    if (limitText) limitText.innerText = "Loading limits..."; 
+
+    if (user) {
+        document.getElementById('login-btn').style.display = 'none';
+        document.getElementById('user-menu').style.display = 'flex';
+        document.getElementById('user-name').innerText = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+        document.getElementById('user-avatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + (user.displayName || user.email) + '&background=random';
+
+        const dAuth = document.getElementById('drawer-auth'), dUnauth = document.getElementById('drawer-unauth');
+        if (dUnauth) dUnauth.style.display = 'none';
+        if (dAuth) {
+            dAuth.style.display = 'flex';
+            document.getElementById('drawer-name').innerText = user.displayName || user.email.split('@')[0];
+            document.getElementById('drawer-avatar').src = user.photoURL || 'https://ui-avatars.com/api/?name=' + (user.displayName || user.email) + '&background=random';
+        }
+        document.getElementById('drawer-logout-btn').style.display = 'block';
+        document.getElementById('drawer-dashboard-btn').style.display = 'block';
+
+        try {
+            const snap = await getDoc(doc(db, "users", user.uid));
+            if (snap.exists()) {
+                const data = snap.data();
+                currentPlan = data.plan || 'free';
+                await syncPermissionUI();
+                if (data.practiceCases) {
+                    practiceCases = data.practiceCases;
+                    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+                }
             } else {
-                toggle.checked = true;
-                await setDoc(userRef, { permissions: { cloudSync: true } }, { merge: true });
-                syncPermission = true;
+                await setDoc(doc(db, "users", user.uid), { 
+                    name: user.displayName || user.email.split('@')[0], email: user.email, plan: 'free', 
+                    cycleStartDate: new Date().toISOString().split('T')[0], joinedAt: new Date().toISOString(), practiceCases: [], permissions: { cloudSync: true }
+                });
+                currentPlan = 'free';
             }
-        } else {
-            alert('Secure Cloud Sync Enabled.');
-            await syncDashboardToCloud();
-        }
-    } catch (err) {
-        console.error('[Permissions] toggle error:', err);
-        alert('Network error. Check connection.');
-        toggle.checked = !isChecked;
-    }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  FUP — CLIENT SIDE (for badge/modal display only)
-//  Actual enforcement is server-side via Firebase Admin
-// ══════════════════════════════════════════════════════════════
-
-function checkFUP(actionType) {
-    if (!currentUser) return { allowed: false, used: 0, limit: 0, remaining: 0, storageKey: null, expired: false, daysLeft: 0 };
-    if (!currentPlan || !limits[currentPlan]) currentPlan = 'free';
-
-    const cycleStart = new Date(cycleStartDate || new Date().toISOString().split('T')[0]);
-    cycleStart.setHours(0, 0, 0, 0);
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((today - cycleStart) / (1000 * 60 * 60 * 24));
-
-    const isExpired = currentPlan !== 'free' && diffDays >= 30;
-    const daysLeft  = currentPlan !== 'free' ? Math.max(0, 30 - diffDays) : 0;
-    const limit     = (limits[currentPlan] || limits.free)[actionType] || 0;
-
-    return { expired: isExpired, daysLeft, limit };
-}
-
-// Reads live searchCount from Firestore for accurate display
-async function updateSearchLimitUI() {
-    const limitText  = document.getElementById('limit-text');
-    const upgradeBtn = document.getElementById('nav-upgrade-btn');
-
-    if (!currentUser) {
-        if (limitText)  limitText.innerText = 'Sign in to get your free search';
-        if (upgradeBtn) upgradeBtn.style.display = 'none';
-        return;
-    }
-
-    if (limitText) limitText.innerHTML = `<span style="color:var(--text-subtle);font-weight:600;">Loading...</span>`;
-
-    try {
-        const snap  = await getDoc(doc(db, 'users', currentUser.uid));
-        const data  = snap.exists() ? snap.data() : {};
-        const used  = data.searchCount || 0;
-        const plan  = currentPlan || 'free';
-        const limit = (limits[plan] || limits.free).search;
-        const rem   = Math.max(0, limit - used);
-
-        const cycleStart = cycleStartDate ? new Date(cycleStartDate) : new Date();
-        const diffDays   = Math.floor((new Date() - cycleStart) / (1000 * 60 * 60 * 24));
-        const isExpired  = plan !== 'free' && diffDays >= 30;
-        const daysLeft   = plan !== 'free' ? Math.max(0, 30 - diffDays) : 0;
-
-        if (isExpired) {
-            if (limitText)  limitText.innerHTML = `<span style="color:#ef4444;font-weight:600;">Subscription Expired</span>`;
-            if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = '⚡ Renew'; upgradeBtn.onclick = () => window.openModal(); }
-            return;
-        }
-
-        const daysText = plan !== 'free' ? `(${daysLeft}d left) · ` : '';
-        const color    = plan === 'supreme' ? '#8b5cf6' : 'var(--primary)';
-        if (limitText) limitText.innerHTML = `<span style="color:${color};font-weight:600;">${plan.toUpperCase()} ${daysText}${rem}/${limit} Searches</span>`;
-
-        if (plan === 'supreme') {
-            if (upgradeBtn) upgradeBtn.style.display = 'none';
-        } else {
-            if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = '⚡ Upgrade'; upgradeBtn.onclick = () => window.openModal(); }
-        }
-    } catch (e) {
-        console.error('updateSearchLimitUI error:', e);
-        if (limitText) limitText.innerHTML = `<span style="color:var(--primary);font-weight:600;">${(currentPlan || 'free').toUpperCase()} Plan</span>`;
-    }
-}
-
-// ══════════════════════════════════════════════════════════════
-//  BADGE & TAB LOCKS
-// ══════════════════════════════════════════════════════════════
-
-function updateBadge() {
-    const badge       = document.getElementById('user-badge');
-    const drawerBadge = document.getElementById('drawer-badge');
-    if (!badge) return;
-
-    const fup = checkFUP('search');
-    let text, bg, color;
-
-    if (fup.expired) {
-        text = 'EXPIRED'; bg = '#ef4444'; color = 'white';
-    } else if (currentPlan === 'supreme') {
-        text = 'SUPREME'; bg = '#1a3a8a'; color = 'white';
-    } else if (currentPlan === 'promax') {
-        text = 'PRO MAX'; bg = '#9c6b1e'; color = 'white';
-    } else if (currentPlan === 'pro') {
-        text = 'PRO'; bg = 'var(--primary)'; color = 'white';
+        } catch (error) { currentPlan = 'free'; }
+        window.renderDashboard(); 
     } else {
-        text = 'FREE'; bg = 'var(--border)'; color = 'var(--text-muted)';
+        document.getElementById('login-btn').style.display = 'flex'; document.getElementById('user-menu').style.display = 'none';
+        document.getElementById('drawer-unauth').style.display = 'block'; document.getElementById('drawer-auth').style.display = 'none';
+        document.getElementById('drawer-logout-btn').style.display = 'none'; document.getElementById('drawer-dashboard-btn').style.display = 'none';
+        currentPlan = 'free'; practiceCases = []; localStorage.removeItem('vaad_dashboard_cases');
     }
-
-    badge.innerText = text; badge.style.background = bg; badge.style.color = color;
-    if (drawerBadge) { drawerBadge.innerText = text; drawerBadge.style.background = bg; drawerBadge.style.color = color; }
-}
-
-function updateTabLocks() {
-    const locks   = document.querySelectorAll('.tab:not(#tab-cnr):not(#tab-lawyer):not(#tab-us-case) .lock-icon');
-    const hasPaid = ['pro', 'promax', 'supreme'].includes(currentPlan);
-    if (hasPaid) {
-        locks.forEach(icon => icon.style.display = 'none');
-    } else {
-        locks.forEach(icon => icon.style.display = 'inline');
-        if (!['cnr', 'us-case', 'lawyer'].includes(activeTab)) window.switchTab('cnr');
-    }
-}
-
-// ══════════════════════════════════════════════════════════════
-//  NAVIGATION & VIEWS
-// ══════════════════════════════════════════════════════════════
-
-window.toggleMenu = function() {
-    document.getElementById('side-drawer').classList.toggle('open');
-    document.getElementById('drawer-overlay').classList.toggle('open');
-};
-
-window.toggleView = function(viewName) {
-    const searchView    = document.getElementById('view-search');
-    const dashboardView = document.getElementById('view-dashboard');
-    if (!searchView || !dashboardView) return;
-
-    if (viewName === 'dashboard') {
-        if (!currentUser) { alert('Please sign in to access the dashboard.'); window.openModal(); return; }
-        searchView.style.display    = 'none';
-        dashboardView.style.display = 'block';
-        const mb = document.getElementById('menu-btn');
-        if (mb) mb.style.display = 'block';
-        window.renderDashboard();
-    } else {
-        dashboardView.style.display = 'none';
-        searchView.style.display    = 'block';
-        const mb = document.getElementById('menu-btn');
-        if (mb) mb.style.display = 'block';
-    }
-};
+    
+    document.getElementById('user-badge').innerText = currentPlan.toUpperCase();
+    document.getElementById('drawer-badge').innerText = currentPlan.toUpperCase();
+    updateSearchLimitUI();
+});
 
 window.switchJurisdiction = function(country) {
     activeJurisdiction = country;
-    const indianTabs   = document.querySelectorAll('.indian-tab');
-    const indianPanels = document.querySelectorAll('.indian-panel');
-    const usTabs       = document.querySelectorAll('.us-tab');
-    const usPanels     = document.querySelectorAll('.us-panel');
-
-    if (country === 'usa') {
-        indianTabs.forEach(el => el.style.display = 'none');
-        indianPanels.forEach(el => el.style.display = 'none');
-        usTabs.forEach(el => el.style.display = 'block');
-        window.switchTab('us-case');
-    } else {
-        indianTabs.forEach(el => el.style.display = 'block');
-        usTabs.forEach(el => el.style.display = 'none');
-        usPanels.forEach(el => el.style.display = 'none');
-        window.switchTab('cnr');
-    }
+    document.querySelectorAll('.indian-tab, .indian-panel').forEach(el => el.style.display = country === 'usa' ? 'none' : 'block');
+    document.querySelectorAll('.us-tab').forEach(el => el.style.display = country === 'usa' ? 'block' : 'none');
+    document.querySelectorAll('.us-panel').forEach(el => el.style.display = country === 'usa' ? 'none' : 'none'); 
+    window.switchTab(country === 'usa' ? 'us-case' : 'cnr');
     window.clearResults();
 };
 
 window.switchTab = function(tab) {
-    if (!currentUser && tab !== 'cnr' && tab !== 'us-case' && tab !== 'lawyer') {
-        window.openModal(); return;
-    }
-    if (currentPlan === 'free' && tab !== 'cnr' && tab !== 'us-case' && tab !== 'lawyer') {
-        window.openModal(); return;
-    }
+    if (!currentUser && tab !== 'cnr' && tab !== 'us-case' && tab !== 'lawyer') { window.openModal(); return; }
+    if (currentPlan === 'free' && tab === 'causelist') { alert("Cause List requires a Pro plan."); window.openModal(); return; }
     activeTab = tab;
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
     document.querySelectorAll('.form-panel').forEach(p => p.style.display = 'none');
-    const panel = document.getElementById('panel-' + tab);
-    if (panel) panel.style.display = 'block';
+    const targetPanel = document.getElementById('panel-' + tab);
+    if (targetPanel) targetPanel.style.display = 'block';
     window.clearResults();
 };
 
 window.toggleCnrMode = function() {
-    if (currentPlan === 'free') {
-        alert('Bulk CNR refresh requires a Paid Plan.');
-        const r = document.querySelector('input[name="cnr-mode"][value="single"]');
-        if (r) r.checked = true;
+    if (currentPlan === 'free' || currentPlan === 'pro') {
+        alert("Bulk refresh requires Pro Max or Supreme plan.");
+        document.querySelector('input[name="cnr-mode"][value="single"]').checked = true;
         window.openModal(); return;
     }
-    const modeInput = document.querySelector('input[name="cnr-mode"]:checked');
-    const mode = modeInput ? modeInput.value : 'single';
-    const sf = document.getElementById('cnr-single-field');
-    const bf = document.getElementById('cnr-bulk-field');
-    if (sf) sf.style.display = mode === 'single' ? 'block' : 'none';
-    if (bf) bf.style.display = mode === 'bulk'   ? 'block' : 'none';
+    const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
+    document.getElementById('cnr-single-field').style.display = mode === 'single' ? 'block' : 'none';
+    document.getElementById('cnr-bulk-field').style.display = mode === 'bulk' ? 'block' : 'none';
 };
 
-// ══════════════════════════════════════════════════════════════
-//  MODALS
-// ══════════════════════════════════════════════════════════════
-
-function openGenericModal(id)  { const m = document.getElementById(id); if (m) { m.classList.add('active'); m.style.display = ''; } }
-function closeGenericModal(id) { const m = document.getElementById(id); if (m) m.classList.remove('active'); }
-
-window.openDevModal      = () => openGenericModal('dev-modal');
-window.closeDevModal     = () => closeGenericModal('dev-modal');
-window.openWhatsNewModal = () => openGenericModal('whats-new-modal');
-window.closeWhatsNewModal= () => closeGenericModal('whats-new-modal');
-window.openFaqModal      = () => openGenericModal('faq-modal');
-window.closeFaqModal     = () => closeGenericModal('faq-modal');
-window.openAddCaseModal  = () => openGenericModal('add-case-modal');
-window.closeAddCaseModal = () => closeGenericModal('add-case-modal');
-window.openConsentModal  = () => openGenericModal('consent-modal');
-window.closeConsentModal = () => closeGenericModal('consent-modal');
-
-window.openModal = function() {
-    const modal = document.getElementById('upgrade-modal');
-    if (!modal) return;
-    modal.style.display = '';
-
-    if (!currentUser) {
-        ['pro-card','promax-card','supreme-card'].forEach(id => { const el = document.getElementById(id); if (el) el.style.display = 'block'; });
-        window.selectPlan('pro');
-        modal.classList.add('active');
-        return;
-    }
-
-    const fup = checkFUP('search');
-    if (currentPlan === 'supreme' && !fup.expired) return;
-
-    if (fup.expired) {
-        window.selectPlan(currentPlan === 'free' ? 'pro' : currentPlan);
+window.toggleView = function(viewName) {
+    if (viewName === 'dashboard') {
+        if (!currentUser) { alert("Please sign in access dashboard."); window.openLoginModal(); return; }
+        document.getElementById('view-search').style.display = 'none';
+        document.getElementById('view-dashboard').style.display = 'block';
+        window.renderDashboard();
     } else {
-        const show = (id, vis) => { const el = document.getElementById(id); if (el) el.style.display = vis; };
-        show('pro-card',     currentPlan === 'free'                          ? 'block' : 'none');
-        show('promax-card',  currentPlan === 'free' || currentPlan === 'pro' ? 'block' : 'none');
-        show('supreme-card', 'block');
-        if (currentPlan === 'free')    window.selectPlan('pro');
-        else if (currentPlan === 'pro') window.selectPlan('promax');
-        else                            window.selectPlan('supreme');
+        document.getElementById('view-dashboard').style.display = 'none';
+        document.getElementById('view-search').style.display = 'block';
     }
-    modal.classList.add('active');
 };
 
-window.closeModal = () => closeGenericModal('upgrade-modal');
-
-window.acceptConsent = async function() {
-    localStorage.setItem('vaad_dpdp_consent', 'true');
-    userConsent = 'true';
-    window.closeConsentModal();
-    if (pendingSaveAction) { await pendingSaveAction(); pendingSaveAction = null; }
-    else                   { await syncDashboardToCloud(); }
-};
-
-window.declineConsent = async function() {
-    localStorage.setItem('vaad_dpdp_consent', 'false');
-    userConsent = 'false';
-    window.closeConsentModal();
-    if (pendingSaveAction) { await pendingSaveAction(); pendingSaveAction = null; }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  PAYMENTS (Order-based flow — triggers webhook)
-// ══════════════════════════════════════════════════════════════
+window.toggleMenu = () => { document.getElementById('side-drawer').classList.toggle('open'); document.getElementById('drawer-overlay').classList.toggle('open'); };
 
 window.selectPlan = function(planType) {
-    document.querySelectorAll('.pricing-card').forEach(c => c.style.border = '2px solid var(--border-soft)');
-    let amount = 99;
-    if (planType === 'pro')     { const c = document.getElementById('pro-card');    if (c) c.style.border = '2px solid var(--primary)';    amount = 99;  }
-    if (planType === 'promax')  { const c = document.getElementById('promax-card'); if (c) c.style.border = '2px solid var(--gold-light)'; amount = 199; }
-    if (planType === 'supreme') { const c = document.getElementById('supreme-card');if (c) c.style.border = '2px solid var(--primary)';    amount = 399; }
+    document.querySelectorAll('.pricing-card').forEach(c => c.style.border = '1px solid var(--border)');
+    const card = document.getElementById(planType + '-card');
+    if(card) card.style.border = '2px solid var(--primary)';
+    
+    let amount = 99; 
+    if (planType === 'promax') amount = 199;
+    if (planType === 'supreme') amount = 399;
 
-    const btn = document.getElementById('upi-btn-link');
-    if (btn) {
-        btn.removeAttribute('href');
-        btn.innerText = `Pay ₹${amount} Securely`;
-        btn.onclick = (e) => {
-            e.preventDefault();
-            btn.innerText = 'Opening Checkout...';
-            window.payWithRazorpay(planType, amount);
-        };
+    const upgradeBtn = document.getElementById('upi-btn-link');
+    if (upgradeBtn) {
+        upgradeBtn.removeAttribute('href'); 
+        upgradeBtn.innerText = `Pay ₹${amount} Securely`;
+        upgradeBtn.onclick = (e) => { e.preventDefault(); upgradeBtn.innerText = "Opening Checkout..."; window.payWithRazorpay(planType, amount); };
     }
 };
 
-window.payWithRazorpay = async function(planType, amountInINR) {
-    if (!currentUser) {
-        alert('Please sign in before upgrading.');
-        window.closeModal();
-        window.openLoginModal();
-        return;
-    }
-
-    const btn = document.getElementById('upi-btn-link');
-
-    try {
-        if (btn) btn.innerText = 'Creating order...';
-
-        // Step 1: Create verified order on backend
-        const orderRes  = await fetch(`${API}/initiate-payment`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ userId: currentUser.uid, plan: planType, amount: amountInINR })
-        });
-        const orderData = await orderRes.json();
-
-        if (!orderRes.ok || !orderData.success) {
-            alert('Could not initiate payment: ' + (orderData.error || 'Server error.'));
-            if (btn) btn.innerText = `Pay ₹${amountInINR} Securely`;
-            return;
-        }
-
-        const order = orderData.data.order;
-
-        // Step 2: Open Razorpay with order_id — webhook fires on success
-        const options = {
-            key:         'rzp_live_SYzqjL2QNwMNDE',
-            amount:      order.amount,
-            currency:    order.currency,
-            order_id:    order.id,
-            name:        'Vaad',
-            description: `Upgrade to Vaad ${planType.toUpperCase()}`,
-            image:       'https://vaad.pages.dev/icon-192.png',
-            handler: function(response) {
-                if (btn) btn.innerText = 'Payment Successful! Upgrading...';
-                setTimeout(() => window.location.reload(), 3000);
-            },
-            prefill: { name: currentUser.displayName || '', email: currentUser.email || '' },
-            notes:   { userId: currentUser.uid, planName: planType },
-            theme:   { color: '#1a3a8a' },
-            modal:   { ondismiss: () => { if (btn) btn.innerText = `Pay ₹${amountInINR} Securely`; } }
-        };
-
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', (r) => {
-            alert(`Payment Failed: ${r.error.description}`);
-            if (btn) btn.innerText = `Pay ₹${amountInINR} Securely`;
-        });
-        rzp.open();
-
-    } catch (err) {
-        console.error('[Payment] Error:', err);
-        alert('Network error. Please try again.');
-        if (btn) btn.innerText = `Pay ₹${amountInINR} Securely`;
-    }
+window.payWithRazorpay = function(planType, amountInINR) {
+    if (!currentUser) { alert("Please sign in to create your account before upgrading."); window.closeModal(); window.openLoginModal(); return; }
+    const options = {
+        "key": "rzp_live_SYzqjL2QNwMNDE", 
+        "amount": amountInINR * 100,
+        "currency": "INR",
+        "name": "Vaad",
+        "description": `Upgrade to Vaad ${planType.toUpperCase()}`,
+        "image": "https://vaad.pages.dev/icon-192.png",
+        "handler": function (response) { setTimeout(() => window.location.reload(), 3000); },
+        "prefill": { "name": currentUser.displayName || "", "email": currentUser.email || "" },
+        "notes": { "userId": currentUser.uid, "planName": planType },
+        "theme": { "color": "#1e40af" }
+    };
+    const rzp = new window.Razorpay(options);
+    rzp.on('payment.failed', function (response){ alert(`Payment Failed: ${response.error.description}`); });
+    rzp.open();
 };
-
-// ══════════════════════════════════════════════════════════════
-//  UNIVERSAL SEARCH
-// ══════════════════════════════════════════════════════════════
 
 window.openUniversalSearch = function() {
-    if (!currentUser) { alert('Please sign in to search your dashboard.'); window.openModal(); return; }
+    if (!currentUser) { alert("Please sign in search your practice dashboard."); window.openModal(); return; }
     const modal = document.getElementById('universal-search-modal');
-    if (!modal) return;
-    modal.classList.add('active');
-    modal.style.display = '';
-    setTimeout(() => { const i = document.getElementById('uni-search-input'); if (i) i.focus(); }, 100);
+    modal.classList.add('active'); modal.style.display = 'flex'; 
+    setTimeout(() => { document.getElementById('uni-search-input').focus(); }, 100);
 };
 
 window.closeUniversalSearch = function() {
-    const modal = document.getElementById('universal-search-modal');
-    if (modal) modal.classList.remove('active');
-    const i = document.getElementById('uni-search-input');
-    const r = document.getElementById('uni-search-results');
-    if (i) i.value = '';
-    if (r) r.innerHTML = '<div style="text-align:center;color:var(--text-subtle);font-size:0.85rem;padding:24px;">Type to search your Practice Dashboard…</div>';
+    document.getElementById('universal-search-modal').classList.remove('active');
+    document.getElementById('universal-search-modal').style.display = 'none';
+    document.getElementById('uni-search-input').value = '';
+    document.getElementById('uni-search-results').innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>';
 };
 
 window.runUniversalSearch = function() {
     const query = document.getElementById('uni-search-input').value.toLowerCase().trim();
-    const rc    = document.getElementById('uni-search-results');
-    if (!rc) return;
+    const resultsContainer = document.getElementById('uni-search-results');
+    if (!query) { resultsContainer.innerHTML = '<div style="text-align: center; color: var(--text-muted); font-size: 0.85rem; padding: 20px;">Type to search your Practice Dashboard records...</div>'; return; }
 
-    if (!query) {
-        rc.innerHTML = '<div style="text-align:center;color:var(--text-subtle);font-size:0.85rem;padding:24px;">Type to search your Practice Dashboard…</div>';
-        return;
-    }
-
-    const matches = practiceCases.filter(c =>
-        c.title.toLowerCase().includes(query) ||
-        (c.cnr && c.cnr.toLowerCase().includes(query)) ||
-        c.totalFee.toString().includes(query)
-    );
-
-    if (matches.length === 0) {
-        rc.innerHTML = `<div style="text-align:center;padding:20px;background:var(--warning-bg);color:var(--warning-text);border-radius:var(--radius);font-size:0.87rem;">No records found for "${query}"</div>`;
-        return;
-    }
+    const matches = practiceCases.filter(c => c.title.toLowerCase().includes(query) || (c.cnr && c.cnr.toLowerCase().includes(query)) || c.totalFee.toString().includes(query));
+    if (matches.length === 0) { resultsContainer.innerHTML = `<div style="text-align: center; color: var(--warning-text); font-size: 0.9rem; padding: 20px; background: var(--warning-bg); border-radius: 8px;">No dashboard records found</div>`; return; }
 
     let html = '';
     matches.forEach(c => {
-        const rem = Math.max(0, c.totalFee - c.collected);
-        html += `
-        <div onclick="window.goToDashboardCase(${c.id})" style="padding:12px 4px;border-bottom:1px solid var(--border-soft);cursor:pointer;border-radius:var(--radius-sm);">
-            <div style="display:flex;justify-content:space-between;margin-bottom:4px;">
-                <div style="font-weight:700;font-size:0.9rem;color:var(--primary);">${c.title}</div>
-                <div style="font-size:0.75rem;font-weight:700;color:${rem > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${rem > 0 ? '₹' + rem + ' Due' : 'Paid ✓'}</div>
+        const remaining = Math.max(0, c.totalFee - c.collected);
+        html += `<div onclick="window.goToDashboardCase(${c.id})" style="padding: 12px; border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s; border-radius: 6px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                <div style="font-weight: 600; color: var(--primary);">${c.title}</div>
+                <div style="font-size: 0.75rem; font-weight: bold; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'};">${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid'}</div>
             </div>
-            <div style="font-size:0.78rem;color:var(--text-muted);">CNR: ${c.cnr || 'Manual Entry'} · Total: ₹${c.totalFee}</div>
+            <div style="font-size: 0.8rem; color: var(--text-muted);">CNR: ${c.cnr || 'Manual Entry'} • Total: ₹${c.totalFee}</div>
         </div>`;
     });
-    rc.innerHTML = html;
+    resultsContainer.innerHTML = html;
 };
 
-window.goToDashboardCase = function(id) {
-    window.closeUniversalSearch();
-    window.toggleView('dashboard');
-    setTimeout(() => {
-        const el = document.getElementById('dashboard-case-' + id);
-        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 200);
-};
+window.downloadPDF = async function(cnr, filename) {
+    if (!currentUser) { alert("Please sign in to download PDFs."); window.openLoginModal(); return; }
+    if (currentPlan === 'free') { alert("PDF Downloads are a Premium feature. Please upgrade your plan."); window.openModal(); return; }
 
-// ══════════════════════════════════════════════════════════════
-//  SEARCH — injects userId for server-side FUP enforcement
-// ══════════════════════════════════════════════════════════════
+    const btn = document.getElementById('btn-pdf-' + filename.replace(/[^a-zA-Z0-9]/g, ''));
+    const originalText = btn ? btn.innerHTML : '📄 Download PDF';
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Downloading...'; }
+
+    try {
+        const res = await fetch(`${API}/download`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cnr, filename, userId: currentUser.uid }) });
+        if (res.status === 403) {
+            const errorData = await res.json().catch(() => ({}));
+            alert(errorData.message || "PDF download limit reached. Please upgrade your plan.");
+            window.openModal();
+            if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+            return;
+        }
+        if (!res.ok) throw new Error("Could not fetch the document from eCourts.");
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.style.display = 'none'; a.href = url; a.download = filename;
+        document.body.appendChild(a); a.click(); window.URL.revokeObjectURL(url);
+        
+        if (btn) { btn.disabled = false; btn.innerHTML = '✅ Downloaded'; setTimeout(() => btn.innerHTML = originalText, 3000); }
+    } catch (e) { alert("Error downloading PDF: " + e.message); if (btn) { btn.disabled = false; btn.innerHTML = originalText; } }
+};
 
 window.handleSearch = async function() {
     if (!currentUser) { window.openLoginModal(); return; }
-
     let endpoint = '', bodyData = {}, renderType = '';
 
-    if (activeJurisdiction === 'usa' && activeTab === 'us-case') {
-        alert('US Case Law search is coming soon!'); return;
-    } else if (activeTab === 'lawyer') {
-        alert('Lawyer Discovery is coming soon.'); return;
-    } else if (activeTab === 'cnr') {
-        const modeInput = document.querySelector('input[name="cnr-mode"]:checked');
-        const mode = modeInput ? modeInput.value : 'single';
+    if (activeJurisdiction === 'usa' && activeTab === 'us-case') { alert("US Case Law search is coming soon."); return; } 
+    else if (activeTab === 'lawyer') { alert("Data-Driven Lawyer Discovery available soon."); return; } 
+    else if (activeTab === 'cnr') {
+        const mode = document.querySelector('input[name="cnr-mode"]:checked').value;
         if (mode === 'single') {
             const query = document.getElementById('cnr-input').value.trim();
             if (!query) return;
-            endpoint   = `${API}/cnr`;
-            bodyData   = { userId: currentUser.uid, cnr: query };
-            renderType = 'cnr';
+            endpoint = `${API}/cnr`; bodyData = { userId: currentUser.uid, cnr: query }; renderType = 'cnr';
         } else {
-            const bulkText = document.getElementById('cnr-bulk-input').value.trim();
-            if (!bulkText) return;
-            const cnrs = bulkText.split('\n').map(c => c.trim()).filter(c => c.length > 5);
-            if (cnrs.length > 50) return alert('Max 50 CNRs allowed.');
-            endpoint   = `${API}/bulk-refresh`;
-            bodyData   = { userId: currentUser.uid, cnrs };
-            renderType = 'bulk';
+            const cnrs = document.getElementById('cnr-bulk-input').value.trim().split('\n').map(c => c.trim()).filter(c => c.length > 5);
+            if (!cnrs.length) return;
+            if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
+            endpoint = `${API}/bulk-refresh`; bodyData = { userId: currentUser.uid, cnrs: cnrs }; renderType = 'bulk';
         }
     } else if (activeTab === 'causelist') {
-        const stateEl = document.getElementById('causelist-state');
-        const queryEl = document.getElementById('causelist-query');
-        if (!stateEl || !queryEl) return;
-        const stateVal = stateEl.value.trim().toUpperCase();
-        const queryVal = queryEl.value.trim();
-        if (!stateVal || !queryVal) return alert('Provide State Code and Name.');
-        endpoint   = `${API}/causelist`;
-        bodyData   = { userId: currentUser.uid, query: queryVal, state: stateVal, limit: 20 };
-        renderType = 'causelist';
+        const state = document.getElementById('causelist-state').value.trim().toUpperCase();
+        const query = document.getElementById('causelist-query').value.trim();
+        if (!state || !query) return alert("Provide State Code and Query.");
+        endpoint = `${API}/causelist`; bodyData = { userId: currentUser.uid, query: query, state: state, limit: 20 }; renderType = 'causelist';
     } else {
-        let query = '';
-        const litigantEl = document.getElementById('litigant-input');
-        const advocateEl = document.getElementById('advocate-input');
-        const judgeEl    = document.getElementById('judge-input');
-        if (activeTab === 'litigant' && litigantEl) query = litigantEl.value.trim();
-        if (activeTab === 'advocate' && advocateEl) query = advocateEl.value.trim();
-        if (activeTab === 'judge'    && judgeEl)    query = judgeEl.value.trim();
+        let query = document.getElementById(activeTab + '-input').value.trim();
         if (!query) return;
-        endpoint   = `${API}/search`;
-        bodyData   = { userId: currentUser.uid, query, type: activeTab };
-        renderType = 'list';
+        endpoint = `${API}/search`; bodyData = { userId: currentUser.uid, query: query, type: activeTab }; renderType = 'list';
     }
 
     await performSearch(endpoint, bodyData, renderType);
 };
 
-async function performSearch(endpoint, bodyData, renderType) {
-    setLoading(true);
-    window.clearResults();
+window.fetchCaseDetails = async function(cnr) {
+    if (!cnr || cnr === '—') return showError("No CNR available for this case.");
+    
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = `<div style="text-align:center; padding: 40px 20px;"><div class="spinner" style="margin: 0 auto 16px; border-color: var(--primary); border-top-color: transparent; width: 24px; height: 24px;"></div><div style="font-weight:600; color: var(--text-main);">Pulling full case records from eCourts...</div></div>`;
+    
     try {
-        const res  = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(bodyData) });
+        const res = await fetch(`${API}/cnr`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser.uid, cnr: cnr }) });
         const json = await res.json();
 
-        // Server-side FUP responses
-        if (res.status === 403) { showError(json.error || 'Search limit reached. Please upgrade your plan.'); window.openModal(); return; }
+        if (res.status === 403) { showError(json.message || 'Search limit reached. Please upgrade.'); window.openModal(); return; }
+        if (!res.ok || !json.success) return showError(json.error || 'Failed to fetch details.');
+
+        updateSearchLimitUI();
+        renderCaseDetail(json.data);
+    } catch (e) { showError(`Network Error: ${e.message}`); }
+};
+
+async function performSearch(endpoint, bodyData, renderType) {
+    setLoading(true); window.clearResults();
+    try {
+        const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
+        const json = await res.json();
+
+        if (res.status === 403) {
+            if (json.error === 'subscription_expired') { showError(json.message || 'Your Pro subscription has expired. Please renew to continue.'); } 
+            else { showError(json.message || json.error || 'Search limit reached. Please upgrade your plan.'); }
+            window.openModal(); return;
+        }
         if (res.status === 401) { showError('Please sign in to search.'); window.openLoginModal(); return; }
         if (!res.ok || !json.success) return showError(json.error || 'The official API failed to fetch records.');
 
-        // Refresh limit display (server already incremented Firestore count)
         updateSearchLimitUI();
 
-        if      (renderType === 'cnr')  renderCaseDetail(json.data);
+        if (renderType === 'cnr') renderCaseDetail(json.data);
         else if (renderType === 'list') renderCaseList(json.data);
         else if (renderType === 'causelist') {
-            const rc = document.getElementById('results');
-            let html = `<button class="back-link" onclick="window.clearResults()">← New Search</button>
-                <div style="font-family:'DM Serif Display',serif;font-size:1.2rem;color:var(--text-main);margin-bottom:16px;">Today's Cause List</div>`;
-            if (!json.data?.results?.length) {
-                html += `<div class="empty-state"><div class="empty-state-icon">📅</div><div class="empty-state-text">No cases listed for today.</div></div>`;
-            } else {
-                json.data.results.forEach((c, i) => {
-                    html += `
-                    <div class="case-card" style="animation-delay:${i * 0.04}s;">
-                        <div class="case-card-header">
-                            <div style="flex:1;">
-                                <div class="case-court-name">${c.courtName || 'Court'}</div>
-                                <div class="case-parties">${c.caseNumber || 'Unknown Case'}</div>
-                            </div>
-                            <span class="case-meta-chip" style="background:var(--primary-bg);color:var(--primary);">Room ${c.courtNo || '—'}</span>
-                        </div>
-                    </div>`;
-                });
-            }
-            rc.innerHTML = html;
+             const resultsContainer = document.getElementById('results');
+             let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><h3 style="margin-bottom: 15px;">Today's Cause List</h3>`;
+             if (!json.data || !json.data.results || json.data.results.length === 0) html += `<div>No cases listed today.</div>`;
+             else {
+                 json.data.results.forEach(c => {
+                     html += `<div style="background: var(--bg); padding: 16px; border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; box-shadow: var(--shadow-sm);"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 6px; font-weight: 600;">Room: ${c.courtNo || '—'}</span></div></div>`;
+                 });
+             }
+             resultsContainer.innerHTML = html;
         }
         else if (renderType === 'bulk') {
-            document.getElementById('results').innerHTML = `
-            <div style="background:var(--success-bg);color:var(--success-text);padding:20px;border:1px solid var(--success-border);border-radius:var(--radius-lg);animation:fadeIn 0.3s ease;">
-                <div style="font-weight:700;font-size:1rem;margin-bottom:6px;">✓ Bulk Refresh Initiated</div>
-                <p style="font-size:0.88rem;opacity:0.85;">Your CNRs are queued. Check individually in 1–2 minutes.</p>
-                <button class="back-link" onclick="window.clearResults()" style="margin-top:12px;">← Start New Search</button>
-            </div>`;
+             document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 12px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs queued fresh scrape. individually in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`;
         }
-    } catch (e) {
-        showError(`Network Error: ${e.message}`);
-    } finally {
-        setLoading(false);
-    }
+    } catch (e) { showError(`Network Error: ${e.message}`); } finally { setLoading(false); }
 }
 
-// ══════════════════════════════════════════════════════════════
-//  UTILITY FUNCTIONS
-// ══════════════════════════════════════════════════════════════
+async function updateSearchLimitUI() {
+    const limitText = document.getElementById('limit-text');
+    const upgradeBtn = document.getElementById('nav-upgrade-btn');
+    if (!currentUser) { if (limitText) limitText.innerText = "Sign in to get 1 free search"; if (upgradeBtn) upgradeBtn.style.display = 'none'; return; }
 
-window.clearResults = function() {
-    const el = document.getElementById('results');
-    if (el) el.innerHTML = '';
+    const maxLimit = limits[currentPlan] ? limits[currentPlan].search : 1;
+    if (limitText) limitText.innerHTML = `<span style="color:var(--text-muted); font-weight:600;">Loading...</span>`;
+
+    try {
+        const snap = await getDoc(doc(db, 'users', currentUser.uid));
+        const data = snap.exists() ? snap.data() : {};
+        const used = data.searchCount || 0;
+        const remaining = Math.max(0, maxLimit - used);
+
+        const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : new Date();
+        const diffDays = Math.floor((new Date() - cycleStart) / (1000 * 60 * 60 * 24));
+        const isExpired = currentPlan !== 'free' && diffDays >= 30;
+
+        if (isExpired) {
+            if (limitText) limitText.innerHTML = `<span style="color:#ef4444; font-weight:600;">Subscription Expired</span>`;
+            if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Renew"; upgradeBtn.onclick = () => window.openModal(); }
+            return;
+        }
+        const daysText = currentPlan !== 'free' ? `(${Math.max(0, 30 - diffDays)}d left) • ` : '';
+        if (limitText) limitText.innerHTML = `<span style="color:var(--primary); font-weight:600;">${currentPlan.toUpperCase()} ${daysText}${remaining}/${maxLimit} Searches Left</span>`;
+        if (currentPlan === 'supreme' && !isExpired && upgradeBtn) upgradeBtn.style.display = 'none';
+        else if (upgradeBtn) { upgradeBtn.style.display = 'inline-block'; upgradeBtn.innerText = "⚡ Upgrade"; upgradeBtn.onclick = () => window.openModal(); }
+    } catch (e) { console.error(e); }
+}
+
+window.clearResults = function() { const el = document.getElementById('results'); if (el) el.innerHTML = ''; };
+function showError(message) { const el = document.getElementById('results'); if (el) el.innerHTML = `<div style="background: var(--warning-bg); color: var(--warning-text); padding: 16px; border-radius: 12px; border: 1px solid #fcd34d; font-size: 14px; display: flex; align-items: center; gap: 8px;">⚠️ ${message}</div>`; }
+
+window.goToDashboardCase = function(id) {
+    window.closeUniversalSearch(); window.toggleView('dashboard');
+    setTimeout(() => { const el = document.getElementById('dashboard-case-' + id); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 200);
 };
 
-function showError(message) {
-    const el = document.getElementById('results');
-    if (el) el.innerHTML = `
-    <div style="background:var(--error-bg);color:var(--error-text);padding:16px 18px;border-radius:var(--radius-lg);border:1px solid var(--error-border);font-size:0.88rem;display:flex;align-items:flex-start;gap:10px;animation:fadeIn 0.2s ease;">
-        <span style="flex-shrink:0;font-size:1rem;">⚠️</span>
-        <span>${message}</span>
-    </div>`;
-}
-
 function setLoading(on) {
-    const btn = document.getElementById('search-btn');
-    if (!btn) return;
-    btn.disabled  = on;
-    btn.innerHTML = on
-        ? '<div class="spinner"></div><span>Fetching…</span>'
-        : '<span id="btn-text">Search Cases</span>';
+    const btn = document.getElementById('search-btn'); if (!btn) return;
+    btn.disabled = on;
+    btn.innerHTML = on ? '<div class="spinner"></div><span style="margin-left: 8px;">Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
 }
 
-window.openAI = function() {
-    if (!currentUser) { alert('Please sign in to use the AI Assistant.'); return; }
+function renderCaseList(resultsArray) {
+    if (!resultsArray || resultsArray.length === 0) return showError('No cases found.'); 
+    let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main);">Found ${resultsArray.length} cases (Click to view details):</div>`;
+    resultsArray.forEach(data => {
+        html += `<div onclick="window.fetchCaseDetails('${data.cnr}')" style="background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: var(--shadow-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='var(--primary)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='var(--border)';">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="padding-right: 15px;">
+                    <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-family: monospace;">CNR: ${data.cnr || '—'}</div>
+                </div>
+                <div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 10px; border-radius: 50px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--primary); font-weight: 600;">View Full Docket & PDFs →</div>
+        </div>`;
+    });
+    document.getElementById('results').innerHTML = html;
+}
+
+// ✨ COMPREHENSIVE CASE DETAILS UI (With Full eCourts Data Mapping) ✨
+function renderCaseDetail(payload) {
+    if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
+    const data = payload.data.courtCaseData;
+    
+    const petitioners = data.petitioners && data.petitioners.length > 0 ? data.petitioners.join('<br>') : '—';
+    const respondents = data.respondents && data.respondents.length > 0 ? data.respondents.join('<br>') : '—';
+    const petAdvs = data.petitionerAdvocates && data.petitionerAdvocates.length > 0 ? data.petitionerAdvocates.join(', ') : '—';
+    const resAdvs = data.respondentAdvocates && data.respondentAdvocates.length > 0 ? data.respondentAdvocates.join(', ') : '—';
+    
+    let html = `
+        <div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline; display: inline-block; font-weight: 600;" onclick="window.clearResults()">← Back to search</div>
+        <div style="background: var(--bg); padding: 24px; border-radius: 24px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 20px;">
+                <div>
+                    <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: var(--text-main); line-height: 1.3;">${(data.petitioners||['—'])[0]} <span style="color: var(--text-muted); font-size: 16px; font-weight: 600;">vs</span> ${(data.respondents||['—'])[0]}</div>
+                    <div style="font-size: 15px; color: var(--primary); font-family: monospace; font-weight: 600; background: var(--primary-bg); display: inline-block; padding: 4px 12px; border-radius: 8px;">CNR: ${data.cnr}</div>
+                </div>
+                <div style="font-size: 12px; font-weight: 700; background: ${data.caseStatus === 'Disposed' ? 'var(--success-bg)' : 'var(--warning-bg)'}; color: ${data.caseStatus === 'Disposed' ? 'var(--success-text)' : 'var(--warning-text)'}; padding: 6px 12px; border-radius: 50px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.05em;">
+                    ${data.caseStatus || 'Pending'}
+                </div>
+            </div>
+
+            <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <div>
+                        <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Petitioner(s)</div>
+                        <div style="font-weight: 600; color: var(--text-main); font-size: 14px; margin-bottom: 8px;">${petitioners}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);"><strong>Counsel:</strong> ${petAdvs}</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px;">Respondent(s)</div>
+                        <div style="font-weight: 600; color: var(--text-main); font-size: 14px; margin-bottom: 8px;">${respondents}</div>
+                        <div style="font-size: 12px; color: var(--text-muted);"><strong>Counsel:</strong> ${resAdvs}</div>
+                    </div>
+                </div>
+            </div>
+
+            <h4 style="font-size: 1.05rem; font-weight: 700; color: var(--text-main); margin-bottom: 12px;">Case Details</h4>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 24px;">
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Case Type</div>
+                    <div style="font-weight: 600; margin-top: 4px; color: var(--text-main); font-size: 13px;">${data.caseType || '—'}</div>
+                </div>
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Filing No. & Date</div>
+                    <div style="font-weight: 600; margin-top: 4px; color: var(--text-main); font-size: 13px;">${data.filingNumber || '—'} <br><span style="color: var(--text-muted); font-size: 12px;">${data.filingDate || '—'}</span></div>
+                </div>
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Registration No. & Date</div>
+                    <div style="font-weight: 600; margin-top: 4px; color: var(--text-main); font-size: 13px;">${data.registrationNumber || '—'} <br><span style="color: var(--text-muted); font-size: 12px;">${data.registrationDate || '—'}</span></div>
+                </div>
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Court & Judge</div>
+                    <div style="font-weight: 600; margin-top: 4px; color: var(--text-main); font-size: 13px;">${data.courtName || '—'}<br><span style="color: var(--text-muted); font-size: 12px;">Room: ${data.courtNo || '—'} | Judge: ${data.judge || '—'}</span></div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 24px;">
+                ${data.firNumber || data.policeStation ? `
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">FIR Details</div>
+                    <div style="font-weight: 600; margin-top: 4px; color: var(--text-main); font-size: 13px;">FIR No: ${data.firNumber || '—'} / ${data.firYear || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Station: ${data.policeStation || '—'}</div>
+                </div>` : ''}
+
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Hearing / Disposal</div>
+                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 4px;">First Hearing: ${data.firstHearingDate || '—'}</div>
+                    ${data.caseStatus === 'Disposed' ? `
+                        <div style="font-weight: 600; color: var(--error-text); font-size: 13px; margin-top: 2px;">Decision: ${data.decisionDate || '—'}</div>
+                        <div style="color: var(--text-main); font-size: 12px; margin-top: 2px;">Nature: ${data.natureOfDisposal || '—'}</div>
+                    ` : `
+                        <div style="font-weight: 600; color: var(--primary); font-size: 13px; margin-top: 2px;">Next Hearing: ${data.nextHearingDate || '—'}</div>
+                    `}
+                </div>
+            </div>
+
+            ${data.acts && data.acts.length > 0 ? `
+            <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 24px;">
+                <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 8px;">Acts & Sections</div>
+                <div style="font-weight: 600; color: var(--text-main); font-size: 13px; line-height: 1.6;">
+                    ${data.acts.map(a => `<span style="background: var(--bg); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border); margin-right: 6px; display: inline-block; margin-bottom: 6px;">${a.act} <span style="color: var(--primary);">Sec: ${a.section}</span></span>`).join('')}
+                </div>
+            </div>` : ''}
+            `;
+
+    if (data.history && data.history.length > 0) {
+        html += `<div style="font-weight: 800; border-bottom: 2px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; margin-top: 32px; color: var(--text-main); font-size: 1.1rem;">Case History & Orders</div>`;
+        data.history.forEach(item => {
+            const hasPdf = item.judgement || item.orderPdf || item.pdfFilename; 
+            const filename = hasPdf ? (item.judgement || item.orderPdf || item.pdfFilename) : null;
+            
+            html += `
+            <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-weight: 700; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        📅 ${item.dateOfOrder || item.hearingDate || 'N/A'}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 6px;"><strong>Judge:</strong> ${item.judge || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 2px;"><strong>Purpose:</strong> ${item.purpose || '—'}</div>
+                </div>`;
+            
+            if (filename) {
+                const safeId = filename.replace(/[^a-zA-Z0-9]/g, '');
+                html += `<div style="display: flex; gap: 8px;"><button id="btn-pdf-${safeId}" onclick="window.downloadPDF('${data.cnr}', '${filename}')" style="background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 50px; font-size: 0.85rem; cursor: pointer; font-weight: 600; min-width: 140px; transition: all 0.2s; box-shadow: 0 4px 10px rgba(30, 64, 175, 0.2);">📄 Download PDF</button></div>`;
+            } else {
+                html += `<div style="font-size: 12px; color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.05); padding: 6px 12px; border-radius: 50px; font-weight: 600;">No Document Uploaded</div>`;
+            }
+            html += `</div>`;
+        });
+    }
+
+    html += `<button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 32px; width: 100%; justify-content: center; padding: 16px; font-size: 1rem; border-radius: 50px; background: var(--primary-bg); color: var(--primary); border: 2px dashed var(--primary); font-weight: 800; cursor: pointer; transition: all 0.2s;">
+               💼 Track this Case in My Ledger
+            </button>
+        </div>`;
+    document.getElementById('results').innerHTML = html;
+}
+
+window.saveTrackedCase = async function() {
+    const cnr = document.getElementById('track-cnr').value.trim();
+    const title = document.getElementById('track-title').value.trim();
+    const total = parseInt(document.getElementById('track-total').value) || 0;
+    const perHearing = parseInt(document.getElementById('track-hearing').value) || 0;
+
+    if (!title) return alert("Case Title / Client Name required.");
+
+    const executeSave = async () => {
+        practiceCases.unshift({ id: Date.now(), cnr: cnr, title: title, totalFee: total, perHearing: perHearing, collected: 0, payments: [] });
+        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        await syncDashboardToCloud(); 
+        
+        document.getElementById('track-cnr').value = ''; document.getElementById('track-title').value = ''; document.getElementById('track-total').value = ''; document.getElementById('track-hearing').value = '';
+        window.closeAddCaseModal(); window.toggleView('dashboard');
+    };
+
+    if (userConsent === null && currentUser) { pendingSaveAction = executeSave; window.closeAddCaseModal(); window.openConsentModal(); } 
+    else { await executeSave(); }
+};
+
+window.logPayment = async function(id) {
+    const input = document.getElementById('pay-input-' + id);
+    const amount = parseInt(input.value);
+    if (!amount || amount <= 0) return alert("Please enter a valid amount.");
+
+    const caseIndex = practiceCases.findIndex(c => c.id === id);
+    if (caseIndex > -1) {
+        practiceCases[caseIndex].collected += amount;
+        practiceCases[caseIndex].payments.push({ date: new Date().toLocaleDateString('en-GB'), amount: amount });
+        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        await syncDashboardToCloud(); window.renderDashboard();
+    }
+};
+
+window.deleteDashboardCase = async function(id) {
+    if (!confirm("Are permanently delete this case? payment history lost.")) return;
+    practiceCases = practiceCases.filter(c => c.id !== id);
+    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+    await syncDashboardToCloud(); window.renderDashboard();
+};
+
+window.deletePaymentLog = async function(caseId, paymentIndex) {
+    if (!confirm("Delete payment log?")) return;
+    const caseIndex = practiceCases.findIndex(c => c.id === caseId);
+    if (caseIndex > -1) {
+        const pAmount = practiceCases[caseIndex].payments[paymentIndex].amount;
+        practiceCases[caseIndex].collected -= pAmount; 
+        practiceCases[caseIndex].payments.splice(paymentIndex, 1);
+        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        await syncDashboardToCloud(); window.renderDashboard();
+    }
+};
+
+window.renderDashboard = function() {
+    let totalExpected = 0, totalCollected = 0, html = '';
+
+    if (practiceCases.length === 0) { html = `<div style="text-align:center; padding: 40px 20px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 16px;">No cases tracked ledger empty.</div>`; }
+
+    practiceCases.forEach(c => {
+        totalExpected += c.totalFee; totalCollected += c.collected;
+        const remaining = Math.max(0, c.totalFee - c.collected);
+        
+        let paymentsHtml = '';
+        if (c.payments && c.payments.length > 0) {
+            paymentsHtml = `<div style="font-size: 0.85rem; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+                <div style="font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Payment History</div>`;
+            const reversedPayments = c.payments.map((p, i) => ({...p, originalIndex: i})).reverse();
+            reversedPayments.forEach(p => {
+                paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 8px 0; align-items: center;">
+                    <span style="color: var(--text-muted);">${p.date}</span>
+                    <div style="display: flex; gap: 12px; align-items: center;">
+                        <span style="color: var(--success-text); font-weight: 700;">+ ₹${p.amount}</span>
+                        <button onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})" style="background: var(--bg-alt); border: none; color: var(--error-text); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 2px 6px; border-radius: 50%;" title="Delete Payment">×</button>
+                    </div>
+                </div>`;
+            });
+            paymentsHtml += `</div>`;
+        }
+
+        html += `
+        <div id="dashboard-case-${c.id}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 24px; margin-bottom: 20px; padding: 20px; box-shadow: var(--shadow-sm); transition: box-shadow 0.3s ease;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 16px; align-items: flex-start;">
+                <div>
+                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">${c.title}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">CNR: ${c.cnr || 'Manual Entry'}</div>
+                </div>
+                <div style="text-align: right;">
+                    <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px;">
+                        <div style="font-size: 0.75rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 10px; border-radius: 50px; font-weight: 700;">
+                            ${remaining > 0 ? `₹${remaining} Pending` : 'Paid ✓'}
+                        </div>
+                        <button onclick="window.deleteDashboardCase(${c.id})" style="background: var(--bg-alt); border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 6px; border-radius: 50%; transition: background 0.2s;" title="Delete Case">🗑️</button>
+                    </div>
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: var(--bg-alt); padding: 16px; border-radius: 16px; margin-bottom: 16px; text-align: center; border: 1px solid var(--border);">
+                <div><div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Fee</div><div style="font-weight: 700; color: var(--text-main); margin-top: 4px;">₹${c.totalFee}</div></div>
+                <div><div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Per Hearing</div><div style="font-weight: 700; color: var(--text-main); margin-top: 4px;">₹${c.perHearing}</div></div>
+                <div><div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Collected</div><div style="font-weight: 700; color: var(--success-text); margin-top: 4px;">₹${c.collected}</div></div>
+            </div>
+
+            <div style="display: flex; gap: 8px;">
+                <input type="number" id="pay-input-${c.id}" placeholder="${c.perHearing > 0 ? '₹' + c.perHearing : '₹ Amount'}" style="flex: 1; padding: 12px 16px; border: 1px solid var(--border); border-radius: 50px; font-size: 0.95rem; background: var(--bg-alt);" ${remaining === 0 ? 'disabled' : ''}>
+                <button class="btn-action" onclick="window.logPayment(${c.id})" style="background: var(--success-text); color: white; border: none; padding: 12px 20px; border-radius: 50px; font-weight: 600;" ${remaining === 0 ? 'disabled' : ''}>Log Payment</button>
+            </div>
+            
+            ${paymentsHtml}
+        </div>`;
+    });
+
+    document.getElementById('dashboard-cases').innerHTML = html;
+    document.getElementById('stat-expected').innerText = `₹${totalExpected}`;
+    document.getElementById('stat-collected').innerText = `₹${totalCollected}`;
+    document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
+};
+
+window.openAI = async function() {
+    if (!currentUser) { alert("Please sign in to use AI Assistant."); return; }
     document.getElementById('ai-sidebar').classList.add('active');
     document.getElementById('ai-overlay').style.display = 'block';
 };
@@ -882,358 +800,6 @@ window.closeAI = function() {
     document.getElementById('ai-overlay').style.display = 'none';
 };
 
-// ══════════════════════════════════════════════════════════════
-//  RENDERING — Case List (M3 Cards)
-// ══════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => { if (e.key === 'Enter' && document.getElementById('view-search').style.display !== 'none') window.handleSearch(); });
 
-function renderCaseList(resultsArray) {
-    if (!resultsArray || resultsArray.length === 0) return showError('No cases found for your search.');
-
-    let html = `
-    <button class="back-link" onclick="window.clearResults()">← New Search</button>
-    <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;letter-spacing:0.09em;color:var(--text-subtle);margin-bottom:14px;">${resultsArray.length} case${resultsArray.length !== 1 ? 's' : ''} found</div>`;
-
-    resultsArray.forEach((data, i) => {
-        const petitioner  = (data.petitioners || ['—'])[0];
-        const respondent  = (data.respondents  || ['—'])[0];
-        const status      = data.caseStatus || 'Pending';
-        const isDisposed  = /dispos|decided/i.test(status);
-
-        html += `
-        <div class="case-card" style="animation-delay:${i * 0.05}s;">
-            <div class="case-card-header">
-                <div style="flex:1;min-width:0;">
-                    <div class="case-court-name">${data.courtName || 'Indian Court'}</div>
-                    <div class="case-parties">${petitioner} <span style="color:var(--text-subtle);font-weight:400;">vs</span> ${respondent}</div>
-                </div>
-                <span class="case-status-pill ${isDisposed ? 'status-disposed' : 'status-pending'}">${status}</span>
-            </div>
-            <div class="case-meta">
-                <span class="case-meta-chip">CNR: ${data.cnr || '—'}</span>
-                ${data.caseType   ? `<span class="case-meta-chip">${data.caseType}</span>` : ''}
-                ${data.filingDate ? `<span class="case-meta-chip">Filed: ${data.filingDate}</span>` : ''}
-            </div>
-        </div>`;
-    });
-
-    document.getElementById('results').innerHTML = html;
-}
-
-// ══════════════════════════════════════════════════════════════
-//  RENDERING — Case Detail (Document Vault)
-// ══════════════════════════════════════════════════════════════
-
-function renderCaseDetail(payload) {
-    if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API response. Please try again.');
-
-    const data       = payload.data.courtCaseData;
-    const petitioner = (data.petitioners || ['—'])[0];
-    const respondent = (data.respondents || ['—'])[0];
-    const title      = `${petitioner} vs ${respondent}`;
-    const status     = data.caseStatus || 'Pending';
-    const isDisposed = /dispos|decided/i.test(status);
-
-    // Orders / Document Vault
-    const orders = data.orders || data.orderDetails || [];
-    let ordersHtml = '';
-    if (orders.length > 0) {
-        ordersHtml = `<div class="orders-section-title">📁 Orders & Judgments</div>`;
-        orders.forEach(order => {
-            const date     = order.orderDate || order.date     || '—';
-            const filename = order.orderDoc  || order.filename || order.file || 'document.pdf';
-            ordersHtml += `
-            <div class="order-item">
-                <div class="order-doc-icon">📄</div>
-                <div class="order-meta">
-                    <div class="order-date">${date}</div>
-                    <div class="order-filename">${filename}</div>
-                </div>
-                <button class="order-download-btn"
-                    onclick="window.downloadOrder('${data.cnr || ''}','${filename}')">
-                    ↓ PDF
-                </button>
-            </div>`;
-        });
-    }
-
-    // Hearing History
-    const hearings = data.hearings || data.caseHistory || [];
-    let hearingsHtml = '';
-    if (hearings.length > 0) {
-        hearingsHtml = `<div class="orders-section-title" style="margin-top:18px;">📅 Hearing History</div>`;
-        hearings.slice(0, 5).forEach(h => {
-            hearingsHtml += `
-            <div style="display:flex;justify-content:space-between;padding:9px 12px;background:var(--bg-alt);border-radius:var(--radius);margin-bottom:6px;font-size:0.82rem;">
-                <span style="color:var(--text-muted);font-weight:500;">${h.hearingDate || h.date || '—'}</span>
-                <span style="color:var(--text-main);font-weight:600;max-width:60%;text-align:right;">${h.purposeOfHearing || h.purpose || h.nextHearingPurpose || '—'}</span>
-            </div>`;
-        });
-    }
-
-    // Next Hearing Banner
-    const nextDate = data.nextHearingDate || data.nextHearing || null;
-    const nextHtml = nextDate ? `
-    <div style="display:flex;align-items:center;gap:10px;background:var(--gold-bg);border:1px solid var(--gold-border);border-radius:var(--radius);padding:12px 14px;margin-bottom:14px;">
-        <span style="font-size:1.1rem;">📆</span>
-        <div>
-            <div style="font-size:0.65rem;font-weight:800;text-transform:uppercase;letter-spacing:0.09em;color:var(--gold);">Next Hearing</div>
-            <div style="font-weight:700;font-size:0.92rem;color:var(--text-main);">${nextDate}</div>
-        </div>
-    </div>` : '';
-
-    // Escaped title for onclick attribute
-    const escapedTitle = title.replace(/'/g, "\\'");
-    const escapedCnr   = (data.cnr || '').replace(/'/g, "\\'");
-
-    const html = `
-    <button class="back-link" onclick="window.clearResults()">← Back to Results</button>
-
-    <div class="case-detail-card">
-        <div class="case-detail-header">
-            <div class="case-detail-court">${data.courtName || 'Indian Court'}</div>
-            <div class="case-detail-title">${title}</div>
-            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span class="case-detail-cnr">${data.cnr || '—'}</span>
-                <span class="case-status-pill ${isDisposed ? 'status-disposed' : 'status-pending'}">${status}</span>
-            </div>
-        </div>
-
-        <div class="case-info-grid">
-            <div class="case-info-cell">
-                <div class="case-info-label">Case Type</div>
-                <div class="case-info-value">${data.caseType || '—'}</div>
-            </div>
-            <div class="case-info-cell">
-                <div class="case-info-label">Filing Date</div>
-                <div class="case-info-value">${data.filingDate || data.dateOfFiling || '—'}</div>
-            </div>
-            <div class="case-info-cell">
-                <div class="case-info-label">Petitioner</div>
-                <div class="case-info-value">${petitioner}</div>
-            </div>
-            <div class="case-info-cell">
-                <div class="case-info-label">Respondent</div>
-                <div class="case-info-value">${respondent}</div>
-            </div>
-        </div>
-
-        <div class="case-detail-body">
-            ${nextHtml}
-            ${ordersHtml}
-            ${hearingsHtml}
-            <button class="add-ledger-btn"
-                onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${escapedCnr}'; document.getElementById('track-title').value='${escapedTitle}';">
-                💼 Add to Practice Ledger
-            </button>
-        </div>
-    </div>`;
-
-    document.getElementById('results').innerHTML = html;
-}
-
-// ── PDF Download (Pro Max / Supreme only) ─────────────────────
-window.downloadOrder = async function(cnr, filename) {
-    if (!currentUser) { window.openLoginModal(); return; }
-    if (currentPlan !== 'supreme' && currentPlan !== 'promax') {
-        window.openModal(); return;
-    }
-
-    // Find the clicked button via event
-    const btn = event && event.currentTarget ? event.currentTarget : null;
-    const origHTML = btn ? btn.innerHTML : '';
-    if (btn) { btn.innerHTML = '<div class="spinner" style="width:12px;height:12px;border-width:2px;"></div>'; btn.disabled = true; }
-
-    try {
-        const res = await fetch(`${API}/download`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ cnr, filename })
-        });
-        if (!res.ok) { alert('Could not download this order. Please try again.'); return; }
-        const blob = await res.blob();
-        const url  = URL.createObjectURL(blob);
-        const a    = document.createElement('a');
-        a.href = url; a.download = filename; a.click();
-        URL.revokeObjectURL(url);
-    } catch (e) {
-        alert('Network error. Check your connection.');
-    } finally {
-        if (btn) { btn.innerHTML = origHTML; btn.disabled = false; }
-    }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  RENDERING — Dashboard (M3 Fee Ledger Cards)
-// ══════════════════════════════════════════════════════════════
-
-window.renderDashboard = function() {
-    let totalExpected  = 0;
-    let totalCollected = 0;
-    let html           = '';
-
-    const container = document.getElementById('dashboard-cases');
-    if (!container) return;
-
-    if (practiceCases.length === 0) {
-        container.innerHTML = `
-        <div class="empty-state">
-            <div class="empty-state-icon">💼</div>
-            <div class="empty-state-text">Your ledger is empty.<br>Add your first case to begin tracking.</div>
-        </div>`;
-        const s = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-        s('stat-expected', '₹0'); s('stat-collected', '₹0'); s('stat-pending', '₹0');
-        return;
-    }
-
-    practiceCases.forEach(c => {
-        totalExpected  += c.totalFee;
-        totalCollected += c.collected;
-        const remaining = Math.max(0, c.totalFee - c.collected);
-
-        // Payment history rows
-        let historyHtml = '';
-        if (c.payments && c.payments.length > 0) {
-            const reversed = c.payments.map((p, i) => ({ ...p, originalIndex: i })).reverse();
-            historyHtml = `
-            <div class="payment-history">
-                <div class="payment-history-title">Payment Log</div>
-                ${reversed.map(p => `
-                <div class="payment-row">
-                    <span class="payment-date">${p.date}</span>
-                    <span class="payment-amount">+ ₹${p.amount}</span>
-                    <button class="payment-delete" onclick="window.deletePaymentLog(${c.id},${p.originalIndex})" title="Delete">×</button>
-                </div>`).join('')}
-            </div>`;
-        }
-
-        html += `
-        <div class="dash-case-card" id="dashboard-case-${c.id}">
-            <div class="dash-case-header">
-                <div style="flex:1;min-width:0;">
-                    <div class="dash-case-title">${c.title}</div>
-                    <div class="dash-case-cnr">${c.cnr ? 'CNR: ' + c.cnr : 'Manual Entry'}</div>
-                </div>
-                <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
-                    <span class="dash-pending-pill ${remaining > 0 ? 'status-pending' : 'status-disposed'}">
-                        ${remaining > 0 ? '₹' + remaining + ' Due' : 'Paid ✓'}
-                    </span>
-                    <button class="dash-delete-btn" onclick="window.deleteDashboardCase(${c.id})" title="Delete Case">🗑️</button>
-                </div>
-            </div>
-
-            <div class="dash-stats-row">
-                <div class="dash-stat-cell">
-                    <div class="dash-stat-label">Total Fee</div>
-                    <div class="dash-stat-val">₹${c.totalFee}</div>
-                </div>
-                <div class="dash-stat-cell">
-                    <div class="dash-stat-label">Per Hearing</div>
-                    <div class="dash-stat-val">₹${c.perHearing}</div>
-                </div>
-                <div class="dash-stat-cell">
-                    <div class="dash-stat-label">Collected</div>
-                    <div class="dash-stat-val" style="color:var(--success-text);">₹${c.collected}</div>
-                </div>
-            </div>
-
-            <div class="dash-payment-row">
-                <input type="number" id="pay-input-${c.id}" class="dash-payment-input"
-                    placeholder="${c.perHearing > 0 ? '₹' + c.perHearing : '₹ Amount'}"
-                    ${remaining === 0 ? 'disabled' : ''}>
-                <button class="dash-log-btn" onclick="window.logPayment(${c.id})" ${remaining === 0 ? 'disabled' : ''}>
-                    Log Payment
-                </button>
-            </div>
-
-            ${historyHtml}
-        </div>`;
-    });
-
-    container.innerHTML = html;
-
-    const s = (id, v) => { const el = document.getElementById(id); if (el) el.innerText = v; };
-    s('stat-expected',  '₹' + totalExpected);
-    s('stat-collected', '₹' + totalCollected);
-    s('stat-pending',   '₹' + Math.max(0, totalExpected - totalCollected));
-};
-
-// ══════════════════════════════════════════════════════════════
-//  DASHBOARD CRUD
-// ══════════════════════════════════════════════════════════════
-
-window.saveTrackedCase = async function() {
-    const cnr        = document.getElementById('track-cnr').value.trim();
-    const title      = document.getElementById('track-title').value.trim();
-    const total      = parseInt(document.getElementById('track-total').value)   || 0;
-    const perHearing = parseInt(document.getElementById('track-hearing').value) || 0;
-
-    if (!title) return alert('Case Title / Client Name required.');
-
-    const executeSave = async () => {
-        practiceCases.unshift({
-            id: Date.now(), cnr, title,
-            totalFee: total, perHearing, collected: 0, payments: []
-        });
-        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud();
-
-        ['track-cnr','track-title','track-total','track-hearing'].forEach(id => {
-            const el = document.getElementById(id); if (el) el.value = '';
-        });
-        window.closeAddCaseModal();
-        window.toggleView('dashboard');
-    };
-
-    if (userConsent === null && currentUser) {
-        pendingSaveAction = executeSave;
-        window.closeAddCaseModal();
-        window.openConsentModal();
-    } else {
-        await executeSave();
-    }
-};
-
-window.logPayment = async function(id) {
-    const input  = document.getElementById('pay-input-' + id);
-    const amount = parseInt(input ? input.value : 0);
-    if (!amount || amount <= 0) return alert('Please enter a valid amount.');
-
-    const idx = practiceCases.findIndex(c => c.id === id);
-    if (idx > -1) {
-        practiceCases[idx].collected += amount;
-        practiceCases[idx].payments.push({ date: new Date().toLocaleDateString('en-GB'), amount });
-        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud();
-        window.renderDashboard();
-    }
-};
-
-window.deleteDashboardCase = async function(id) {
-    if (!confirm('Permanently delete this case? Payment history will be lost.')) return;
-    practiceCases = practiceCases.filter(c => c.id !== id);
-    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-    await syncDashboardToCloud();
-    window.renderDashboard();
-};
-
-window.deletePaymentLog = async function(caseId, paymentIndex) {
-    if (!confirm('Delete this payment log entry?')) return;
-    const idx = practiceCases.findIndex(c => c.id === caseId);
-    if (idx > -1) {
-        practiceCases[idx].collected -= practiceCases[idx].payments[paymentIndex].amount;
-        practiceCases[idx].payments.splice(paymentIndex, 1);
-        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud();
-        window.renderDashboard();
-    }
-};
-
-// ══════════════════════════════════════════════════════════════
-//  GLOBAL LISTENERS & SERVICE WORKER
-// ══════════════════════════════════════════════════════════════
-
-document.addEventListener('keydown', e => { if (e.key === 'Enter') window.handleSearch(); });
-
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js'));
-}
+if ('serviceWorker' in navigator) { window.addEventListener('load', () => { navigator.serviceWorker.register('/sw.js'); }); }
