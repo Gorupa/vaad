@@ -11,6 +11,10 @@
     
     <style>
         /* Isolated styles for legal pages to keep style.css clean */
+        .back-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid var(--border-soft); padding: 16px 24px; display: flex; align-items: center; position: sticky; top: 0; z-index: 200; box-shadow: var(--shadow-xs); }
+        .back-btn { text-decoration: none; color: var(--text-muted); font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; transition: color 0.15s; font-family: var(--font); }
+        .back-btn:hover { color: var(--primary); }
+
         .legal-container { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; }
         .legal-header { margin-bottom: 40px; }
         .legal-title { font-family: 'DM Serif Display', Georgia, serif; font-size: 2.6rem; color: var(--primary); margin-bottom: 12px; line-height: 1.1; letter-spacing: -0.02em; }
@@ -43,13 +47,8 @@
 </head>
 <body>
 
-    <nav class="nav">
-        <div style="display: flex; align-items: center; gap: 12px;">
-            <a class="nav-brand" href="index.html">Vaad <span class="version-badge">v2.1</span></a>
-        </div>
-        <div class="nav-right">
-            <a href="index.html" style="text-decoration: none; color: var(--primary); font-weight: 700; font-size: 0.9rem; display: flex; align-items: center; gap: 6px;">← Back to App</a>
-        </div>
+    <nav class="back-nav">
+        <a href="index.html" class="back-btn">← Back to App</a>
     </nav>
 
     <main class="legal-container">
