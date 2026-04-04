@@ -657,11 +657,65 @@ window.runUniversalSearch = function() {
     resultsContainer.innerHTML = html;
 };
 
+// ✨ NEW: PDF PAYWALL FUNCTION ✨
+window.downloadPDF = async function(cnr, filename) {
+    if (!currentUser) {
+        alert("Please sign in to download PDFs.");
+        window.openLoginModal();
+        return;
+    }
+
+    // Frontend Paywall Check
+    if (currentPlan === 'free') {
+        alert("PDF Downloads are a Premium feature. Please upgrade to Pro to download unlimited judgments and orders.");
+        window.openModal();
+        return;
+    }
+
+    const btn = document.getElementById('btn-pdf-' + filename.replace(/[^a-zA-Z0-9]/g, ''));
+    const originalText = btn ? btn.innerHTML : '📄 Download PDF';
+    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Downloading...'; }
+
+    try {
+        const res = await fetch(`${API}/download`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cnr, filename, userId: currentUser.uid })
+        });
+
+        if (res.status === 403) {
+            alert("Premium plan required to download PDFs. Please upgrade.");
+            window.openModal();
+            if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+            return;
+        }
+
+        if (!res.ok) throw new Error("Could not fetch the document from eCourts.");
+
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        
+        if (btn) { 
+            btn.disabled = false; 
+            btn.innerHTML = '✅ Downloaded'; 
+            setTimeout(() => btn.innerHTML = originalText, 3000); 
+        }
+    } catch (e) {
+        alert("Error downloading PDF: " + e.message);
+        if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
+    }
+};
+
 window.handleSearch = async function() {
     if (!currentUser) { window.openLoginModal(); return; }
 
-    // FUP is now enforced server-side via Firebase.
-    // Frontend only blocks obviously invalid tab selections.
     let endpoint = ''; let bodyData = {}; let renderType = '';
 
     if (activeJurisdiction === 'usa' && activeTab === 'us-case') {
@@ -704,20 +758,25 @@ async function performSearch(endpoint, bodyData, renderType) {
         const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
         const json = await res.json();
 
-        // Handle FUP errors from server
+        // ✨ FIX 1: EXACT EXPIRATION HANDLING ✨
         if (res.status === 403) {
-            showError(json.error || 'Search limit reached. Please upgrade your plan.');
+            if (json.error === 'subscription_expired') {
+                showError(json.message || 'Your Pro subscription has expired. Please renew to continue.');
+            } else {
+                showError(json.message || json.error || 'Search limit reached. Please upgrade your plan.');
+            }
             window.openModal();
             return;
         }
+        
         if (res.status === 401) {
             showError('Please sign in to search.');
             window.openLoginModal();
             return;
         }
+        
         if (!res.ok || !json.success) return showError(json.error || 'The official API failed to fetch records.');
 
-        // Server handled the count — just refresh the UI display
         updateSearchLimitUI();
 
         if (renderType === 'cnr') renderCaseDetail(json.data);
@@ -740,7 +799,6 @@ async function performSearch(endpoint, bodyData, renderType) {
     } catch (e) { showError(`Network Error: ${e.message}`); } finally { setLoading(false); }
 }
 
-// Reads live searchCount from Firestore so it always reflects server-side truth
 async function updateSearchLimitUI() {
     const limitText = document.getElementById('limit-text');
     const upgradeBtn = document.getElementById('nav-upgrade-btn');
@@ -754,7 +812,6 @@ async function updateSearchLimitUI() {
     const planLimits = { free: 1, pro: 30, promax: 100, supreme: 150 };
     const limit = planLimits[currentPlan] || 1;
 
-    // Show a quick placeholder while we fetch
     if (limitText) limitText.innerHTML = `<span style="color:var(--text-muted); font-weight:600;">Loading...</span>`;
 
     try {
@@ -764,7 +821,6 @@ async function updateSearchLimitUI() {
         const used = data.searchCount || 0;
         const remaining = Math.max(0, limit - used);
 
-        // Check cycle expiry for display purposes
         const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : new Date();
         const diffDays = Math.floor((new Date() - cycleStart) / (1000 * 60 * 60 * 24));
         const isExpired = currentPlan !== 'free' && diffDays >= 30;
@@ -792,7 +848,6 @@ async function updateSearchLimitUI() {
     }
 }
 
-// --- MISSING UTILITY FUNCTIONS (were lost during split attempt) ---
 window.clearResults = function() {
     const el = document.getElementById('results');
     if (el) el.innerHTML = '';
@@ -811,7 +866,6 @@ window.goToDashboardCase = function(id) {
         if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 200);
 };
-// --- END MISSING FUNCTIONS ---
 
 function setLoading(on) {
     const btn = document.getElementById('search-btn');
@@ -829,22 +883,52 @@ function renderCaseList(resultsArray) {
     document.getElementById('results').innerHTML = html;
 }
 
+// ✨ FIX 3: GENEROUS FULL DATA RENDER WITH PAYWALLED PDF BUTTONS ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
+    
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
         <div style="background: var(--bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
             <div style="font-size: 20px; font-weight: 600; margin-bottom: 5px;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
             <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">CNR: ${data.cnr}</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
                 <div><div style="font-size: 12px; color: var(--text-muted);">Status</div><div style="font-weight: 500;">${data.caseStatus || 'Pending'}</div></div>
-                <div><div style="font-size: 12px; color: var(--text-muted);">Court</div><div style="font-weight: 500;">${data.courtName}</div></div>
-            </div>
+                <div><div style="font-size: 12px; color: var(--text-muted);">Court</div><div style="font-weight: 500;">${data.courtName || '—'}</div></div>
+            </div>`;
+
+    // Render Full History/Hearings (Generous for free users!)
+    if (data.history && data.history.length > 0) {
+        html += `<div style="font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 10px; margin-top: 20px;">Case History & Orders</div>`;
+        
+        data.history.forEach(item => {
+            const hasPdf = item.judgement || item.orderPdf || item.pdfFilename; // Depending on eCourts exact field
+            const filename = hasPdf ? (item.judgement || item.orderPdf || item.pdfFilename) : null;
             
-            <button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 16px; width: 100%; justify-content: center;">
+            html += `<div style="background: var(--bg-alt); padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <div style="font-weight: 500; font-size: 13px;">Date: ${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
+                    <div style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">Judge: ${item.judge || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 11px;">Purpose: ${item.purpose || '—'}</div>
+                </div>`;
+            
+            // Add the PDF button if a filename exists
+            if (filename) {
+                const safeId = filename.replace(/[^a-zA-Z0-9]/g, '');
+                html += `<button id="btn-pdf-${safeId}" onclick="window.downloadPDF('${data.cnr}', '${filename}')" style="background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600; min-width: 120px;">📄 Download PDF</button>`;
+            } else {
+                html += `<div style="font-size: 11px; color: var(--text-muted); font-style: italic;">No document</div>`;
+            }
+            
+            html += `</div>`;
+        });
+    }
+
+    html += `<button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 16px; width: 100%; justify-content: center;">
                💼 Add to My Practice Ledger
             </button>
         </div>`;
+        
     document.getElementById('results').innerHTML = html;
 }
 
