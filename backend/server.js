@@ -5,19 +5,34 @@ const crypto = require('crypto');
 const admin = require('firebase-admin');
 const Razorpay = require('razorpay');
 
+// ── FIREBASE ADMIN INIT ──
 if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {
         const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
         admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
         console.log("✅ Firebase Admin Initialized.");
-    } catch (e) { console.error("❌ Firebase Init Error:", e.message); }
+    } catch (e) { 
+        console.error("❌ Firebase Init Error:", e.message); 
+    }
+} else {
+    console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT missing. FUP and webhooks will not work.");
 }
 
 const db = admin.apps.length ? admin.firestore() : null;
-const rzp = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET_KEY) ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_SECRET_KEY }) : null;
+
+// ── RAZORPAY INIT ──
+const rzp = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET_KEY) 
+    ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_SECRET_KEY }) 
+    : null;
+
+if (!rzp) console.warn("⚠️ Razorpay keys missing. Payment orders will fail.");
 
 const app = express();
-app.use(cors({ origin: ['https://vaad.pages.dev', 'http://localhost:3000', 'http://localhost:5500'] }));
+
+app.use(cors({ 
+    origin: ['https://vaad.pages.dev', 'http://localhost:3000', 'http://localhost:5500'] 
+}));
+
 app.use('/api/webhook/razorpay', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
@@ -38,6 +53,7 @@ const PLAN_LIMITS = {
 // ─────────────────────────────────────────────
 async function enforceFUP(req, res, actionType = 'search', deductAmount = 1) {
     if (!db) { res.status(500).json({ success: false, error: 'Database error.' }); return null; }
+    
     const { userId } = req.body;
     if (!userId) { res.status(401).json({ success: false, error: 'Please sign in.' }); return null; }
 
@@ -50,7 +66,8 @@ async function enforceFUP(req, res, actionType = 'search', deductAmount = 1) {
     if (!PLAN_LIMITS[plan]) plan = 'free';
 
     const today = new Date(); today.setHours(0, 0, 0, 0);
-    const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : today; cycleStart.setHours(0, 0, 0, 0);
+    const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : today; 
+    cycleStart.setHours(0, 0, 0, 0);
     const diffDays = Math.floor((today - cycleStart) / (1000 * 60 * 60 * 24));
 
     if (diffDays >= 30) {
@@ -82,10 +99,12 @@ async function enforceFUP(req, res, actionType = 'search', deductAmount = 1) {
 
 async function decrementOnFailure(fup) {
     if (!fup) return;
-    await fup.userRef.update({ [`${fup.actionType}Count`]: admin.firestore.FieldValue.increment(-fup.deductAmount) });
+    try {
+        await fup.userRef.update({ [`${fup.actionType}Count`]: admin.firestore.FieldValue.increment(-fup.deductAmount) });
+    } catch (e) { console.error("FUP decrement failed:", e); }
 }
 
-// ── ENDPOINTS ──
+// ── ROUTE 1: CNR SEARCH ──
 app.post('/api/cnr', async (req, res) => {
     const fup = await enforceFUP(req, res, 'search', 1); if (!fup) return;
     try {
@@ -96,6 +115,7 @@ app.post('/api/cnr', async (req, res) => {
     } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
 });
 
+// ── ROUTE 2: LIST SEARCH ──
 app.post('/api/search', async (req, res) => {
     const fup = await enforceFUP(req, res, 'search', 1); if (!fup) return;
     let url = `${BASE_URL}/search?pageSize=10&${req.body.type}s=${encodeURIComponent(req.body.query)}`;
@@ -107,10 +127,13 @@ app.post('/api/search', async (req, res) => {
     } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
 });
 
+// ── ROUTE 3: CAUSE LIST ──
 app.post('/api/causelist', async (req, res) => {
     // 🔒 CAUSE LIST LOCK: Pro and above only
     const userDoc = await db.collection('users').doc(req.body.userId).get();
-    if ((userDoc.data()?.plan || 'free') === 'free') return res.status(403).json({ success: false, error: 'limit_reached', message: 'Cause List requires a Pro plan.' });
+    if ((userDoc.data()?.plan || 'free') === 'free') {
+        return res.status(403).json({ success: false, error: 'limit_reached', message: 'Cause List requires a Pro plan.' });
+    }
     
     const fup = await enforceFUP(req, res, 'search', 1); if (!fup) return;
     try {
@@ -121,11 +144,14 @@ app.post('/api/causelist', async (req, res) => {
     } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
 });
 
+// ── ROUTE 4: BULK REFRESH ──
 app.post('/api/bulk-refresh', async (req, res) => {
     // 🔒 BULK LOCK: Pro Max and above only
     const userDoc = await db.collection('users').doc(req.body.userId).get();
     const p = userDoc.data()?.plan || 'free';
-    if (p === 'free' || p === 'pro') return res.status(403).json({ success: false, error: 'limit_reached', message: 'Bulk Refresh requires Pro Max.' });
+    if (p === 'free' || p === 'pro') {
+        return res.status(403).json({ success: false, error: 'limit_reached', message: 'Bulk Refresh requires Pro Max.' });
+    }
     
     // ✨ Deduct the exact array length to protect revenue
     const fup = await enforceFUP(req, res, 'search', req.body.cnrs.length); if (!fup) return;
@@ -137,6 +163,27 @@ app.post('/api/bulk-refresh', async (req, res) => {
     } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
 });
 
+// ── ROUTE 5: AI ORDER ANALYSIS (Uses 'ai' credit) ──
+app.post('/api/order/analyze', async (req, res) => {
+    // 🔒 AI LOCK: Supreme only
+    const userDoc = await db.collection('users').doc(req.body.userId).get();
+    const p = userDoc.data()?.plan || 'free';
+    if (p !== 'supreme') {
+        return res.status(403).json({ success: false, error: 'limit_reached', message: 'AI Assistant requires the Supreme plan.' });
+    }
+
+    const fup = await enforceFUP(req, res, 'ai', 1); if (!fup) return;
+    const { cnr, filename, type } = req.body;
+    try {
+        const endpointType = type === 'summary' ? 'order-ai' : 'order-md';
+        const response = await fetch(`${BASE_URL}/case/${cnr}/${endpointType}/${filename}`, { headers: eCourtsHeaders });
+        const data = await response.json();
+        if (!response.ok) { await decrementOnFailure(fup); return res.status(400).json({ success: false, error: data.message }); }
+        res.json({ success: true, data });
+    } catch (error) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
+});
+
+// ── ROUTE 6: PDF DOWNLOAD (Uses 'pdf' credit) ──
 app.post('/api/download', async (req, res) => {
     const fup = await enforceFUP(req, res, 'pdf', 1); if (!fup) return;
     try {
@@ -151,23 +198,47 @@ app.post('/api/download', async (req, res) => {
     } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
 });
 
+// ── ROUTE 7: INITIATE PAYMENT ORDER ──
 app.post('/api/initiate-payment', async (req, res) => {
+    if (!rzp) return res.status(500).json({ success: false, error: 'Payment service not configured.' });
     const officialPricing = { pro: 9900, promax: 19900, supreme: 39900 };
-    if (!officialPricing[req.body.plan] || (req.body.amount * 100) !== officialPricing[req.body.plan]) return res.status(400).json({ success: false, error: 'Invalid amount' });
-    const order = await rzp.orders.create({ amount: officialPricing[req.body.plan], currency: 'INR', receipt: `vaad_${Date.now()}`, notes: { userId: req.body.userId, planName: req.body.plan } });
-    res.json({ success: true, data: { order } });
+    if (!officialPricing[req.body.plan] || (req.body.amount * 100) !== officialPricing[req.body.plan]) {
+        return res.status(400).json({ success: false, error: 'Invalid amount' });
+    }
+    try {
+        const order = await rzp.orders.create({ 
+            amount: officialPricing[req.body.plan], 
+            currency: 'INR', 
+            receipt: `vaad_${Date.now()}`, 
+            notes: { userId: req.body.userId, planName: req.body.plan } 
+        });
+        res.json({ success: true, data: { order } });
+    } catch (error) { res.status(500).json({ success: false, error: 'Order failed.' }); }
 });
 
+// ── ROUTE 8: RAZORPAY WEBHOOK ──
 app.post('/api/webhook/razorpay', async (req, res) => {
     const signature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(req.body).digest('hex');
     if (req.headers['x-razorpay-signature'] !== signature) return res.status(400).json({ error: 'Invalid signature.' });
     
     const payment = JSON.parse(req.body.toString()).payload?.payment?.entity;
     if (payment?.status === 'captured') {
-        await db.collection('users').doc(payment.notes.userId).update({ plan: payment.notes.planName, cycleStartDate: new Date().toISOString().split('T')[0], searchCount: 0, pdfCount: 0, aiCount: 0 });
-        return res.status(200).json({ status: 'success' });
+        try {
+            // ✅ Upgrade plan and instantly reset all 3 wallets to 0 for the new cycle
+            await db.collection('users').doc(payment.notes.userId).update({ 
+                plan: payment.notes.planName, 
+                cycleStartDate: new Date().toISOString().split('T')[0], 
+                searchCount: 0, 
+                pdfCount: 0, 
+                aiCount: 0 
+            });
+            return res.status(200).json({ status: 'success' });
+        } catch (error) { return res.status(500).json({ error: 'Database error.' }); }
     }
     res.status(200).json({ status: 'ignored' });
 });
+
+// ── ROUTE 9: HEALTH CHECK ──
+app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
 
 app.listen(process.env.PORT || 3000, () => console.log(`🚀 Vaad backend running`));
