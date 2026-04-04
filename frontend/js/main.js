@@ -45,7 +45,6 @@ async function handleCredentialResponse(response) {
     }
 }
 
-// ✨ NEW: Modal Control Functions
 window.openLoginModal = function() {
     document.getElementById('login-modal').classList.add('active');
     document.getElementById('login-modal').style.display = 'flex';
@@ -86,20 +85,19 @@ let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
 let pendingSaveAction = null; 
 
+// ✨ UPDATED: 3-Wallet Limit Definitions ✨
 const limits = {
-    free: { search: 1, pdf: 0 },
-    pro: { search: 30, pdf: 0 },
-    promax: { search: 100, pdf: 0 },
-    supreme: { search: 150, pdf: 30 }
+    free: { search: 1, pdf: 0, ai: 0 },
+    pro: { search: 30, pdf: 5, ai: 0 },
+    promax: { search: 100, pdf: 20, ai: 0 },
+    supreme: { search: 150, pdf: 50, ai: 20 }
 };
 
-// --- BUTTON BINDINGS ---
 document.addEventListener('click', async (e) => {
     const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
     const emailLoginBtn = e.target.closest('#email-login-btn');
     const googleLoginBtn = e.target.closest('#google-login-btn');
 
-    // 1. Email & Password Authentication
     if (emailLoginBtn) {
         const email = document.getElementById('auth-email').value.trim();
         const password = document.getElementById('auth-password').value;
@@ -141,7 +139,6 @@ document.addEventListener('click', async (e) => {
         return;
     }
     
-    // 2. Google Sign In Authentication
     if (googleLoginBtn) {
         googleLoginBtn.innerHTML = '<div class="spinner" style="width:16px; height:16px; border-color:var(--text-muted); border-top-color:transparent; margin-right:8px;"></div> Connecting...';
         googleLoginBtn.disabled = true;
@@ -182,7 +179,6 @@ document.addEventListener('click', async (e) => {
     }
 });
 
-// --- CLOUD SYNC HELPER ---
 async function syncDashboardToCloud() {
     if (!currentUser) return; 
     if (userConsent !== 'true') return; 
@@ -385,7 +381,7 @@ function updateBadge() {
     if (fup.expired) {
         badge.innerText = "EXPIRED"; badge.style.background = "#ef4444"; badge.style.color = "white";
     } else if (currentPlan === 'supreme') {
-        badge.innerText = "SUPREME"; badge.style.background = "#8b5cf6"; badge.style.color = "white";
+        badge.innerText = "SUPREME"; badge.style.background = "var(--primary)"; badge.style.color = "white";
     } else if (currentPlan === 'promax') {
         badge.innerText = "PRO MAX"; badge.style.background = "#d4af37"; badge.style.color = "black";
     } else if (currentPlan === 'pro') {
@@ -586,7 +582,7 @@ window.payWithRazorpay = function(planType, amountInINR) {
         },
         "prefill": { "name": currentUser.displayName || "", "email": currentUser.email || "" },
         "notes": { "userId": currentUser.uid, "planName": planType },
-        "theme": { "color": "#8b5cf6" }
+        "theme": { "color": "#1e40af" }
     };
     const rzp = new window.Razorpay(options);
     rzp.on('payment.failed', function (response){ alert(`Payment Failed: ${response.error.description}`); });
@@ -598,7 +594,7 @@ window.selectPlan = function(planType) {
     let amount = 99; let planName = "Pro";
     if (planType === 'pro') { document.getElementById('pro-card').style.border = '2px solid var(--primary)'; amount = 99; }
     else if (planType === 'promax') { document.getElementById('promax-card').style.border = '2px solid #d4af37'; amount = 199; }
-    else if (planType === 'supreme') { document.getElementById('supreme-card').style.border = '2px solid #8b5cf6'; amount = 399; }
+    else if (planType === 'supreme') { document.getElementById('supreme-card').style.border = '2px solid var(--primary)'; amount = 399; }
 
     const upgradeBtn = document.getElementById('upi-btn-link');
     if (upgradeBtn) {
@@ -657,7 +653,7 @@ window.runUniversalSearch = function() {
     resultsContainer.innerHTML = html;
 };
 
-// ✨ NEW: PDF PAYWALL FUNCTION ✨
+// ✨ PDF PAYWALL FUNCTION (Syncs with backend FUP message) ✨
 window.downloadPDF = async function(cnr, filename) {
     if (!currentUser) {
         alert("Please sign in to download PDFs.");
@@ -665,9 +661,8 @@ window.downloadPDF = async function(cnr, filename) {
         return;
     }
 
-    // Frontend Paywall Check
     if (currentPlan === 'free') {
-        alert("PDF Downloads are a Premium feature. Please upgrade to Pro to download unlimited judgments and orders.");
+        alert("PDF Downloads are a Premium feature. Please upgrade your plan.");
         window.openModal();
         return;
     }
@@ -684,7 +679,8 @@ window.downloadPDF = async function(cnr, filename) {
         });
 
         if (res.status === 403) {
-            alert("Premium plan required to download PDFs. Please upgrade.");
+            const errorData = await res.json().catch(() => ({}));
+            alert(errorData.message || "PDF download limit reached. Please upgrade your plan.");
             window.openModal();
             if (btn) { btn.disabled = false; btn.innerHTML = originalText; }
             return;
@@ -758,7 +754,6 @@ async function performSearch(endpoint, bodyData, renderType) {
         const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
         const json = await res.json();
 
-        // ✨ FIX 1: EXACT EXPIRATION HANDLING ✨
         if (res.status === 403) {
             if (json.error === 'subscription_expired') {
                 showError(json.message || 'Your Pro subscription has expired. Please renew to continue.');
@@ -788,13 +783,13 @@ async function performSearch(endpoint, bodyData, renderType) {
                  html += `<div>No cases listed today.</div>`;
              } else {
                  json.data.results.forEach(c => {
-                     html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 10px;"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 2px 6px; border-radius: 4px;">Room: ${c.courtNo || '—'}</span></div></div>`;
+                     html += `<div style="background: var(--bg); padding: 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 10px;"><div style="font-weight: 600; margin-bottom: 4px;">${c.caseNumber || 'Unknown Case'}</div><div style="font-size: 13px; color: var(--text-muted);">Court: ${c.courtName || '—'}</div><div style="font-size: 12px; margin-top: 8px;"><span style="background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 6px; font-weight: 600;">Room: ${c.courtNo || '—'}</span></div></div>`;
                  });
              }
              resultsContainer.innerHTML = html;
         }
         else if (renderType === 'bulk') {
-             document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 8px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs queued fresh scrape. individually in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`;
+             document.getElementById('results').innerHTML = `<div style="background: var(--success-bg); color: var(--success-text); padding: 16px; border: 1px solid #a7f3d0; border-radius: 12px;"><h3 style="margin-bottom: 8px;">Bulk Refresh Initiated ✓</h3><p style="font-size: 0.9rem;">Your CNRs queued fresh scrape. individually in 1-2 minutes.</p><div style="margin-top: 12px; cursor: pointer; text-decoration: underline; font-size: 0.85rem;" onclick="window.clearResults()">← Start New Search</div></div>`;
         }
     } catch (e) { showError(`Network Error: ${e.message}`); } finally { setLoading(false); }
 }
@@ -809,8 +804,7 @@ async function updateSearchLimitUI() {
         return;
     }
 
-    const planLimits = { free: 1, pro: 30, promax: 100, supreme: 150 };
-    const limit = planLimits[currentPlan] || 1;
+    const limit = limits[currentPlan] ? limits[currentPlan].search : 1;
 
     if (limitText) limitText.innerHTML = `<span style="color:var(--text-muted); font-weight:600;">Loading...</span>`;
 
@@ -833,7 +827,7 @@ async function updateSearchLimitUI() {
         }
 
         const daysText = currentPlan !== 'free' ? `(${daysLeft}d left) • ` : '';
-        const color = currentPlan === 'supreme' ? '#8b5cf6' : 'var(--primary)';
+        const color = currentPlan === 'supreme' ? 'var(--primary)' : 'var(--primary)';
 
         if (limitText) limitText.innerHTML = `<span style="color:${color}; font-weight:600;">${currentPlan.toUpperCase()} ${daysText}${remaining}/${limit} Searches</span>`;
 
@@ -855,7 +849,7 @@ window.clearResults = function() {
 
 function showError(message) {
     const el = document.getElementById('results');
-    if (el) el.innerHTML = `<div style="background: var(--warning-bg); color: var(--warning-text); padding: 16px; border-radius: 8px; border: 1px solid #fecaca; font-size: 14px; display: flex; align-items: center; gap: 8px;">⚠️ ${message}</div>`;
+    if (el) el.innerHTML = `<div style="background: var(--warning-bg); color: var(--warning-text); padding: 16px; border-radius: 12px; border: 1px solid #fcd34d; font-size: 14px; display: flex; align-items: center; gap: 8px;">⚠️ ${message}</div>`;
 }
 
 window.goToDashboardCase = function(id) {
@@ -871,60 +865,57 @@ function setLoading(on) {
     const btn = document.getElementById('search-btn');
     if (!btn) return;
     btn.disabled = on;
-    btn.innerHTML = on ? '<div class="spinner"></div><span>Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
+    btn.innerHTML = on ? '<div class="spinner"></div><span style="margin-left: 8px;">Fetching...</span>' : '<span id="btn-text">Search Cases</span>';
 }
 
 function renderCaseList(resultsArray) {
     if (!resultsArray || resultsArray.length === 0) return showError('No cases found.'); 
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main);">Found ${resultsArray.length} cases:</div>`;
     resultsArray.forEach(data => {
-        html += `<div style="background: var(--bg); padding: 15px; border-radius: 8px; border: 1px solid var(--border); margin-bottom: 10px;"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="padding-right: 15px;"><div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div><div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${data.cnr || '—'}</div></div><div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 4px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div></div></div>`;
+        html += `<div style="background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: var(--shadow-sm);"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="padding-right: 15px;"><div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div><div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${data.cnr || '—'}</div></div><div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 6px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div></div></div>`;
     });
     document.getElementById('results').innerHTML = html;
 }
 
-// ✨ FIX 3: GENEROUS FULL DATA RENDER WITH PAYWALLED PDF BUTTONS ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
     
     let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
-        <div style="background: var(--bg); padding: 20px; border-radius: 8px; border: 1px solid var(--border);">
-            <div style="font-size: 20px; font-weight: 600; margin-bottom: 5px;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
-            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px;">CNR: ${data.cnr}</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                <div><div style="font-size: 12px; color: var(--text-muted);">Status</div><div style="font-weight: 500;">${data.caseStatus || 'Pending'}</div></div>
-                <div><div style="font-size: 12px; color: var(--text-muted);">Court</div><div style="font-weight: 500;">${data.courtName || '—'}</div></div>
+        <div style="background: var(--bg); padding: 24px; border-radius: 24px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
+            <div style="font-size: 20px; font-weight: 700; margin-bottom: 5px; color: var(--text-main);">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
+            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">CNR: ${data.cnr}</div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);"><div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status</div><div style="font-weight: 600; margin-top: 4px; color: var(--text-main);">${data.caseStatus || 'Pending'}</div></div>
+                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);"><div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Court</div><div style="font-weight: 600; margin-top: 4px; color: var(--text-main);">${data.courtName || '—'}</div></div>
             </div>`;
 
-    // Render Full History/Hearings (Generous for free users!)
     if (data.history && data.history.length > 0) {
-        html += `<div style="font-weight: 600; border-bottom: 1px solid var(--border); padding-bottom: 5px; margin-bottom: 10px; margin-top: 20px;">Case History & Orders</div>`;
+        html += `<div style="font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; margin-top: 24px; color: var(--text-main);">Case History & Orders</div>`;
         
         data.history.forEach(item => {
-            const hasPdf = item.judgement || item.orderPdf || item.pdfFilename; // Depending on eCourts exact field
+            const hasPdf = item.judgement || item.orderPdf || item.pdfFilename; 
             const filename = hasPdf ? (item.judgement || item.orderPdf || item.pdfFilename) : null;
             
-            html += `<div style="background: var(--bg-alt); padding: 12px; border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            html += `<div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                    <div style="font-weight: 500; font-size: 13px;">Date: ${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
-                    <div style="color: var(--text-muted); font-size: 11px; margin-top: 4px;">Judge: ${item.judge || '—'}</div>
-                    <div style="color: var(--text-muted); font-size: 11px;">Purpose: ${item.purpose || '—'}</div>
+                    <div style="font-weight: 600; font-size: 13px; color: var(--text-main);">Date: ${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
+                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 6px;">Judge: ${item.judge || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Purpose: ${item.purpose || '—'}</div>
                 </div>`;
             
-            // Add the PDF button if a filename exists
             if (filename) {
                 const safeId = filename.replace(/[^a-zA-Z0-9]/g, '');
-                html += `<button id="btn-pdf-${safeId}" onclick="window.downloadPDF('${data.cnr}', '${filename}')" style="background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 4px; font-size: 12px; cursor: pointer; font-weight: 600; min-width: 120px;">📄 Download PDF</button>`;
+                html += `<button id="btn-pdf-${safeId}" onclick="window.downloadPDF('${data.cnr}', '${filename}')" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 50px; font-size: 0.85rem; cursor: pointer; font-weight: 600; min-width: 130px; transition: background 0.2s;">📄 Download PDF</button>`;
             } else {
-                html += `<div style="font-size: 11px; color: var(--text-muted); font-style: italic;">No document</div>`;
+                html += `<div style="font-size: 12px; color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 6px;">No document</div>`;
             }
             
             html += `</div>`;
         });
     }
 
-    html += `<button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 16px; width: 100%; justify-content: center;">
+    html += `<button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 24px; width: 100%; justify-content: center; padding: 14px; font-size: 0.95rem; border-radius: 50px; background: var(--primary-bg); color: var(--primary); border: none; font-weight: 700;">
                💼 Add to My Practice Ledger
             </button>
         </div>`;
@@ -1024,7 +1015,7 @@ window.renderDashboard = function() {
     let html = '';
 
     if (practiceCases.length === 0) {
-        html = `<div style="text-align:center; padding: 40px 20px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 8px;">No cases tracked ledger empty.</div>`;
+        html = `<div style="text-align:center; padding: 40px 20px; color: var(--text-muted); border: 1px dashed var(--border); border-radius: 16px;">No cases tracked ledger empty.</div>`;
     }
 
     practiceCases.forEach(c => {
@@ -1034,16 +1025,16 @@ window.renderDashboard = function() {
         
         let paymentsHtml = '';
         if (c.payments && c.payments.length > 0) {
-            paymentsHtml = `<div style="font-size: 0.8rem; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 8px;">
-                <div style="font-weight: 600; margin-bottom: 6px; color: var(--text-muted);">Payment History</div>`;
+            paymentsHtml = `<div style="font-size: 0.85rem; margin-top: 16px; border-top: 1px solid var(--border); padding-top: 12px;">
+                <div style="font-weight: 700; margin-bottom: 8px; color: var(--text-main);">Payment History</div>`;
             
             const reversedPayments = c.payments.map((p, i) => ({...p, originalIndex: i})).reverse();
             reversedPayments.forEach(p => {
-                paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 6px 0; align-items: center;">
-                    <span>${p.date}</span>
+                paymentsHtml += `<div style="display:flex; justify-content: space-between; border-bottom: 1px dashed var(--border); padding: 8px 0; align-items: center;">
+                    <span style="color: var(--text-muted);">${p.date}</span>
                     <div style="display: flex; gap: 12px; align-items: center;">
-                        <span style="color: var(--success-text); font-weight: 600;">+ ₹${p.amount}</span>
-                        <button onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 0 4px;" title="Delete Payment">×</button>
+                        <span style="color: var(--success-text); font-weight: 700;">+ ₹${p.amount}</span>
+                        <button onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})" style="background: var(--bg-alt); border: none; color: var(--error-text); cursor: pointer; font-size: 1.1rem; line-height: 1; padding: 2px 6px; border-radius: 50%;" title="Delete Payment">×</button>
                     </div>
                 </div>`;
             });
@@ -1051,31 +1042,31 @@ window.renderDashboard = function() {
         }
 
         html += `
-        <div id="dashboard-case-${c.id}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 16px; padding: 16px; transition: box-shadow 0.3s ease;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 12px; align-items: flex-start;">
+        <div id="dashboard-case-${c.id}" style="background: var(--bg); border: 1px solid var(--border); border-radius: 24px; margin-bottom: 20px; padding: 20px; box-shadow: var(--shadow-sm); transition: box-shadow 0.3s ease;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 16px; align-items: flex-start;">
                 <div>
-                    <div style="font-weight: 700; font-size: 1.05rem;">${c.title}</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">CNR: ${c.cnr || 'Manual Entry'}</div>
+                    <div style="font-weight: 700; font-size: 1.1rem; color: var(--text-main);">${c.title}</div>
+                    <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 4px;">CNR: ${c.cnr || 'Manual Entry'}</div>
                 </div>
                 <div style="text-align: right;">
                     <div style="display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 4px;">
-                        <div style="font-size: 0.8rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 8px; border-radius: 4px; font-weight: bold;">
+                        <div style="font-size: 0.75rem; background: ${remaining > 0 ? 'var(--warning-bg)' : 'var(--success-bg)'}; color: ${remaining > 0 ? 'var(--warning-text)' : 'var(--success-text)'}; padding: 4px 10px; border-radius: 50px; font-weight: 700;">
                             ${remaining > 0 ? `₹${remaining} Pending` : 'Paid ✓'}
                         </div>
-                        <button onclick="window.deleteDashboardCase(${c.id})" style="background: none; border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 4px; transition: transform 0.1s;" title="Delete Case" onmouseover="this.style.transform='scale(1.1)'" onmouseout="this.style.transform='scale(1)'">🗑️</button>
+                        <button onclick="window.deleteDashboardCase(${c.id})" style="background: var(--bg-alt); border: none; color: var(--error-text); cursor: pointer; font-size: 1rem; padding: 6px; border-radius: 50%; transition: background 0.2s;" title="Delete Case">🗑️</button>
                     </div>
                 </div>
             </div>
 
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: var(--bg-alt); padding: 12px; border-radius: 6px; margin-bottom: 12px; text-align: center;">
-                <div><div style="font-size: 0.7rem; color: var(--text-muted);">Total Fee</div><div style="font-weight: 600;">₹${c.totalFee}</div></div>
-                <div><div style="font-size: 0.7rem; color: var(--text-muted);">Per Hearing</div><div style="font-weight: 600;">₹${c.perHearing}</div></div>
-                <div><div style="font-size: 0.7rem; color: var(--text-muted);">Collected</div><div style="font-weight: 600; color: var(--success-text);">₹${c.collected}</div></div>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; background: var(--bg-alt); padding: 16px; border-radius: 16px; margin-bottom: 16px; text-align: center; border: 1px solid var(--border);">
+                <div><div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Total Fee</div><div style="font-weight: 700; color: var(--text-main); margin-top: 4px;">₹${c.totalFee}</div></div>
+                <div><div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Per Hearing</div><div style="font-weight: 700; color: var(--text-main); margin-top: 4px;">₹${c.perHearing}</div></div>
+                <div><div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Collected</div><div style="font-weight: 700; color: var(--success-text); margin-top: 4px;">₹${c.collected}</div></div>
             </div>
 
             <div style="display: flex; gap: 8px;">
-                <input type="number" id="pay-input-${c.id}" placeholder="${c.perHearing > 0 ? '₹' + c.perHearing : '₹ Amount'}" style="flex: 1; padding: 8px; border: 1px solid var(--border); border-radius: 6px; font-size: 0.9rem;" ${remaining === 0 ? 'disabled' : ''}>
-                <button class="btn-action" onclick="window.logPayment(${c.id})" style="background: var(--success-bg); color: var(--success-text); border-color: #a7f3d0; padding: 8px 16px;" ${remaining === 0 ? 'disabled' : ''}>Log Payment</button>
+                <input type="number" id="pay-input-${c.id}" placeholder="${c.perHearing > 0 ? '₹' + c.perHearing : '₹ Amount'}" style="flex: 1; padding: 12px 16px; border: 1px solid var(--border); border-radius: 50px; font-size: 0.95rem; background: var(--bg-alt);" ${remaining === 0 ? 'disabled' : ''}>
+                <button class="btn-action" onclick="window.logPayment(${c.id})" style="background: var(--success-text); color: white; border: none; padding: 12px 20px; border-radius: 50px; font-weight: 600;" ${remaining === 0 ? 'disabled' : ''}>Log Payment</button>
             </div>
             
             ${paymentsHtml}
