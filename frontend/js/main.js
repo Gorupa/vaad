@@ -492,9 +492,18 @@ function renderCaseList(resultsArray) {
     document.getElementById('results').innerHTML = html;
 }
 
+// ✨ COMPREHENSIVE CASE DETAILS UI (With Mobile Debug Box) ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
+
+    // ✨ MOBILE DEBUG BLOCK (METHOD 1) ✨
+    // This creates a scrollable black box with green text showing the raw JSON data
+    const debugHtml = `
+        <div style="background: #111; color: #0f0; padding: 12px; border-radius: 12px; margin-bottom: 20px; font-family: monospace; font-size: 11px; overflow-y: auto; max-height: 250px; border: 2px solid #333;">
+            <div style="margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 4px;">🔍 RAW eCourts API DATA:</div>
+            <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${JSON.stringify(data, null, 2)}</pre>
+        </div>`;
     
     const pet = data.petitioners && data.petitioners.length > 0 ? data.petitioners.join('<br>') : '—';
     const res = data.respondents && data.respondents.length > 0 ? data.respondents.join('<br>') : '—';
@@ -502,6 +511,7 @@ function renderCaseDetail(payload) {
     const resAdvs = data.respondentAdvocates && data.respondentAdvocates.length > 0 ? data.respondentAdvocates.join(', ') : '—';
     
     let html = `<button class="back-link" onclick="window.clearResults()">← Back to search</button>
+        ${debugHtml}
         <div class="case-detail-card">
             
             <div class="case-detail-header">
