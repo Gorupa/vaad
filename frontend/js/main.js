@@ -272,7 +272,11 @@ window.payWithRazorpay = function(planType, amountInINR) {
     const rzp = new window.Razorpay({
         key: "rzp_live_SYzqjL2QNwMNDE", amount: amountInINR * 100, currency: "INR", name: "Vaad",
         description: `Upgrade to Vaad ${planType.toUpperCase()}`, image: "https://vaad.pages.dev/icon-192.png",
-        handler: function () { setTimeout(() => window.location.reload(), 2000); },
+        handler: function () { 
+            window.closeModal(); 
+            document.getElementById('success-modal').classList.add('active'); 
+            setTimeout(() => window.location.reload(), 3500); 
+        },
         prefill: { name: currentUser.displayName || "", email: currentUser.email || "" },
         notes: { userId: currentUser.uid, planName: planType }, theme: { color: "#1a3a8a" }
     });
@@ -570,19 +574,33 @@ function renderCaseDetail(payload) {
         </div>`;
     }
 
-    if (data.history && data.history.length > 0) {
-        html += `<div class="orders-section-title" style="margin-top:24px;">History & Orders</div>`;
-        data.history.forEach(item => {
-            const hasPdf = item.judgement || item.orderPdf || item.pdfFilename; 
-            const filename = hasPdf ? (item.judgement || item.orderPdf || item.pdfFilename) : null;
+    const allHearings = data.history || data.caseHistory || [];
+    if (allHearings.length > 0) {
+        html += `<div class="orders-section-title" style="margin-top:24px;">Hearing History</div>`;
+        allHearings.forEach(item => {
+            html += `
+            <div class="order-item" style="padding-right: 18px;">
+                <div class="order-meta">
+                    <div class="order-date">📅 ${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
+                    <div class="order-filename" style="margin-top: 6px;"><strong>Judge:</strong> ${item.judge || '—'}</div>
+                    <div class="order-filename" style="margin-top: 2px;"><strong>Purpose:</strong> ${item.purpose || '—'}</div>
+                </div>
+            </div>`;
+        });
+    }
+
+    const allOrders = data.orders || data.interimOrders || data.judgements || [];
+    if (allOrders.length > 0) {
+        html += `<div class="orders-section-title" style="margin-top:24px;">Orders & Judgments</div>`;
+        allOrders.forEach(item => {
+            const filename = item.judgement || item.orderPdf || item.pdfFilename; 
             
             html += `
             <div class="order-item">
                 <div class="order-doc-icon">⚖️</div>
                 <div class="order-meta">
-                    <div class="order-date">${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
+                    <div class="order-date">${item.dateOfOrder || item.orderDate || 'N/A'}</div>
                     <div class="order-filename">Judge: ${item.judge || '—'}</div>
-                    <div class="order-filename">Purpose: ${item.purpose || '—'}</div>
                 </div>`;
             
             if (filename) {
@@ -595,7 +613,7 @@ function renderCaseDetail(payload) {
         });
     }
 
-    html += `<button class="add-ledger-btn" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';">
+    html += `<button class="add-ledger-btn" style="margin-top: 24px;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';">
                💼 Track this Case in Ledger
             </button>
         </div></div>`;
