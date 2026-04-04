@@ -120,27 +120,44 @@ async function enforceFUP(req, res) {
     const diffDays = Math.floor((today - cycleStart) / (1000 * 60 * 60 * 24));
 
     if (diffDays >= 30) {
-        // Cycle expired — reset
         const todayStr = new Date().toISOString().split('T')[0];
-        const updates = {
-            searchCount: 0,
-            cycleStartDate: todayStr
-        };
 
         if (plan !== 'free') {
-            // Paid plan expired — downgrade
-            updates.plan = 'free';
-            plan = 'free';
-            console.log(`[FUP] User ${userId} paid plan expired. Downgraded to free.`);
-        }
-
-        try {
-            await userRef.update(updates);
-            data = { ...data, ...updates };
-        } catch (e) {
-            console.error("FUP: Failed to reset cycle:", e.message);
-            res.status(500).json({ success: false, error: 'Could not reset usage cycle.' });
-            return null;
+            // ✨ FIX 1: Paid plan expired — Downgrade AND BLOCK ✨
+            const updates = {
+                plan: 'free',
+                searchCount: 0,
+                cycleStartDate: todayStr
+            };
+            try {
+                await userRef.update(updates);
+                console.log(`[FUP] User ${userId} paid plan expired. Downgraded to free.`);
+            } catch (e) {
+                console.error("FUP: Failed to reset cycle:", e.message);
+            }
+            
+            // Immediately stop the search and tell frontend to show upgrade modal
+            res.status(403).json({
+                success: false,
+                error: 'subscription_expired',
+                message: 'Your Pro subscription has expired. Please upgrade to continue searching.'
+            });
+            return null; // Stop execution
+            
+        } else {
+            // Free plan expired - Just reset their count and let them search
+            const updates = {
+                searchCount: 0,
+                cycleStartDate: todayStr
+            };
+            try {
+                await userRef.update(updates);
+                data = { ...data, ...updates }; // Update local data to pass the limit check below
+            } catch (e) {
+                console.error("FUP: Failed to reset free cycle:", e.message);
+                res.status(500).json({ success: false, error: 'Could not reset usage cycle.' });
+                return null;
+            }
         }
     }
 
@@ -317,11 +334,28 @@ app.post('/api/order/analyze', async (req, res) => {
 });
 
 // ─────────────────────────────────────────────
-// ROUTE 6: PDF DOWNLOAD (no FUP — plan gating on frontend)
+// ROUTE 6: PDF DOWNLOAD 
 // ─────────────────────────────────────────────
 app.post('/api/download', async (req, res) => {
-    const { cnr, filename } = req.body;
-    if (!cnr || !filename) return res.status(400).json({ success: false, error: 'CNR and filename are required.' });
+    // ✨ FIX 2: Added userId to requirement and implemented Backend Paywall ✨
+    const { cnr, filename, userId } = req.body;
+    if (!cnr || !filename || !userId) return res.status(400).json({ success: false, error: 'CNR, filename, and userId are required.' });
+
+    if (!db) return res.status(500).json({ success: false, error: 'Database not initialized.' });
+
+    try {
+        const userDoc = await db.collection('users').doc(userId).get();
+        if (!userDoc.exists || userDoc.data().plan === 'free' || !userDoc.data().plan) {
+            return res.status(403).json({ 
+                success: false, 
+                error: 'premium_required',
+                message: 'PDF downloads are a premium feature. Please upgrade your plan.' 
+            });
+        }
+    } catch (error) {
+        console.error("PDF Auth Error:", error);
+        return res.status(500).json({ success: false, error: 'Could not verify user subscription.' });
+    }
 
     try {
         const response = await fetch(`${BASE_URL}/case/${cnr}/order/${filename}`, { method: 'GET', headers: eCourtsHeaders });
