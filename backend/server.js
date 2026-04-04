@@ -33,6 +33,7 @@ app.use(cors({
     origin: ['https://vaad.pages.dev', 'http://localhost:3000', 'http://localhost:5500'] 
 }));
 
+// RAW BODY for webhook (must be before express.json)
 app.use('/api/webhook/razorpay', express.raw({ type: 'application/json' }));
 app.use(express.json());
 
@@ -87,7 +88,7 @@ async function enforceFUP(req, res, actionType = 'search', deductAmount = 1) {
 
     if (usedCount + deductAmount > limit) {
         let msg = `Limit reached. You have ${Math.max(0, limit - usedCount)} credits left, but tried to use ${deductAmount}. Upgrade your plan.`;
-        if (actionType === 'pdf' && plan === 'free') msg = "PDF downloads are a premium feature. Please upgrade.";
+        if (actionType === 'pdf' && plan === 'free') msg = "PDF downloads are a premium feature. Please upgrade your plan.";
         if (actionType === 'ai' && plan !== 'supreme') msg = "AI Assistant is exclusive to the Supreme plan.";
         res.status(403).json({ success: false, error: 'limit_reached', message: msg });
         return null;
@@ -218,24 +219,60 @@ app.post('/api/initiate-payment', async (req, res) => {
 
 // ── ROUTE 8: RAZORPAY WEBHOOK ──
 app.post('/api/webhook/razorpay', async (req, res) => {
-    const signature = crypto.createHmac('sha256', process.env.RAZORPAY_WEBHOOK_SECRET).update(req.body).digest('hex');
-    if (req.headers['x-razorpay-signature'] !== signature) return res.status(400).json({ error: 'Invalid signature.' });
-    
-    const payment = JSON.parse(req.body.toString()).payload?.payment?.entity;
-    if (payment?.status === 'captured') {
-        try {
-            // ✅ Upgrade plan and instantly reset all 3 wallets to 0 for the new cycle
-            await db.collection('users').doc(payment.notes.userId).update({ 
-                plan: payment.notes.planName, 
+    try {
+        const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+        
+        if (!webhookSecret) {
+            console.error("❌ CRITICAL: RAZORPAY_WEBHOOK_SECRET is missing in Render Environment Variables!");
+            return res.status(500).json({ error: 'Server config error.' });
+        }
+
+        const signature = req.headers['x-razorpay-signature'];
+        if (!signature) return res.status(400).json({ error: 'No signature provided.' });
+
+        const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(req.body).digest('hex');
+        
+        if (signature !== expectedSignature) {
+            console.error("⛔ WEBHOOK BLOCKED: Invalid signature. Your secret in Razorpay does not match your secret in Render.");
+            return res.status(400).json({ error: 'Invalid signature.' });
+        }
+        
+        const payload = JSON.parse(req.body.toString());
+        console.log(`📡 Razorpay Webhook Received Event: ${payload.event}`);
+
+        // Listen for captured payments
+        if (payload.event === 'payment.captured') {
+            const payment = payload.payload.payment.entity;
+            const userId = payment.notes?.userId;
+            const planName = payment.notes?.planName;
+
+            if (!userId || !planName) {
+                console.error("❌ Missing 'notes' in payment entity. Cannot identify user:", payment.notes);
+                return res.status(400).json({ error: 'Missing notes data' });
+            }
+
+            console.log(`💰 Processing Upgrade: User [${userId}] -> Plan [${planName}]`);
+            
+            // Upgrade plan and instantly reset all 3 wallets to 0
+            await db.collection('users').doc(userId).update({ 
+                plan: planName, 
                 cycleStartDate: new Date().toISOString().split('T')[0], 
                 searchCount: 0, 
                 pdfCount: 0, 
                 aiCount: 0 
             });
+            
+            console.log(`✅ SUCCESS: User [${userId}] is now on ${planName} plan!`);
             return res.status(200).json({ status: 'success' });
-        } catch (error) { return res.status(500).json({ error: 'Database error.' }); }
+        }
+        
+        console.log(`⏭️ Ignored event: ${payload.event}`);
+        res.status(200).json({ status: 'ignored' });
+
+    } catch (error) {
+        console.error("🔥 FATAL WEBHOOK ERROR:", error.message);
+        res.status(500).json({ error: 'Internal server error.' });
     }
-    res.status(200).json({ status: 'ignored' });
 });
 
 // ── ROUTE 9: HEALTH CHECK ──
