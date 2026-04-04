@@ -39,12 +39,6 @@
         .btn-danger { background: #dc2626; color: white; border: none; padding: 14px 20px; border-radius: var(--radius-pill); font-weight: 600; font-size: 0.95rem; cursor: pointer; width: 100%; transition: all 0.2s; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.2); }
         .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3); }
         .btn-danger:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
-
-        .legal-footer { text-align: center; margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--border-soft); }
-        .legal-footer-links { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
-        .legal-footer-links a { color: var(--text-subtle); text-decoration: none; font-size: 0.85rem; font-weight: 600; transition: color 0.2s; }
-        .legal-footer-links a:hover, .legal-footer-links a.active { color: var(--primary); }
-        .legal-disclaimer { font-size: 0.75rem; color: var(--text-subtle); line-height: 1.6; max-width: 500px; margin: 0 auto; }
     </style>
 </head>
 <body>
@@ -128,17 +122,6 @@
             <p>This action is irreversible. It will instantly delete your Google authentication profile and wipe all your Practice Dashboard data, saved cases, and subscription limits from our Mumbai servers.</p>
             <button class="btn-danger" onclick="window.openDeleteModal()">Permanently Delete My Data</button>
         </div>
-
-        <footer class="legal-footer">
-            <div class="legal-footer-links">
-                <a href="terms.html">Terms of Service</a>
-                <a href="privacy.html" class="active">Privacy Policy</a>
-                <a href="refund.html">Refund & Cancellation</a>
-            </div>
-            <div class="legal-disclaimer">
-                Vaad is an independent platform and is not affiliated with the Government of India or the official eCourts project. Data is provided for informational purposes only. © 2026 Vaad.
-            </div>
-        </footer>
 
     </main>
 
