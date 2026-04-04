@@ -3,39 +3,110 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Refund & Cancellation — Vaad</title>
-    <meta name="theme-color" content="#8b5cf6">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Refund Policy - Vaad</title>
+    
+    <meta name="theme-color" content="#1a3a8a">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
+    
     <style>
-        .legal-container { max-width: 640px; margin: 0 auto; padding: 32px 24px; line-height: 1.6; color: var(--text-main); }
-        .legal-container h1 { font-size: 1.75rem; margin-bottom: 16px; color: var(--primary); font-weight: 800; }
-        .legal-container h2 { font-size: 1.1rem; margin-top: 24px; margin-bottom: 8px; color: var(--text-main); }
-        .legal-container p, .legal-container ul { font-size: 0.9rem; color: var(--text-muted); margin-bottom: 16px; }
-        .legal-container ul { padding-left: 20px; }
-        .back-nav { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 16px 24px; display: flex; align-items: center; position: sticky; top: 0; z-index: 10; }
-        .back-btn { text-decoration: none; color: var(--text-main); font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 8px; }
+        .back-nav { background: rgba(255, 255, 255, 0.95); backdrop-filter: saturate(180%) blur(12px); -webkit-backdrop-filter: saturate(180%) blur(12px); border-bottom: 1px solid var(--border-soft); padding: 16px 24px; display: flex; align-items: center; position: sticky; top: 0; z-index: 200; box-shadow: var(--shadow-xs); }
+        .back-btn { text-decoration: none; color: var(--text-muted); font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; transition: color 0.15s; font-family: var(--font); }
+        .back-btn:hover { color: var(--primary); }
+
+        .legal-container { max-width: 680px; margin: 0 auto; padding: 40px 24px 80px; }
+        .legal-header { margin-bottom: 40px; }
+        .legal-title { font-family: 'DM Serif Display', Georgia, serif; font-size: 2.6rem; color: var(--primary); margin-bottom: 12px; line-height: 1.1; letter-spacing: -0.02em; }
+        .legal-date { display: inline-block; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; color: var(--gold); background: var(--gold-bg); padding: 6px 14px; border-radius: var(--radius-pill); border: 1px solid var(--gold-border); margin-bottom: 16px; }
+        .legal-intro { font-size: 1.1rem; color: var(--text-muted); line-height: 1.6; }
+        .legal-intro strong { color: var(--text-main); }
+        
+        .legal-section { margin-bottom: 32px; background: white; padding: 24px; border-radius: var(--radius-lg); border: 1px solid var(--border-soft); box-shadow: var(--shadow-sm); }
+        .legal-section h2 { font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+        .legal-section h2::before { content: '✦'; color: var(--gold); font-size: 0.8rem; }
+        .legal-section p, .legal-section ul { font-size: 0.95rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 0; }
+        .legal-section ul { padding-left: 20px; margin-top: 12px; }
+        .legal-section li { margin-bottom: 8px; }
+        
+        .contact-box { background: var(--bg-alt); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 20px; margin-top: 16px; }
+        .contact-box ul { list-style: none; padding: 0; margin: 0; }
+        .contact-box li { display: flex; flex-direction: column; margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--border); }
+        .contact-box li:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .contact-box li strong { color: var(--primary); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; font-weight: 800; }
+        .contact-box li span { font-size: 0.95rem; color: var(--text-main); font-weight: 600; }
     </style>
 </head>
 <body>
+
     <nav class="back-nav">
         <a href="index.html" class="back-btn">← Back to App</a>
     </nav>
-    <div class="legal-container">
-        <h1>Refund & Cancellation</h1>
-        <p>Last updated: March 2026</p>
 
-        <h2>1. Digital Product Policy</h2>
-        <p>Vaad is a digital Software-as-a-Service (SaaS) platform. Because your subscription immediately grants you access to API credits (searches, PDF downloads, and AI processing power) which incur hard costs on our end, <strong>all sales are final and non-refundable</strong> once a payment is successfully captured.</p>
+    <main class="legal-container">
+        
+        <div class="legal-header">
+            <div class="legal-date">Last Updated: March 2026</div>
+            <h1 class="legal-title">Refund & Cancellation</h1>
+            <p class="legal-intro">"Vaad" is a digital product and brand owned, operated, and managed by <strong>Raghav Communication</strong>.</p>
+        </div>
+        
+        <div class="legal-section">
+            <h2>1. Subscription Cancellations</h2>
+            <p>You may cancel or downgrade your Vaad subscription plan at any time through your dashboard. Cancellations will apply to the next billing cycle. We do not provide prorated refunds for mid-cycle cancellations. You will retain access to your premium features until the end of your current 30-day billing cycle.</p>
+        </div>
 
-        <h2>2. Cancellations</h2>
-        <p>We operate on a strict "No Auto-Billing" policy. We do not save your payment methods for automatic monthly deductions. Your subscription will naturally expire 30 days from the date of purchase. To cancel, simply do not initiate a renewal payment.</p>
+        <div class="legal-section">
+            <h2>2. Refund Eligibility</h2>
+            <p>Due to the nature of API usage and server costs incurred immediately upon a search, we generally do not offer refunds. However, exceptions will be made in the following scenarios:</p>
+            <ul>
+                <li>You were accidentally charged twice for the same transaction due to a technical error.</li>
+                <li>Your account was successfully charged, but the system completely failed to unlock your API limits, and our support team cannot fix the issue within 48 hours.</li>
+            </ul>
+        </div>
 
-        <h2>3. Failed Transactions</h2>
-        <p>If your money is deducted by your bank or UPI app but your Vaad account is not upgraded, the transaction is considered failed by the payment gateway. In such cases, Razorpay will automatically process a refund to your original payment method within 5 to 7 business days.</p>
+        <div class="legal-section">
+            <h2>3. Non-Refundable Scenarios</h2>
+            <p>Refund requests will be firmly denied if:</p>
+            <ul>
+                <li>You have already utilized any portion of your Pro, Pro Max, or Supreme search/PDF quotas.</li>
+                <li>You are unhappy because a specific court has not uploaded PDFs or histories to the central API (we do not control the courts' data entry).</li>
+                <li>You forgot to cancel your subscription before a renewal date.</li>
+                <li>Your account was terminated for violating our Fair Usage Policy (e.g., botting or scraping).</li>
+            </ul>
+        </div>
+        
+        <div class="legal-section">
+            <h2>4. Refund Process & Timeline</h2>
+            <p>If you believe you are eligible for a refund, you must contact our support email within 3 days of the transaction. If approved, the refund will be initiated immediately. Please allow <strong>5-7 business days</strong> for the amount to reflect in your original payment method (Bank Account, UPI, or Credit Card), as processed by our gateway partner, Razorpay.</p>
+        </div>
 
-        <h2>4. Upgrading Plans</h2>
-        <p>If you choose to upgrade your plan (e.g., moving from Pro Max to Supreme) before your 30-day cycle is over, the new plan will take effect immediately, and a new 30-day cycle will begin. Previous balances or unused searches do not roll over and are not prorated.</p>
-    </div>
+        <div class="legal-section">
+            <h2>5. Contact Information</h2>
+            <p>To request a cancellation or review a billing issue, please reach out to us:</p>
+            
+            <div class="contact-box">
+                <ul>
+                    <li>
+                        <strong>Merchant Legal Entity Name</strong>
+                        <span>Raghav Communication</span>
+                    </li>
+                    <li>
+                        <strong>Proprietor</strong>
+                        <span>Gaurav Kalal</span>
+                    </li>
+                    <li>
+                        <strong>Registered Address</strong>
+                        <span>VPO KHERAD Udaipur RAJASTHAN 313027</span>
+                    </li>
+                    <li>
+                        <strong>E-Mail ID</strong>
+                        <span>gauravkalal1719@gmail.com</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </main>
+
 </body>
 </html>
