@@ -58,11 +58,47 @@ window.closeAddCaseModal = () => { document.getElementById('add-case-modal').cla
 window.openConsentModal = () => { document.getElementById('consent-modal').classList.add('active'); document.getElementById('consent-modal').style.display = 'flex';};
 window.closeConsentModal = () => { document.getElementById('consent-modal').classList.remove('active'); document.getElementById('consent-modal').style.display = 'none';};
 
+// ✨ DYNAMIC PRICING MODAL ✨
 window.openModal = () => { 
     const modal = document.getElementById('upgrade-modal');
+    if (!modal) return;
+    
+    const proCard = document.getElementById('pro-card');
+    const promaxCard = document.getElementById('promax-card');
+    const supremeCard = document.getElementById('supreme-card');
+    const upiBox = document.querySelector('.upi-box');
+    const subtitle = document.getElementById('modal-subtitle');
+    
+    if (currentPlan === 'supreme') {
+        if(proCard) proCard.style.display = 'none';
+        if(promaxCard) promaxCard.style.display = 'none';
+        if(supremeCard) { supremeCard.style.display = 'block'; supremeCard.style.border = '2px solid var(--primary)'; }
+        if(upiBox) upiBox.style.display = 'none'; 
+        if(subtitle) subtitle.innerText = "You are currently on the highest tier. Enjoy maximum limits and AI tools!";
+    } else if (currentPlan === 'promax') {
+        if(proCard) proCard.style.display = 'none';
+        if(promaxCard) promaxCard.style.display = 'none';
+        if(supremeCard) supremeCard.style.display = 'block';
+        if(upiBox) upiBox.style.display = 'block';
+        if(subtitle) subtitle.innerText = "Upgrade to Supreme for AI features and maximum limits.";
+        window.selectPlan('supreme');
+    } else if (currentPlan === 'pro') {
+        if(proCard) proCard.style.display = 'none';
+        if(promaxCard) promaxCard.style.display = 'block';
+        if(supremeCard) supremeCard.style.display = 'block';
+        if(upiBox) upiBox.style.display = 'block';
+        if(subtitle) subtitle.innerText = "Select a plan to unlock more powerful tools.";
+        window.selectPlan('promax');
+    } else {
+        if(proCard) proCard.style.display = 'block';
+        if(promaxCard) promaxCard.style.display = 'block';
+        if(supremeCard) supremeCard.style.display = 'block';
+        if(upiBox) upiBox.style.display = 'block';
+        if(subtitle) subtitle.innerText = "Powered by official eCourts API. You pay for secure, ad-free API access.";
+        window.selectPlan('pro');
+    }
+    
     modal.style.display = 'flex'; 
-    if (!currentUser) window.selectPlan('pro');
-    else window.selectPlan(currentPlan === 'free' ? 'pro' : currentPlan);
     modal.classList.add('active'); 
 };
 window.closeModal = () => { document.getElementById('upgrade-modal').classList.remove('active'); document.getElementById('upgrade-modal').style.display = 'none';};
@@ -85,7 +121,7 @@ let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
 let pendingSaveAction = null; 
 
-// ✨ THE 3-WALLET PLAN LIMITS ✨
+// THE 3-WALLET PLAN LIMITS
 const limits = {
     free: { search: 1, pdf: 0, ai: 0 },
     pro: { search: 30, pdf: 5, ai: 0 },
@@ -227,7 +263,7 @@ window.switchJurisdiction = function(country) {
     activeJurisdiction = country;
     document.querySelectorAll('.indian-tab, .indian-panel').forEach(el => el.style.display = country === 'usa' ? 'none' : 'block');
     document.querySelectorAll('.us-tab').forEach(el => el.style.display = country === 'usa' ? 'block' : 'none');
-    document.querySelectorAll('.us-panel').forEach(el => el.style.display = country === 'usa' ? 'none' : 'none'); // Fix later when usa is built
+    document.querySelectorAll('.us-panel').forEach(el => el.style.display = country === 'usa' ? 'none' : 'none'); 
     window.switchTab(country === 'usa' ? 'us-case' : 'cnr');
     window.clearResults();
 };
@@ -245,7 +281,7 @@ window.switchTab = function(tab) {
 
 window.toggleCnrMode = function() {
     if (currentPlan === 'free' || currentPlan === 'pro') {
-        alert("Bulk CNR refresh requires the Pro Max or Supreme plan.");
+        alert("Bulk refresh requires Pro Max or Supreme plan.");
         document.querySelector('input[name="cnr-mode"][value="single"]').checked = true;
         window.openModal(); return;
     }
@@ -340,7 +376,6 @@ window.runUniversalSearch = function() {
     resultsContainer.innerHTML = html;
 };
 
-// ✨ PDF PAYWALL FUNCTION ✨
 window.downloadPDF = async function(cnr, filename) {
     if (!currentUser) { alert("Please sign in to download PDFs."); window.openLoginModal(); return; }
     if (currentPlan === 'free') { alert("PDF Downloads are a Premium feature. Please upgrade your plan."); window.openModal(); return; }
@@ -399,6 +434,24 @@ window.handleSearch = async function() {
     }
 
     await performSearch(endpoint, bodyData, renderType);
+};
+
+window.fetchCaseDetails = async function(cnr) {
+    if (!cnr || cnr === '—') return showError("No CNR available for this case.");
+    
+    const resultsDiv = document.getElementById('results');
+    resultsDiv.innerHTML = `<div style="text-align:center; padding: 40px 20px;"><div class="spinner" style="margin: 0 auto 16px; border-color: var(--primary); border-top-color: transparent; width: 24px; height: 24px;"></div><div style="font-weight:600; color: var(--text-main);">Pulling full case records from eCourts...</div></div>`;
+    
+    try {
+        const res = await fetch(`${API}/cnr`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser.uid, cnr: cnr }) });
+        const json = await res.json();
+
+        if (res.status === 403) { showError(json.message || 'Search limit reached. Please upgrade.'); window.openModal(); return; }
+        if (!res.ok || !json.success) return showError(json.error || 'Failed to fetch details.');
+
+        updateSearchLimitUI();
+        renderCaseDetail(json.data);
+    } catch (e) { showError(`Network Error: ${e.message}`); }
 };
 
 async function performSearch(endpoint, bodyData, renderType) {
@@ -482,51 +535,88 @@ function setLoading(on) {
 
 function renderCaseList(resultsArray) {
     if (!resultsArray || resultsArray.length === 0) return showError('No cases found.'); 
-    let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main);">Found ${resultsArray.length} cases:</div>`;
+    let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div><div style="font-size: 16px; font-weight: 600; margin-bottom: 15px; color: var(--text-main);">Found ${resultsArray.length} cases (Click to view details):</div>`;
     resultsArray.forEach(data => {
-        html += `<div style="background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: var(--shadow-sm);"><div style="display: flex; justify-content: space-between; align-items: start;"><div style="padding-right: 15px;"><div style="font-size: 15px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div><div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px;">CNR: ${data.cnr || '—'}</div></div><div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 8px; border-radius: 6px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div></div></div>`;
+        html += `<div onclick="window.fetchCaseDetails('${data.cnr}')" style="background: var(--bg); padding: 16px; border-radius: 16px; border: 1px solid var(--border); margin-bottom: 12px; box-shadow: var(--shadow-sm); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.transform='translateY(-2px)'; this.style.borderColor='var(--primary)';" onmouseout="this.style.transform='translateY(0)'; this.style.borderColor='var(--border)';">
+            <div style="display: flex; justify-content: space-between; align-items: start;">
+                <div style="padding-right: 15px;">
+                    <div style="font-size: 15px; font-weight: 700; color: var(--text-main); margin-bottom: 4px; word-break: break-word;">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
+                    <div style="font-size: 13px; color: var(--text-muted); margin-bottom: 8px; font-family: monospace;">CNR: ${data.cnr || '—'}</div>
+                </div>
+                <div style="font-size: 11px; font-weight: bold; background: var(--primary-bg); color: var(--primary); padding: 4px 10px; border-radius: 50px; white-space: nowrap;">${data.caseStatus || 'Pending'}</div>
+            </div>
+            <div style="margin-top: 8px; font-size: 12px; color: var(--primary); font-weight: 600;">View Full Docket & PDFs →</div>
+        </div>`;
     });
     document.getElementById('results').innerHTML = html;
 }
 
+// ✨ UPGRADED COMPREHENSIVE CASE DETAILS UI ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
     
-    let html = `<div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline;" onclick="window.clearResults()">← Back to search</div>
+    let html = `
+        <div style="margin-bottom: 15px; cursor: pointer; color: var(--text-muted); font-size: 14px; text-decoration: underline; display: inline-block; font-weight: 600;" onclick="window.clearResults()">← Back to search</div>
         <div style="background: var(--bg); padding: 24px; border-radius: 24px; border: 1px solid var(--border); box-shadow: var(--shadow-sm);">
-            <div style="font-size: 20px; font-weight: 700; margin-bottom: 5px; color: var(--text-main);">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
-            <div style="font-size: 14px; color: var(--text-muted); margin-bottom: 24px;">CNR: ${data.cnr}</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px;">
-                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);"><div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Status</div><div style="font-weight: 600; margin-top: 4px; color: var(--text-main);">${data.caseStatus || 'Pending'}</div></div>
-                <div style="background: var(--bg-alt); padding: 12px; border-radius: 12px; border: 1px solid var(--border);"><div style="font-size: 12px; color: var(--text-muted); font-weight: 600; text-transform: uppercase;">Court</div><div style="font-weight: 600; margin-top: 4px; color: var(--text-main);">${data.courtName || '—'}</div></div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+                <div>
+                    <div style="font-size: 22px; font-weight: 800; margin-bottom: 8px; color: var(--text-main); line-height: 1.3;">${(data.petitioners||['—'])[0]} <span style="color: var(--text-muted); font-size: 16px; font-weight: 600;">vs</span> ${(data.respondents||['—'])[0]}</div>
+                    <div style="font-size: 15px; color: var(--primary); margin-bottom: 24px; font-family: monospace; font-weight: 600; background: var(--primary-bg); display: inline-block; padding: 4px 12px; border-radius: 8px;">CNR: ${data.cnr}</div>
+                </div>
+                <div style="font-size: 12px; font-weight: 700; background: ${data.caseStatus === 'Disposed' ? 'var(--success-bg)' : 'var(--warning-bg)'}; color: ${data.caseStatus === 'Disposed' ? 'var(--success-text)' : 'var(--warning-text)'}; padding: 6px 12px; border-radius: 50px; white-space: nowrap; text-transform: uppercase; letter-spacing: 0.05em;">
+                    ${data.caseStatus || 'Pending'}
+                </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px;">
+                <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Court Details</div>
+                    <div style="font-weight: 600; margin-top: 6px; color: var(--text-main); font-size: 14px;">${data.courtName || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Judge: ${data.judge || '—'}</div>
+                </div>
+                <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Case Info</div>
+                    <div style="font-weight: 600; margin-top: 6px; color: var(--text-main); font-size: 14px;">Type: ${data.caseType || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 4px;">Filing Date: ${data.filingDate || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 2px;">Next Hearing: ${data.nextHearingDate || '—'}</div>
+                </div>
+                ${data.acts && data.acts.length > 0 ? `
+                <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; border: 1px solid var(--border);">
+                    <div style="font-size: 11px; color: var(--text-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Acts & Sections</div>
+                    <div style="font-weight: 600; margin-top: 6px; color: var(--text-main); font-size: 13px; line-height: 1.5;">${data.acts.map(a => `${a.act} (Sec: ${a.section})`).join('<br>')}</div>
+                </div>` : ''}
             </div>`;
 
     if (data.history && data.history.length > 0) {
-        html += `<div style="font-weight: 700; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; margin-top: 24px; color: var(--text-main);">Case History & Orders</div>`;
+        html += `<div style="font-weight: 800; border-bottom: 2px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; margin-top: 32px; color: var(--text-main); font-size: 1.1rem;">Case History & Orders</div>`;
         data.history.forEach(item => {
             const hasPdf = item.judgement || item.orderPdf || item.pdfFilename; 
             const filename = hasPdf ? (item.judgement || item.orderPdf || item.pdfFilename) : null;
             
-            html += `<div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
-                <div>
-                    <div style="font-weight: 600; font-size: 13px; color: var(--text-main);">Date: ${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
-                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 6px;">Judge: ${item.judge || '—'}</div>
-                    <div style="color: var(--text-muted); font-size: 12px; margin-top: 2px;">Purpose: ${item.purpose || '—'}</div>
+            html += `
+            <div style="background: var(--bg-alt); padding: 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px;">
+                <div style="flex: 1; min-width: 200px;">
+                    <div style="font-weight: 700; font-size: 14px; color: var(--text-main); display: flex; align-items: center; gap: 8px;">
+                        📅 ${item.dateOfOrder || item.hearingDate || 'N/A'}
+                    </div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 6px;"><strong>Judge:</strong> ${item.judge || '—'}</div>
+                    <div style="color: var(--text-muted); font-size: 13px; margin-top: 2px;"><strong>Purpose:</strong> ${item.purpose || '—'}</div>
                 </div>`;
             
             if (filename) {
                 const safeId = filename.replace(/[^a-zA-Z0-9]/g, '');
-                html += `<button id="btn-pdf-${safeId}" onclick="window.downloadPDF('${data.cnr}', '${filename}')" style="background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 50px; font-size: 0.85rem; cursor: pointer; font-weight: 600; min-width: 130px; transition: background 0.2s;">📄 Download PDF</button>`;
+                html += `<div style="display: flex; gap: 8px;"><button id="btn-pdf-${safeId}" onclick="window.downloadPDF('${data.cnr}', '${filename}')" style="background: var(--primary); color: white; border: none; padding: 10px 16px; border-radius: 50px; font-size: 0.85rem; cursor: pointer; font-weight: 600; min-width: 140px; transition: all 0.2s; box-shadow: 0 4px 10px rgba(30, 64, 175, 0.2);">📄 Download PDF</button></div>`;
             } else {
-                html += `<div style="font-size: 12px; color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.05); padding: 4px 8px; border-radius: 6px;">No document</div>`;
+                html += `<div style="font-size: 12px; color: var(--text-muted); font-style: italic; background: rgba(0,0,0,0.05); padding: 6px 12px; border-radius: 50px; font-weight: 600;">No Document Uploaded</div>`;
             }
             html += `</div>`;
         });
     }
 
-    html += `<button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 24px; width: 100%; justify-content: center; padding: 14px; font-size: 0.95rem; border-radius: 50px; background: var(--primary-bg); color: var(--primary); border: none; font-weight: 700;">
-               💼 Add to My Practice Ledger
+    html += `<button class="btn-action btn-ai" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}';" style="margin-top: 32px; width: 100%; justify-content: center; padding: 16px; font-size: 1rem; border-radius: 50px; background: var(--primary-bg); color: var(--primary); border: 2px dashed var(--primary); font-weight: 800; cursor: pointer; transition: all 0.2s;">
+               💼 Track this Case in My Ledger
             </button>
         </div>`;
     document.getElementById('results').innerHTML = html;
