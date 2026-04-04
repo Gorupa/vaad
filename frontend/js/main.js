@@ -492,26 +492,21 @@ function renderCaseList(resultsArray) {
     document.getElementById('results').innerHTML = html;
 }
 
-// ✨ COMPREHENSIVE CASE DETAILS UI (With Mobile Debug Box) ✨
+// ✨ UPGRADED PARSER: Captures all known eCourts JSON formats (historyOfCaseHearings, interimOrders, etc.) ✨
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
-
-    // ✨ MOBILE DEBUG BLOCK (METHOD 1) ✨
-    // This creates a scrollable black box with green text showing the raw JSON data
-    const debugHtml = `
-        <div style="background: #111; color: #0f0; padding: 12px; border-radius: 12px; margin-bottom: 20px; font-family: monospace; font-size: 11px; overflow-y: auto; max-height: 250px; border: 2px solid #333;">
-            <div style="margin-bottom: 8px; font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 4px;">🔍 RAW eCourts API DATA:</div>
-            <pre style="white-space: pre-wrap; word-wrap: break-word; margin: 0;">${JSON.stringify(data, null, 2)}</pre>
-        </div>`;
     
+    // Safely parse petitioners and advocates
     const pet = data.petitioners && data.petitioners.length > 0 ? data.petitioners.join('<br>') : '—';
     const res = data.respondents && data.respondents.length > 0 ? data.respondents.join('<br>') : '—';
     const petAdvs = data.petitionerAdvocates && data.petitionerAdvocates.length > 0 ? data.petitionerAdvocates.join(', ') : '—';
     const resAdvs = data.respondentAdvocates && data.respondentAdvocates.length > 0 ? data.respondentAdvocates.join(', ') : '—';
     
+    // Extract disposal nature
+    const disposalNature = data.natureOfDisposal || data.disposalTypeRaw || '—';
+
     let html = `<button class="back-link" onclick="window.clearResults()">← Back to search</button>
-        ${debugHtml}
         <div class="case-detail-card">
             
             <div class="case-detail-header">
@@ -540,7 +535,7 @@ function renderCaseDetail(payload) {
                 </div>
                 <div class="case-info-cell">
                     <div class="case-info-label">Status</div>
-                    <div class="case-info-value" style="color: ${data.caseStatus === 'Disposed' ? 'var(--success-text)' : 'var(--warning-text)'};">${data.caseStatus || 'Pending'}</div>
+                    <div class="case-info-value" style="color: ${data.caseStatus === 'DISPOSED' || data.caseStatus === 'Disposed' ? 'var(--success-text)' : 'var(--warning-text)'};">${data.caseStatus || 'Pending'}</div>
                 </div>
                 <div class="case-info-cell">
                     <div class="case-info-label">Filing Details</div>
@@ -554,22 +549,25 @@ function renderCaseDetail(payload) {
                 </div>
             </div>`;
 
-    if (data.firNumber || data.policeStation || data.firstHearingDate) {
+    // FIR & Hearing logic
+    const hasFirDetails = data.firNumber || data.policeStation || (data.firDetails && Object.keys(data.firDetails).length > 0);
+    
+    if (hasFirDetails || data.firstHearingDate || data.nextHearingDate || data.decisionDate) {
         html += `<div class="case-info-grid">
-                ${data.firNumber || data.policeStation ? `
+                ${hasFirDetails ? `
                 <div class="case-info-cell">
                     <div class="case-info-label">FIR Details</div>
                     <div class="case-info-value">${data.firNumber || '—'} / ${data.firYear || '—'}</div>
                     <div style="font-size:0.75rem; color:var(--text-subtle);">Station: ${data.policeStation || '—'}</div>
                 </div>` : ''}
-                <div class="case-info-cell" style="grid-column: ${data.firNumber ? 'auto' : 'span 2'};">
+                <div class="case-info-cell" style="grid-column: ${hasFirDetails ? 'auto' : 'span 2'};">
                     <div class="case-info-label">Hearing Info</div>
                     <div style="font-size:0.75rem; color:var(--text-subtle); margin-bottom:4px;">First: ${data.firstHearingDate || '—'}</div>
-                    ${data.caseStatus === 'Disposed' ? `
+                    ${data.caseStatus === 'DISPOSED' || data.caseStatus === 'Disposed' ? `
                         <div class="case-info-value" style="color: var(--error-text);">Decided: ${data.decisionDate || '—'}</div>
-                        <div style="font-size:0.75rem; color:var(--text-subtle);">${data.natureOfDisposal || '—'}</div>
+                        <div style="font-size:0.75rem; color:var(--text-subtle);">${disposalNature}</div>
                     ` : `
-                        <div class="case-info-value" style="color: var(--primary);">Next: ${data.nextHearingDate || '—'}</div>
+                        <div class="case-info-value" style="color: var(--primary);">Next: ${data.nextHearingDate || data.lastHearingDate || '—'}</div>
                     `}
                 </div>
             </div>`;
@@ -577,6 +575,7 @@ function renderCaseDetail(payload) {
 
     html += `<div class="case-detail-body">`;
 
+    // 1. Acts & Sections
     if (data.acts && data.acts.length > 0) {
         html += `<div class="orders-section-title">Acts & Sections</div>
         <div style="margin-bottom: 24px;">
@@ -584,37 +583,68 @@ function renderCaseDetail(payload) {
         </div>`;
     }
 
-    const allHearings = data.history || data.caseHistory || [];
-    if (allHearings.length > 0) {
-        html += `<div class="orders-section-title" style="margin-top:24px;">Hearing History</div>`;
-        allHearings.forEach(item => {
+    // 2. Processes (Warrants, Summons)
+    const allProcesses = data.processes || [];
+    if (allProcesses.length > 0) {
+        html += `<div class="orders-section-title" style="margin-top:24px;">Court Processes & Summons</div>`;
+        allProcesses.forEach(item => {
             html += `
             <div class="order-item" style="padding-right: 18px;">
                 <div class="order-meta">
-                    <div class="order-date">📅 ${item.dateOfOrder || item.hearingDate || 'N/A'}</div>
-                    <div class="order-filename" style="margin-top: 6px;"><strong>Judge:</strong> ${item.judge || '—'}</div>
-                    <div class="order-filename" style="margin-top: 2px;"><strong>Purpose:</strong> ${item.purpose || '—'}</div>
+                    <div class="order-date">📅 ${item.processDate || 'N/A'}</div>
+                    <div class="order-filename" style="margin-top: 6px; white-space: normal; line-height: 1.4;"><strong>${item.processTitle || '—'}</strong></div>
                 </div>
             </div>`;
         });
     }
 
-    const allOrders = data.orders || data.interimOrders || data.judgements || [];
+    // 3. Hearing History
+    // Combine standard array names used across different states
+    const allHearings = data.historyOfCaseHearings || data.history || data.caseHistory || [];
+    if (allHearings.length > 0) {
+        html += `<div class="orders-section-title" style="margin-top:24px;">Hearing History</div>`;
+        allHearings.forEach(item => {
+            const date = item.hearingDate || item.businessOnDate || item.dateOfOrder || 'N/A';
+            const purpose = item.purposeOfListing || item.purpose || '—';
+            
+            html += `
+            <div class="order-item" style="padding-right: 18px;">
+                <div class="order-meta">
+                    <div class="order-date">📅 ${date}</div>
+                    <div class="order-filename" style="margin-top: 6px;"><strong>Judge:</strong> ${item.judge || '—'}</div>
+                    <div class="order-filename" style="margin-top: 2px;"><strong>Purpose:</strong> ${purpose}</div>
+                </div>
+            </div>`;
+        });
+    }
+
+    // 4. Orders & Judgments (PDFs)
+    // Safely combine all possible order arrays into one master list
+    const allOrders = [
+        ...(data.judgmentOrders || []),
+        ...(data.interimOrders || []),
+        ...(data.orders || []),
+        ...(data.judgements || [])
+    ];
+    
     if (allOrders.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Orders & Judgments</div>`;
         allOrders.forEach(item => {
-            const filename = item.judgement || item.orderPdf || item.pdfFilename; 
+            // Find the filename/URL regardless of what key the state used
+            const filename = item.orderUrl || item.judgement || item.orderPdf || item.pdfFilename; 
+            const date = item.orderDate || item.dateOfOrder || 'N/A';
+            const type = item.description || item.orderType || item.purpose || 'Order';
             
             html += `
             <div class="order-item">
                 <div class="order-doc-icon">⚖️</div>
                 <div class="order-meta">
-                    <div class="order-date">${item.dateOfOrder || item.orderDate || 'N/A'}</div>
-                    <div class="order-filename">Judge: ${item.judge || '—'}</div>
+                    <div class="order-date">${date}</div>
+                    <div class="order-filename">${type}</div>
                 </div>`;
             
             if (filename) {
-                const safeId = filename.replace(/[^a-zA-Z0-9]/g, '');
+                const safeId = filename.replace(/[^a-zA-Z0-9-]/g, '');
                 html += `<button id="btn-pdf-${safeId}" class="order-download-btn" onclick="window.downloadPDF('${data.cnr}', '${filename}')">📄 Download</button>`;
             } else {
                 html += `<div style="font-size: 0.7rem; color: var(--text-subtle); font-style: italic;">No PDF</div>`;
