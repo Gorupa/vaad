@@ -21,7 +21,9 @@
         .legal-section { margin-bottom: 32px; background: white; padding: 24px; border-radius: var(--radius-lg); border: 1px solid var(--border-soft); box-shadow: var(--shadow-sm); }
         .legal-section h2 { font-size: 1.15rem; font-weight: 800; color: var(--text-main); margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
         .legal-section h2::before { content: '✦'; color: var(--gold); font-size: 0.8rem; }
-        .legal-section p { font-size: 0.95rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 0; }
+        .legal-section p, .legal-section ul { font-size: 0.95rem; color: var(--text-muted); line-height: 1.7; margin-bottom: 0; }
+        .legal-section ul { padding-left: 20px; margin-top: 12px; }
+        .legal-section li { margin-bottom: 8px; }
         
         .contact-box { background: var(--bg-alt); border: 1px solid var(--border-soft); border-radius: var(--radius); padding: 20px; margin-top: 16px; }
         .contact-box ul { list-style: none; padding: 0; margin: 0; }
@@ -29,6 +31,14 @@
         .contact-box li:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
         .contact-box li strong { color: var(--primary); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px; font-weight: 800; }
         .contact-box li span { font-size: 0.95rem; color: var(--text-main); font-weight: 600; }
+
+        /* Danger Zone Styles (M3) */
+        .danger-zone { margin-top: 48px; border: 1px solid #fecaca; background: var(--error-bg); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm); }
+        .danger-zone h3 { color: var(--error-text); font-size: 1.25rem; font-weight: 700; margin-bottom: 8px; }
+        .danger-zone p { color: #991b1b; font-size: 0.9rem; margin-bottom: 20px; line-height: 1.6; }
+        .btn-danger { background: #dc2626; color: white; border: none; padding: 14px 20px; border-radius: var(--radius-pill); font-weight: 600; font-size: 0.95rem; cursor: pointer; width: 100%; transition: all 0.2s; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.2); }
+        .btn-danger:hover { background: #b91c1c; transform: translateY(-1px); box-shadow: 0 6px 12px rgba(220, 38, 38, 0.3); }
+        .btn-danger:disabled { opacity: 0.7; cursor: not-allowed; transform: none; }
 
         .legal-footer { text-align: center; margin-top: 40px; padding-top: 32px; border-top: 1px solid var(--border-soft); }
         .legal-footer-links { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; }
@@ -58,17 +68,17 @@
         
         <div class="legal-section">
             <h2>1. Information We Collect</h2>
-            <p>When you log in to Vaad using Google Authentication, we collect your basic public profile information, specifically your name, email address, and profile picture. We use this strictly to create your account and manage your subscription tier.</p>
+            <p>When you log in to Vaad using Google Authentication, we collect your basic public profile information, specifically your name, email address, and profile picture. We use this strictly to create your account and manage your subscription tier. If you use the Practice Dashboard, we collect the case titles, CNR numbers, and fee data you choose to input.</p>
         </div>
 
         <div class="legal-section">
             <h2>2. How We Use Your Data</h2>
-            <p>Your data is used exclusively to provide you with the Vaad service, track your search limits according to your active plan, and securely link your subscription to your identity. We do not sell, rent, or share your personal data with third-party advertisers.</p>
+            <p>Your data is used exclusively to provide you with the Vaad service, track your search limits according to your active plan, and securely link your subscription to your identity. Search queries (CNRs, Advocate names, etc.) are passed securely to the eCourtsIndia API to retrieve your results. We do not manually log your public case search history on our servers. We do not sell, rent, or share your personal data with third-party advertisers.</p>
         </div>
 
         <div class="legal-section">
-            <h2>3. Payment Processing Data</h2>
-            <p>For processing subscriptions, we use Razorpay as our secure payment gateway partner. We do not store your highly sensitive financial data (like full card numbers or UPI PINs) on our servers. Razorpay processes this data securely. We only store your payment status, transaction ID, and billing history to maintain your Vaad subscription. The data collected is managed by Raghav Communication.</p>
+            <h2>3. Third-Party Services & Payment Data</h2>
+            <p>For processing subscriptions, we use Razorpay as our secure payment gateway partner. We do not store your highly sensitive financial data (like full card numbers or UPI PINs) on our servers. Razorpay processes this data securely. We only store your payment status, transaction ID, and billing history to maintain your Vaad subscription. We also use Firebase (Google) for secure user authentication and database syncing.</p>
         </div>
         
         <div class="legal-section">
@@ -77,13 +87,15 @@
         </div>
 
         <div class="legal-section">
-            <h2>5. Local Storage & Caching (PWA)</h2>
-            <p>To provide a lightning-fast experience, Vaad operates as a Progressive Web App (PWA). We use standard web technologies, including Service Workers, Browser Cache, and Local Storage, to save the app's structural files (HTML, CSS) directly on your device. This allows the app to open instantly. We <strong>do not</strong> cache your live court case data or personal authentication details offline. You can clear this cached data at any time through your browser or device app settings.</p>
+            <h2>5. Data Storage & Local Caching (PWA)</h2>
+            <p>To ensure compliance and maximum security, all user profiles and Practice Dashboard ledger data are stored on localized servers located in <strong>Mumbai, India (asia-south1)</strong>.</p>
+            <p style="margin-top: 12px;">To provide a lightning-fast experience, Vaad operates as a Progressive Web App (PWA). We use standard web technologies to save the app's structural files directly on your device. We <strong>do not</strong> cache your live court case data or personal authentication details offline. You can clear this cached data at any time through your browser settings.</p>
         </div>
 
         <div class="legal-section">
-            <h2>6. Contact Information</h2>
-            <p>If you have any questions regarding this Privacy Policy or your data, please contact us:</p>
+            <h2>6. Your Rights (DPDP Act, 2023) & Contact</h2>
+            <p>Under the Digital Personal Data Protection Act, 2023, you have the right to notice, consent, and erasure. You can delete specific case data directly from your dashboard, or permanently erase your entire account using the tool below.</p>
+            <p style="margin-top: 12px;">If you have concerns regarding your data privacy, you may contact our Grievance Officer:</p>
             
             <div class="contact-box">
                 <ul>
@@ -111,6 +123,12 @@
             </div>
         </div>
 
+        <div class="danger-zone">
+            <h3>Delete Account & Data</h3>
+            <p>This action is irreversible. It will instantly delete your Google authentication profile and wipe all your Practice Dashboard data, saved cases, and subscription limits from our Mumbai servers.</p>
+            <button class="btn-danger" onclick="window.openDeleteModal()">Permanently Delete My Data</button>
+        </div>
+
         <footer class="legal-footer">
             <div class="legal-footer-links">
                 <a href="terms.html">Terms of Service</a>
@@ -124,5 +142,97 @@
 
     </main>
 
+    <div id="delete-modal" class="modal-overlay">
+        <div class="modal-box" style="text-align: center;">
+            <button class="modal-close" onclick="window.closeDeleteModal()">×</button>
+            <div style="font-size: 3rem; margin-bottom: 16px;">⚠️</div>
+            <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--text-main); margin-bottom: 12px;">Are you absolutely sure?</h3>
+            <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.5;">This will wipe your Practice Dashboard ledger and instantly cancel any active subscriptions. This cannot be undone.</p>
+            <button class="btn-danger" id="confirm-delete-btn" onclick="window.executeAccountDeletion()" style="margin-bottom: 12px;">Yes, Erase My Data</button>
+            <button class="btn-action" style="width: 100%; justify-content: center; padding: 14px;" onclick="window.closeDeleteModal()">Cancel</button>
+        </div>
+    </div>
+
+    <div id="consent-modal" class="modal-overlay">
+        <div class="modal-box">
+            <button class="modal-close" onclick="window.closeConsentModal()">×</button>
+            <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.6rem; color: var(--primary); margin-bottom: 12px;">Enable Cloud Sync ☁️</h3>
+            <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
+                To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data on our secure servers located in Mumbai. Do you consent to enabling Cloud Sync?
+            </p>
+            <button class="btn-search" style="margin-top: 0; margin-bottom: 12px;" onclick="window.acceptConsent()">Yes, Enable Secure Sync</button>
+            <button class="btn-action" style="width: 100%; justify-content: center; padding: 14px; border-color: transparent;" onclick="window.declineConsent()">No, Keep Data Local Only</button>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, deleteUser } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, doc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU",
+            authDomain: "vaad-87fed.firebaseapp.com",
+            projectId: "vaad-87fed",
+            storageBucket: "vaad-87fed.firebasestorage.app",
+            messagingSenderId: "649989985981",
+            appId: "1:649989985981:web:6dcbcdd0babd45f2cb09d4"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.openDeleteModal = () => document.getElementById('delete-modal').classList.add('active');
+        window.closeDeleteModal = () => document.getElementById('delete-modal').classList.remove('active');
+
+        window.executeAccountDeletion = async function() {
+            const user = auth.currentUser;
+            const btn = document.getElementById('confirm-delete-btn');
+            
+            if (!user) {
+                alert("You must be logged in to delete your account data.");
+                window.closeDeleteModal();
+                return;
+            }
+
+            btn.innerText = "Erasing data...";
+            btn.disabled = true;
+
+            try {
+                await deleteDoc(doc(db, "users", user.uid));
+                localStorage.removeItem('vaad_dashboard_cases');
+                await deleteUser(user);
+                
+                alert("Your account and all associated data have been permanently erased.");
+                window.location.href = "index.html"; 
+            } catch (error) {
+                console.error("Error deleting account:", error);
+                if (error.code === 'auth/requires-recent-login') {
+                    alert("For security reasons, please log out and log back in before deleting your account.");
+                } else {
+                    alert("An error occurred. Please contact support.");
+                }
+                btn.innerText = "Yes, Erase My Data";
+                btn.disabled = false;
+                window.closeDeleteModal();
+            }
+        };
+
+        window.openConsentModal = () => document.getElementById('consent-modal').classList.add('active');
+        window.closeConsentModal = () => document.getElementById('consent-modal').classList.remove('active');
+
+        window.acceptConsent = function() {
+            localStorage.setItem('vaad_dpdp_consent', 'true');
+            window.closeConsentModal();
+            alert("Cloud Sync Enabled.");
+        };
+
+        window.declineConsent = function() {
+            localStorage.setItem('vaad_dpdp_consent', 'false');
+            window.closeConsentModal();
+            alert("Your data will only be stored locally on this device.");
+        };
+    </script>
 </body>
 </html>
