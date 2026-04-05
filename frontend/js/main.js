@@ -18,6 +18,31 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
+// ✨ SECURITY: HTML Escaper to prevent XSS attacks
+function escapeHtml(str) {
+    if (typeof str !== 'string') return String(str || '');
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// ✨ SECURITY: Get fresh Firebase ID token for backend verification
+async function getAuthHeaders() {
+    if (!currentUser) return { 'Content-Type': 'application/json' };
+    const token = await currentUser.getIdToken();
+    return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
+}
+
+// ✨ STABILITY: Wrapper to catch HTML error pages masquerading as JSON
+async function safeFetch(endpoint, options) {
+    const res = await fetch(endpoint, options);
+    let json;
+    try {
+        json = await res.json();
+    } catch (parseError) {
+        throw new Error(`Server returned a non-JSON response (HTTP ${res.status}). The API may be temporarily down.`);
+    }
+    return { res, json };
+}
+
 window.addEventListener('load', () => {
     if (typeof google !== 'undefined' && google.accounts) {
         google.accounts.id.initialize({ client_id: "649989985981-u00i42pgr5taercoj5koqabm5aul58k0.apps.googleusercontent.com", callback: handleCredentialResponse, use_fedcm_for_prompt: true });
@@ -89,8 +114,6 @@ let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
 let pendingSaveAction = null; 
 
-const limits = { free: { search: 1, pdf: 0 }, pro: { search: 30, pdf: 5 }, promax: { search: 100, pdf: 20 }, supreme: { search: 150, pdf: 50 } };
-
 document.addEventListener('click', async (e) => {
     const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
     const emailLoginBtn = e.target.closest('#email-login-btn');
@@ -130,7 +153,8 @@ async function syncDashboardToCloud() {
     try { 
         await updateDoc(doc(db, "users", currentUser.uid), { practiceCases: practiceCases }); 
     } catch (e) {
-        console.error("Cloud Sync Failed (Firebase Rule or Network Issue):", e);
+        console.error("Cloud Sync Failed:", e);
+        throw e; // Throw so optimistic UI can catch and rollback
     }
 }
 
@@ -143,7 +167,9 @@ async function syncPermissionUI() {
             const toggleEl = document.getElementById('syncPermissionToggle');
             if (toggleEl) toggleEl.checked = syncPermission;
         }
-    } catch (e) {}
+    } catch (e) {
+        console.error('[syncPermissionUI] Failed to read permissions:', e);
+    }
 }
 
 window.toggleCloudSyncPermission = async function() {
@@ -192,7 +218,6 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = data.plan || 'free';
                 await syncPermissionUI();
                 
-                // ✨ CRITICAL BUG FIX: Only pull from cloud if user gave consent to avoid overwriting local saves
                 if (data.practiceCases && userConsent === 'true') { 
                     practiceCases = data.practiceCases; 
                     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases)); 
@@ -272,25 +297,64 @@ window.selectPlan = function(planType) {
     if (upgradeBtn) {
         upgradeBtn.removeAttribute('href'); 
         upgradeBtn.innerText = `Pay ₹${amount} Securely`;
-        upgradeBtn.onclick = (e) => { e.preventDefault(); upgradeBtn.innerHTML = "<div class='spinner'></div>"; window.payWithRazorpay(planType, amount); };
+        upgradeBtn.onclick = (e) => { e.preventDefault(); window.payWithRazorpay(planType, amount); };
     }
 };
 
-window.payWithRazorpay = function(planType, amountInINR) {
+// ✨ SECURITY: Backend-driven Razorpay integration
+window.payWithRazorpay = async function(planType, amountInINR) {
     if (!currentUser) { window.closeModal(); window.openLoginModal(); return; }
-    const rzp = new window.Razorpay({
-        key: "rzp_live_SYzqjL2QNwMNDE", amount: amountInINR * 100, currency: "INR", name: "Vaad",
-        description: `Upgrade to Vaad ${planType.toUpperCase()}`, image: "https://vaad.pages.dev/icon-192.png",
-        handler: function () { 
-            window.closeModal(); 
-            document.getElementById('success-modal').classList.add('active'); 
-            setTimeout(() => window.location.reload(), 3500); 
-        },
-        prefill: { name: currentUser.displayName || "", email: currentUser.email || "" },
-        notes: { userId: currentUser.uid, planName: planType }, theme: { color: "#1a3a8a" }
-    });
-    rzp.on('payment.failed', function (r){ alert(`Failed: ${r.error.description}`); document.getElementById('upi-btn-link').innerText = `Pay Securely`; });
-    rzp.open();
+    
+    const btn = document.getElementById('upi-btn-link');
+    const originalText = btn ? btn.innerText : `Pay Securely`;
+    if (btn) btn.innerHTML = '<div class="spinner"></div>';
+
+    try {
+        const headers = await getAuthHeaders();
+        // Server creates the order and locks in the price to prevent manipulation
+        const { res, json: orderData } = await safeFetch(`${API}/initiate-payment`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ plan: planType })
+        });
+
+        if (!res.ok || !orderData.success) {
+            alert('Could not start payment: ' + (orderData.error || 'Server error'));
+            if (btn) btn.innerText = originalText;
+            return;
+        }
+
+        const order = orderData.data.order;
+
+        const rzp = new window.Razorpay({
+            key: "rzp_live_SYzqjL2QNwMNDE", 
+            amount: order.amount, 
+            currency: order.currency, 
+            order_id: order.id, // Enables the backend webhook!
+            name: "Vaad",
+            description: `Upgrade to Vaad ${planType.toUpperCase()}`, 
+            image: "https://vaad.pages.dev/icon-192.png",
+            handler: function (response) { 
+                window.closeModal(); 
+                document.getElementById('success-modal').classList.add('active'); 
+                setTimeout(() => window.location.reload(), 3500); 
+            },
+            prefill: { name: currentUser.displayName || "", email: currentUser.email || "" },
+            notes: { userId: currentUser.uid, planName: planType }, 
+            theme: { color: "#1a3a8a" },
+            modal: { ondismiss: () => { if (btn) btn.innerText = originalText; } }
+        });
+        
+        rzp.on('payment.failed', function (r){ 
+            alert(`Failed: ${r.error.description}`); 
+            if (btn) btn.innerText = originalText; 
+        });
+        
+        rzp.open();
+    } catch (err) {
+        alert('Network error initializing payment. Please try again.');
+        if (btn) btn.innerText = originalText;
+    }
 };
 
 window.openUniversalSearch = function() {
@@ -316,9 +380,9 @@ window.runUniversalSearch = function() {
     matches.forEach(c => {
         const remaining = Math.max(0, c.totalFee - c.collected);
         html += `<div class="dash-case-card" onclick="window.goToDashboardCase(${c.id})" style="cursor:pointer; margin-bottom:8px; padding:12px;">
-            <div class="dash-case-title" style="color:var(--primary);">${c.title}</div>
+            <div class="dash-case-title" style="color:var(--primary);">${escapeHtml(c.title)}</div>
             <div style="font-size:0.8rem; color:var(--text-muted); display:flex; justify-content:space-between;">
-                <span>CNR: ${c.cnr || 'Manual Entry'}</span>
+                <span>CNR: ${escapeHtml(c.cnr) || 'Manual Entry'}</span>
                 <span style="color:${remaining>0?'var(--warning-text)':'var(--success-text)'}; font-weight:700;">${remaining>0?'₹'+remaining+' Due':'Paid'}</span>
             </div>
         </div>`;
@@ -335,7 +399,8 @@ window.downloadPDF = async function(cnr, filename) {
     if (btn) { btn.disabled = true; btn.innerHTML = '<div class="spinner"></div>'; }
 
     try {
-        const res = await fetch(`${API}/download`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cnr, filename, userId: currentUser.uid }) });
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${API}/download`, { method: 'POST', headers: headers, body: JSON.stringify({ cnr, filename }) });
         if (res.status === 403) {
             const errorData = await res.json().catch(() => ({}));
             alert(errorData.message || "PDF download limit reached. Please upgrade.");
@@ -363,22 +428,22 @@ window.handleSearch = async function() {
         if (mode === 'single') {
             const query = document.getElementById('cnr-input').value.trim();
             if (!query) return;
-            endpoint = `${API}/cnr`; bodyData = { userId: currentUser.uid, cnr: query }; renderType = 'cnr';
+            endpoint = `${API}/cnr`; bodyData = { cnr: query }; renderType = 'cnr';
         } else {
             const cnrs = document.getElementById('cnr-bulk-input').value.trim().split('\n').map(c => c.trim()).filter(c => c.length > 5);
             if (!cnrs.length) return;
             if (cnrs.length > 50) return alert("Max 50 CNRs allowed.");
-            endpoint = `${API}/bulk-refresh`; bodyData = { userId: currentUser.uid, cnrs: cnrs }; renderType = 'bulk';
+            endpoint = `${API}/bulk-refresh`; bodyData = { cnrs: cnrs }; renderType = 'bulk';
         }
     } else if (activeTab === 'causelist') {
         const state = document.getElementById('causelist-state').value.trim().toUpperCase();
         const query = document.getElementById('causelist-query').value.trim();
         if (!state || !query) return alert("Provide State Code and Query.");
-        endpoint = `${API}/causelist`; bodyData = { userId: currentUser.uid, query: query, state: state, limit: 20 }; renderType = 'causelist';
+        endpoint = `${API}/causelist`; bodyData = { query: query, state: state, limit: 20 }; renderType = 'causelist';
     } else {
         let query = document.getElementById(activeTab + '-input').value.trim();
         if (!query) return;
-        endpoint = `${API}/search`; bodyData = { userId: currentUser.uid, query: query, type: activeTab }; renderType = 'list';
+        endpoint = `${API}/search`; bodyData = { query: query, type: activeTab }; renderType = 'list';
     }
 
     await performSearch(endpoint, bodyData, renderType);
@@ -386,25 +451,25 @@ window.handleSearch = async function() {
 
 window.fetchCaseDetails = async function(cnr) {
     if (!cnr || cnr === '—') return showError("No CNR available for this case.");
-    
     document.getElementById('results').innerHTML = `<div class="empty-state"><div class="spinner" style="border-top-color:var(--primary); width:30px; height:30px; margin-bottom:16px;"></div><div class="empty-state-text">Pulling full case records from eCourts...</div></div>`;
     
     try {
-        const res = await fetch(`${API}/cnr`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ userId: currentUser.uid, cnr: cnr }) });
-        const json = await res.json();
+        const headers = await getAuthHeaders();
+        const { res, json } = await safeFetch(`${API}/cnr`, { method: 'POST', headers: headers, body: JSON.stringify({ cnr: cnr }) });
+        
         if (res.status === 403) { showError(json.message || 'Search limit reached. Please upgrade.'); window.openModal(); return; }
         if (!res.ok || !json.success) return showError(json.error || 'Failed to fetch details.');
 
         updateSearchLimitUI();
         renderCaseDetail(json.data);
-    } catch (e) { showError(`Network Error: ${e.message}`); }
+    } catch (e) { showError(`Error: ${e.message}`); }
 };
 
 async function performSearch(endpoint, bodyData, renderType) {
     setLoading(true); window.clearResults();
     try {
-        const res = await fetch(endpoint, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(bodyData) });
-        const json = await res.json();
+        const headers = await getAuthHeaders();
+        const { res, json } = await safeFetch(endpoint, { method: 'POST', headers: headers, body: JSON.stringify(bodyData) });
 
         if (res.status === 403) {
             if (json.error === 'subscription_expired') { showError(json.message || 'Your Pro subscription has expired. Please renew.'); } 
@@ -424,8 +489,8 @@ async function performSearch(endpoint, bodyData, renderType) {
              else {
                  json.data.results.forEach(c => {
                      html += `<div class="case-card">
-                         <div class="case-parties">${c.caseNumber || 'Unknown Case'}</div>
-                         <div class="case-meta"><span class="case-meta-chip">${c.courtName || '—'}</span><span class="case-status-pill status-pending">Room: ${c.courtNo || '—'}</span></div>
+                         <div class="case-parties">${escapeHtml(c.caseNumber || 'Unknown Case')}</div>
+                         <div class="case-meta"><span class="case-meta-chip">${escapeHtml(c.courtName || '—')}</span><span class="case-status-pill status-pending">Room: ${escapeHtml(c.courtNo || '—')}</span></div>
                      </div>`;
                  });
              }
@@ -434,7 +499,7 @@ async function performSearch(endpoint, bodyData, renderType) {
         else if (renderType === 'bulk') {
              document.getElementById('results').innerHTML = `<div class="case-card" style="border-left: 4px solid var(--success-text);"><div class="case-parties" style="color:var(--success-text);">Bulk Refresh Initiated ✓</div><p style="font-size:0.9rem; margin-top:8px;">Your CNRs are queued for a fresh scrape.</p><button class="back-link" style="margin-top:16px;" onclick="window.clearResults()">← Start New Search</button></div>`;
         }
-    } catch (e) { showError(`Network Error: ${e.message}`); } finally { setLoading(false); }
+    } catch (e) { showError(`Error: ${e.message}`); } finally { setLoading(false); }
 }
 
 async function updateSearchLimitUI() {
@@ -463,7 +528,7 @@ async function updateSearchLimitUI() {
 }
 
 window.clearResults = function() { const el = document.getElementById('results'); if (el) el.innerHTML = ''; };
-function showError(message) { const el = document.getElementById('results'); if (el) el.innerHTML = `<div class="error-box">⚠️ ${message}</div>`; }
+function showError(message) { const el = document.getElementById('results'); if (el) el.innerHTML = `<div class="error-box">⚠️ ${escapeHtml(message)}</div>`; }
 
 window.goToDashboardCase = function(id) {
     window.closeUniversalSearch(); window.toggleView('dashboard');
@@ -486,38 +551,39 @@ function renderCaseList(resultsArray) {
         const statusClass = isDisposed ? 'status-disposed' : 'status-pending';
         
         html += `
-        <div class="case-card" onclick="window.fetchCaseDetails('${data.cnr}')">
+        <div class="case-card" onclick="window.fetchCaseDetails('${escapeHtml(data.cnr)}')">
             <div class="case-card-header">
                 <div>
-                    <div class="case-parties">${(data.petitioners||['—'])[0]} <span style="color:var(--text-subtle); font-weight:500;">vs</span> ${(data.respondents||['—'])[0]}</div>
+                    <div class="case-parties">${escapeHtml((data.petitioners||['—'])[0])} <span style="color:var(--text-subtle); font-weight:500;">vs</span> ${escapeHtml((data.respondents||['—'])[0])}</div>
                 </div>
-                <div class="case-status-pill ${statusClass}">${data.caseStatus || 'Pending'}</div>
+                <div class="case-status-pill ${statusClass}">${escapeHtml(data.caseStatus || 'Pending')}</div>
             </div>
             <div class="case-meta">
-                <span class="case-meta-chip">CNR: ${data.cnr || '—'}</span>
+                <span class="case-meta-chip">CNR: ${escapeHtml(data.cnr || '—')}</span>
             </div>
         </div>`;
     });
     document.getElementById('results').innerHTML = html;
 }
 
+// ✨ SECURITY: Data parsed through escapeHtml
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
     
-    const pet = data.petitioners && data.petitioners.length > 0 ? data.petitioners.join('<br>') : '—';
-    const res = data.respondents && data.respondents.length > 0 ? data.respondents.join('<br>') : '—';
-    const petAdvs = data.petitionerAdvocates && data.petitionerAdvocates.length > 0 ? data.petitionerAdvocates.join(', ') : '—';
-    const resAdvs = data.respondentAdvocates && data.respondentAdvocates.length > 0 ? data.respondentAdvocates.join(', ') : '—';
-    const disposalNature = data.natureOfDisposal || data.disposalTypeRaw || '—';
+    const pet = data.petitioners && data.petitioners.length > 0 ? data.petitioners.map(escapeHtml).join('<br>') : '—';
+    const res = data.respondents && data.respondents.length > 0 ? data.respondents.map(escapeHtml).join('<br>') : '—';
+    const petAdvs = data.petitionerAdvocates && data.petitionerAdvocates.length > 0 ? data.petitionerAdvocates.map(escapeHtml).join(', ') : '—';
+    const resAdvs = data.respondentAdvocates && data.respondentAdvocates.length > 0 ? data.respondentAdvocates.map(escapeHtml).join(', ') : '—';
+    const disposalNature = escapeHtml(data.natureOfDisposal || data.disposalTypeRaw || '—');
 
     let html = `<button class="back-link" onclick="window.clearResults()">← Back to search</button>
         <div class="case-detail-card" id="printable-docket">
             
             <div class="case-detail-header">
-                <div class="case-detail-court">${data.courtName || '—'}</div>
-                <div class="case-detail-title">${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}</div>
-                <div class="case-detail-cnr">CNR: ${data.cnr}</div>
+                <div class="case-detail-court">${escapeHtml(data.courtName || '—')}</div>
+                <div class="case-detail-title">${escapeHtml((data.petitioners||['—'])[0])} vs ${escapeHtml((data.respondents||['—'])[0])}</div>
+                <div class="case-detail-cnr">CNR: ${escapeHtml(data.cnr)}</div>
             </div>
 
             <div class="case-info-grid">
@@ -536,21 +602,21 @@ function renderCaseDetail(payload) {
             <div class="case-info-grid">
                 <div class="case-info-cell">
                     <div class="case-info-label">Case Type</div>
-                    <div class="case-info-value">${data.caseType || '—'}</div>
+                    <div class="case-info-value">${escapeHtml(data.caseType || '—')}</div>
                 </div>
                 <div class="case-info-cell">
                     <div class="case-info-label">Status</div>
-                    <div class="case-info-value" style="color: ${data.caseStatus === 'DISPOSED' || data.caseStatus === 'Disposed' ? 'var(--success-text)' : 'var(--warning-text)'};">${data.caseStatus || 'Pending'}</div>
+                    <div class="case-info-value" style="color: ${data.caseStatus === 'DISPOSED' || data.caseStatus === 'Disposed' ? 'var(--success-text)' : 'var(--warning-text)'};">${escapeHtml(data.caseStatus || 'Pending')}</div>
                 </div>
                 <div class="case-info-cell">
                     <div class="case-info-label">Filing Details</div>
-                    <div class="case-info-value">${data.filingNumber || '—'}</div>
-                    <div style="font-size:0.75rem; color:var(--text-subtle);">${data.filingDate || '—'}</div>
+                    <div class="case-info-value">${escapeHtml(data.filingNumber || '—')}</div>
+                    <div style="font-size:0.75rem; color:var(--text-subtle);">${escapeHtml(data.filingDate || '—')}</div>
                 </div>
                 <div class="case-info-cell">
                     <div class="case-info-label">Registration</div>
-                    <div class="case-info-value">${data.registrationNumber || '—'}</div>
-                    <div style="font-size:0.75rem; color:var(--text-subtle);">${data.registrationDate || '—'}</div>
+                    <div class="case-info-value">${escapeHtml(data.registrationNumber || '—')}</div>
+                    <div style="font-size:0.75rem; color:var(--text-subtle);">${escapeHtml(data.registrationDate || '—')}</div>
                 </div>
             </div>`;
 
@@ -560,17 +626,17 @@ function renderCaseDetail(payload) {
                 ${hasFirDetails ? `
                 <div class="case-info-cell">
                     <div class="case-info-label">FIR Details</div>
-                    <div class="case-info-value">${data.firNumber || '—'} / ${data.firYear || '—'}</div>
-                    <div style="font-size:0.75rem; color:var(--text-subtle);">Station: ${data.policeStation || '—'}</div>
+                    <div class="case-info-value">${escapeHtml(data.firNumber || '—')} / ${escapeHtml(data.firYear || '—')}</div>
+                    <div style="font-size:0.75rem; color:var(--text-subtle);">Station: ${escapeHtml(data.policeStation || '—')}</div>
                 </div>` : ''}
                 <div class="case-info-cell" style="grid-column: ${hasFirDetails ? 'auto' : 'span 2'};">
                     <div class="case-info-label">Hearing Info</div>
-                    <div style="font-size:0.75rem; color:var(--text-subtle); margin-bottom:4px;">First: ${data.firstHearingDate || '—'}</div>
+                    <div style="font-size:0.75rem; color:var(--text-subtle); margin-bottom:4px;">First: ${escapeHtml(data.firstHearingDate || '—')}</div>
                     ${data.caseStatus === 'DISPOSED' || data.caseStatus === 'Disposed' ? `
-                        <div class="case-info-value" style="color: var(--error-text);">Decided: ${data.decisionDate || '—'}</div>
+                        <div class="case-info-value" style="color: var(--error-text);">Decided: ${escapeHtml(data.decisionDate || '—')}</div>
                         <div style="font-size:0.75rem; color:var(--text-subtle);">${disposalNature}</div>
                     ` : `
-                        <div class="case-info-value" style="color: var(--primary);">Next: ${data.nextHearingDate || data.lastHearingDate || '—'}</div>
+                        <div class="case-info-value" style="color: var(--primary);">Next: ${escapeHtml(data.nextHearingDate || data.lastHearingDate || '—')}</div>
                     `}
                 </div>
             </div>`;
@@ -581,7 +647,7 @@ function renderCaseDetail(payload) {
     if (data.acts && data.acts.length > 0) {
         html += `<div class="orders-section-title">Acts & Sections</div>
         <div style="margin-bottom: 24px;">
-            ${data.acts.map(a => `<span class="case-meta-chip" style="margin-right:6px; margin-bottom:6px; display:inline-block;">${a.act} (Sec: ${a.section})</span>`).join('')}
+            ${data.acts.map(a => `<span class="case-meta-chip" style="margin-right:6px; margin-bottom:6px; display:inline-block;">${escapeHtml(a.act)} (Sec: ${escapeHtml(a.section)})</span>`).join('')}
         </div>`;
     }
 
@@ -592,8 +658,8 @@ function renderCaseDetail(payload) {
             html += `
             <div class="order-item" style="padding-right: 18px;">
                 <div class="order-meta">
-                    <div class="order-date">📅 ${item.processDate || 'N/A'}</div>
-                    <div class="order-filename" style="margin-top: 6px; white-space: normal; line-height: 1.4;"><strong>${item.processTitle || '—'}</strong></div>
+                    <div class="order-date">📅 ${escapeHtml(item.processDate || 'N/A')}</div>
+                    <div class="order-filename" style="margin-top: 6px; white-space: normal; line-height: 1.4;"><strong>${escapeHtml(item.processTitle || '—')}</strong></div>
                 </div>
             </div>`;
         });
@@ -603,14 +669,14 @@ function renderCaseDetail(payload) {
     if (allHearings.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Hearing History</div>`;
         allHearings.forEach(item => {
-            const date = item.hearingDate || item.businessOnDate || item.dateOfOrder || 'N/A';
-            const purpose = item.purposeOfListing || item.purpose || '—';
+            const date = escapeHtml(item.hearingDate || item.businessOnDate || item.dateOfOrder || 'N/A');
+            const purpose = escapeHtml(item.purposeOfListing || item.purpose || '—');
             
             html += `
             <div class="order-item" style="padding-right: 18px;">
                 <div class="order-meta">
                     <div class="order-date">📅 ${date}</div>
-                    <div class="order-filename" style="margin-top: 6px;"><strong>Judge:</strong> ${item.judge || '—'}</div>
+                    <div class="order-filename" style="margin-top: 6px;"><strong>Judge:</strong> ${escapeHtml(item.judge || '—')}</div>
                     <div class="order-filename" style="margin-top: 2px;"><strong>Purpose:</strong> ${purpose}</div>
                 </div>
             </div>`;
@@ -621,9 +687,9 @@ function renderCaseDetail(payload) {
     if (allOrders.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Orders & Judgments</div>`;
         allOrders.forEach(item => {
-            const filename = item.orderUrl || item.judgement || item.orderPdf || item.pdfFilename; 
-            const date = item.orderDate || item.dateOfOrder || 'N/A';
-            const type = item.description || item.orderType || item.purpose || 'Order';
+            const filename = escapeHtml(item.orderUrl || item.judgement || item.orderPdf || item.pdfFilename); 
+            const date = escapeHtml(item.orderDate || item.dateOfOrder || 'N/A');
+            const type = escapeHtml(item.description || item.orderType || item.purpose || 'Order');
             
             html += `
             <div class="order-item">
@@ -635,7 +701,7 @@ function renderCaseDetail(payload) {
             
             if (filename) {
                 const safeId = filename.replace(/[^a-zA-Z0-9-]/g, '');
-                html += `<button id="btn-pdf-${safeId}" class="order-download-btn" onclick="window.downloadPDF('${data.cnr}', '${filename}')">📄 Download</button>`;
+                html += `<button id="btn-pdf-${safeId}" class="order-download-btn" onclick="window.downloadPDF('${escapeHtml(data.cnr)}', '${filename}')">📄 Download</button>`;
             } else {
                 html += `<div style="font-size: 0.7rem; color: var(--text-subtle); font-style: italic;">No PDF</div>`;
             }
@@ -643,10 +709,9 @@ function renderCaseDetail(payload) {
         });
     }
 
+    const safeCnr = escapeHtml(data.cnr);
     const existingCase = practiceCases.find(c => c.cnr && c.cnr.replace(/\s+/g,'').toUpperCase() === data.cnr.toUpperCase());
-    
-    // ✨ CRITICAL BUG FIX: Make title safe so apostrophes don't break the HTML button ✨
-    const safeTitle = `${(data.petitioners||['—'])[0]} vs ${(data.respondents||['—'])[0]}`.replace(/'/g, "\\'").replace(/"/g, "&quot;");
+    const safeTitle = `${escapeHtml((data.petitioners||['—'])[0])} vs ${escapeHtml((data.respondents||['—'])[0])}`.replace(/'/g, "\\'").replace(/"/g, "&quot;");
 
     let trackButtonHtml = '';
     if (existingCase) {
@@ -654,16 +719,16 @@ function renderCaseDetail(payload) {
            ✅ View in Practice Dashboard
         </button>`;
     } else {
-        trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${data.cnr}'; document.getElementById('track-title').value='${safeTitle}';">
+        trackButtonHtml = `<button class="add-ledger-btn" style="margin: 0;" onclick="window.openAddCaseModal(); document.getElementById('track-cnr').value='${safeCnr}'; document.getElementById('track-title').value='${safeTitle}';">
            💼 Track this Case in Ledger
         </button>`;
     }
 
     html += `
         <div style="display: flex; flex-direction: column; gap: 12px; margin-top: 32px;">
-            <div id="ai-summary-box-${data.cnr}"></div>
+            <div id="ai-summary-box-${safeCnr}"></div>
             
-            <button class="add-ledger-btn" style="margin: 0; background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: white; border: none; box-shadow: 0 4px 12px rgba(156,107,30,0.25);" onclick="window.generateAISummary('${data.cnr}')">
+            <button class="add-ledger-btn" style="margin: 0; background: linear-gradient(135deg, var(--gold-light), var(--gold)); color: white; border: none; box-shadow: 0 4px 12px rgba(156,107,30,0.25);" onclick="window.generateAISummary('${safeCnr}')">
                ✨ Generate AI Summary
             </button>
             
@@ -694,13 +759,22 @@ window.saveTrackedCase = async function() {
     if (!title) return alert("Case Title / Client Name required.");
 
     const executeSave = async () => {
+        const previousCases = JSON.parse(JSON.stringify(practiceCases));
         practiceCases.unshift({ id: Date.now(), cnr: cnr, title: title, totalFee: total, perHearing: perHearing, collected: 0, payments: [] });
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud(); 
+        window.renderDashboard();
         
-        cnrEl.value = ''; titleEl.value = ''; totalEl.value = ''; hearingEl.value = '';
-        window.closeAddCaseModal(); 
-        window.toggleView('dashboard');
+        try {
+            await syncDashboardToCloud(); 
+            cnrEl.value = ''; titleEl.value = ''; totalEl.value = ''; hearingEl.value = '';
+            window.closeAddCaseModal(); 
+            window.toggleView('dashboard');
+        } catch (e) {
+            practiceCases = previousCases;
+            localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+            window.renderDashboard();
+            alert('Failed to save. Please check your connection.');
+        }
     };
 
     if (userConsent === null && currentUser) { 
@@ -714,34 +788,66 @@ window.saveTrackedCase = async function() {
 
 window.logPayment = async function(id) {
     const input = document.getElementById('pay-input-' + id);
-    const amount = parseInt(input.value);
+    const amount = parseInt(input?.value);
     if (!amount || amount <= 0) return alert("Please enter a valid amount.");
 
+    const previousCases = JSON.parse(JSON.stringify(practiceCases));
     const caseIndex = practiceCases.findIndex(c => c.id === id);
     if (caseIndex > -1) {
         practiceCases[caseIndex].collected += amount;
         practiceCases[caseIndex].payments.push({ date: new Date().toLocaleDateString('en-GB'), amount: amount });
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud(); window.renderDashboard();
+        window.renderDashboard();
+        
+        try {
+            await syncDashboardToCloud();
+        } catch (e) {
+            practiceCases = previousCases;
+            localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+            window.renderDashboard();
+            alert('Failed to save payment. Changes reverted.');
+        }
     }
 };
 
 window.deleteDashboardCase = async function(id) {
     if (!confirm("Are permanently delete this case? payment history lost.")) return;
+    
+    const previousCases = JSON.parse(JSON.stringify(practiceCases));
     practiceCases = practiceCases.filter(c => c.id !== id);
     localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-    await syncDashboardToCloud(); window.renderDashboard();
+    window.renderDashboard();
+    
+    try {
+        await syncDashboardToCloud();
+    } catch(e) {
+        practiceCases = previousCases;
+        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+        window.renderDashboard();
+        alert('Failed to delete. Changes reverted.');
+    }
 };
 
 window.deletePaymentLog = async function(caseId, paymentIndex) {
     if (!confirm("Delete payment log?")) return;
+    
+    const previousCases = JSON.parse(JSON.stringify(practiceCases));
     const caseIndex = practiceCases.findIndex(c => c.id === caseId);
     if (caseIndex > -1) {
         const pAmount = practiceCases[caseIndex].payments[paymentIndex].amount;
         practiceCases[caseIndex].collected -= pAmount; 
         practiceCases[caseIndex].payments.splice(paymentIndex, 1);
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
-        await syncDashboardToCloud(); window.renderDashboard();
+        window.renderDashboard();
+        
+        try {
+            await syncDashboardToCloud();
+        } catch (e) {
+            practiceCases = previousCases;
+            localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
+            window.renderDashboard();
+            alert('Failed to delete payment. Changes reverted.');
+        }
     }
 };
 
@@ -766,7 +872,7 @@ window.renderDashboard = function() {
             const reversedPayments = c.payments.map((p, i) => ({...p, originalIndex: i})).reverse();
             reversedPayments.forEach(p => {
                 paymentsHtml += `<div class="payment-row">
-                    <span class="payment-date">${p.date}</span>
+                    <span class="payment-date">${escapeHtml(p.date)}</span>
                     <div style="display: flex; gap: 12px; align-items: center;">
                         <span class="payment-amount">+ ₹${p.amount}</span>
                         <button class="payment-delete" onclick="window.deletePaymentLog(${c.id}, ${p.originalIndex})">×</button>
@@ -783,8 +889,8 @@ window.renderDashboard = function() {
         <div id="dashboard-case-${c.id}" class="dash-case-card">
             <div class="dash-case-header">
                 <div>
-                    <div class="dash-case-title">${c.title}</div>
-                    <div class="dash-case-cnr">CNR: ${c.cnr || 'Manual Entry'}</div>
+                    <div class="dash-case-title">${escapeHtml(c.title)}</div>
+                    <div class="dash-case-cnr">CNR: ${escapeHtml(c.cnr) || 'Manual Entry'}</div>
                 </div>
                 <div style="display:flex; align-items:center; gap:8px;">
                     <div class="dash-pending-pill ${pendingClass}">${pendingText}</div>
@@ -822,20 +928,22 @@ window.renderDashboard = function() {
     document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
 };
 
+// ✨ SECURITY: API data routed through escapeHtml to prevent XSS
 window.generateAISummary = async function(cnr) {
     if (!currentUser) { window.openLoginModal(); return; }
     if (currentPlan !== 'supreme') { window.openModal(); return; }
 
-    const box = document.getElementById('ai-summary-box-' + cnr);
+    const safeCnr = escapeHtml(cnr);
+    const box = document.getElementById('ai-summary-box-' + safeCnr);
     if (box) box.innerHTML = `<div style="padding: 16px; background: var(--gold-bg); border: 1px solid var(--gold-border); border-radius: 12px; margin-bottom: 12px; font-size: 0.9rem; color: var(--gold); display: flex; align-items: center; gap: 10px;"><div class="spinner" style="border-top-color: var(--gold); width: 16px; height: 16px;"></div> <strong>Analyzing legal docket...</strong></div>`;
 
     try {
-        const res = await fetch(`${API}/ai-summary`, { 
+        const headers = await getAuthHeaders();
+        const { res, json } = await safeFetch(`${API}/ai-summary`, { 
             method: 'POST', 
-            headers: { 'Content-Type': 'application/json' }, 
-            body: JSON.stringify({ cnr: cnr, userId: currentUser.uid }) 
+            headers: headers, 
+            body: JSON.stringify({ cnr: cnr }) 
         });
-        const json = await res.json();
 
         if (res.status === 403) {
             box.innerHTML = '';
@@ -844,7 +952,7 @@ window.generateAISummary = async function(cnr) {
         }
         if (!res.ok) throw new Error(json.error || "Failed to generate AI summary.");
 
-        const summaryText = json.data || json.summary || json.message || "AI analysis complete.";
+        const summaryText = escapeHtml(json.data || json.summary || json.message || "AI analysis complete.");
         
         box.innerHTML = `<div style="padding: 16px; background: var(--gold-bg); border: 1px solid var(--gold-border); border-radius: 12px; margin-bottom: 12px; font-size: 0.9rem; line-height: 1.6; color: var(--text-main);">
             <strong style="color: var(--gold); font-size: 1rem; display: block; margin-bottom: 8px;">✨ AI Case Analysis</strong>
@@ -853,6 +961,6 @@ window.generateAISummary = async function(cnr) {
         
         updateSearchLimitUI(); 
     } catch (e) {
-        box.innerHTML = `<div class="error-box" style="margin-bottom: 12px;">⚠️ Error: ${e.message}</div>`;
+        box.innerHTML = `<div class="error-box" style="margin-bottom: 12px;">⚠️ Error: ${escapeHtml(e.message)}</div>`;
     }
 };
