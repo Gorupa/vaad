@@ -287,7 +287,6 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        // ✨ FIXED: Stamping success: true here!
         res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
@@ -319,7 +318,6 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        // ✨ FIXED: Stamping success: true here!
         res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
@@ -351,7 +349,6 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        // ✨ FIXED: Stamping success: true here!
         res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
@@ -389,7 +386,6 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        // ✨ FIXED: Stamping success: true here!
         res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', cost);
@@ -433,15 +429,25 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
     const fup = await enforceFUP(req, res, 'ai', 1, true);
     if (!fup) return;
 
+    // ✨ SAFETY LOCK: Strictly restrict Vendor AI to Supreme only
+    if (fup.plan !== 'supreme') {
+        await refundCredit(req.uid, 'ai', 1);
+        return res.status(403).json({ 
+            success: false, 
+            error: 'feature_locked', 
+            message: 'AI Order Summaries are exclusive to the Supreme Plan.' 
+        });
+    }
+
     try {
-        const targetUrl = `${getBaseUrl()}/ai-summary`;
+        const { cnr, filename } = req.body;
+        const targetUrl = `${getBaseUrl()}/case/${cnr}/order-ai/${filename}`;
+        
         const response = await fetch(targetUrl, {
-            method: 'POST',
+            method: 'GET',
             headers: { 
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            },
-            body: JSON.stringify(req.body)
+            }
         });
         
         if (!response.ok) {
@@ -452,7 +458,6 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        // ✨ FIXED: Stamping success: true here!
         res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'ai', 1);
