@@ -37,7 +37,7 @@ const app = express();
 
 app.use(helmet());
 
-// ✨ FIX: Restrict CORS to only your frontend domains
+// Restrict CORS to only your frontend domains
 app.use(cors({
     origin: [
         'https://vaad.pages.dev',
@@ -190,6 +190,7 @@ async function refundCredit(userId, actionType, amount = 1) {
 
 // ── ROUTES ──
 
+// ✨ FIX: Shortened receipt string to pass Razorpay's 40-character limit
 app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
     try {
         const { plan } = req.body;
@@ -201,7 +202,8 @@ app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
         const options = {
             amount: amount,
             currency: 'INR',
-            receipt: `rcpt_${userId}_${Date.now()}`,
+            // Fix: Slice the User ID so the total string is ~24 characters (under the 40 char limit)
+            receipt: `r_${userId.substring(0, 8)}_${Date.now()}`,
             notes: { userId: userId, planName: plan }
         };
 
@@ -209,7 +211,7 @@ app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
         res.json({ success: true, data: { order } });
     } catch (error) {
         console.error('Razorpay Order Error:', error);
-        res.status(500).json({ success: false, error: 'Could not initiate payment.' });
+        res.status(500).json({ success: false, error: 'Could not initiate payment. Please check server logs.' });
     }
 });
 
