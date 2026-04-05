@@ -27,6 +27,10 @@ if (!process.env.RAZORPAY_KEY_SECRET && process.env.NODE_ENV === 'production') {
     console.warn("WARNING: RAZORPAY_KEY_SECRET is missing. Payments will fail.");
 }
 
+if (!process.env.ECOURTS_API_KEY && process.env.NODE_ENV === 'production') {
+    console.warn("WARNING: ECOURTS_API_KEY is missing. Upstream eCourts API calls will fail with 401 Unauthorized.");
+}
+
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'rzp_live_SYzqjL2QNwMNDE',
     key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret_for_local_testing'
@@ -188,13 +192,20 @@ async function refundCredit(userId, actionType, amount = 1) {
     }
 }
 
-// ✨ FIX: Helper to safely get the base URL and warn if it's missing
 function getBaseUrl() {
     if (!process.env.ECOURTS_BASE_URL) {
         console.error("CRITICAL: ECOURTS_BASE_URL is not set in Render Environment Variables!");
         throw new Error("Missing Base URL");
     }
     return process.env.ECOURTS_BASE_URL;
+}
+
+// ✨ FIX: Helper to standardize headers so we don't repeat the API key logic
+function getUpstreamHeaders() {
+    return {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.ECOURTS_API_KEY || ''}`
+    };
 }
 
 // ── ROUTES ──
@@ -233,13 +244,13 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/cnr`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getUpstreamHeaders(),
             body: JSON.stringify({ cnr })
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', 1);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
         }
         
         const data = await response.json();
@@ -259,13 +270,13 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/search`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getUpstreamHeaders(),
             body: JSON.stringify(req.body)
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', 1);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
         }
         
         const data = await response.json();
@@ -285,13 +296,13 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/causelist`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getUpstreamHeaders(),
             body: JSON.stringify(req.body)
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', 1);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
         }
         
         const data = await response.json();
@@ -317,13 +328,13 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/bulk-refresh`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getUpstreamHeaders(),
             body: JSON.stringify({ cnrs })
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', cost);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
         }
         
         const data = await response.json();
@@ -343,7 +354,7 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/download`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getUpstreamHeaders(),
             body: JSON.stringify(req.body)
         });
         
@@ -369,13 +380,13 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/ai-summary`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: getUpstreamHeaders(),
             body: JSON.stringify(req.body)
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'ai', 1);
-            return res.status(502).json({ success: false, error: 'AI API unavailable.' });
+            return res.status(502).json({ success: false, error: 'AI API unavailable or Unauthorized.' });
         }
         
         const data = await response.json();
