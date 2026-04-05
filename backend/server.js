@@ -27,10 +27,6 @@ if (!process.env.RAZORPAY_KEY_SECRET && process.env.NODE_ENV === 'production') {
     console.warn("WARNING: RAZORPAY_KEY_SECRET is missing. Payments will fail.");
 }
 
-if (!process.env.ECOURTS_API_KEY && process.env.NODE_ENV === 'production') {
-    console.warn("WARNING: ECOURTS_API_KEY is missing. Upstream eCourts API calls will fail with 401 Unauthorized.");
-}
-
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'rzp_live_SYzqjL2QNwMNDE',
     key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret_for_local_testing'
@@ -41,7 +37,6 @@ const app = express();
 
 app.use(helmet());
 
-// Restrict CORS to only your frontend domains
 app.use(cors({
     origin: [
         'https://vaad.pages.dev',
@@ -99,11 +94,12 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 
 app.use(express.json());
 
+// ✨ UPDATED: Free users now get 5 AI questions per day!
 const PLAN_LIMITS = {
-    free: { search: 1, pdf: 0, ai: 0 },
-    pro: { search: 30, pdf: 5, ai: 0 },
-    promax: { search: 100, pdf: 20, ai: 0 },
-    supreme: { search: 150, pdf: 50, ai: 20 }
+    free: { search: 1, pdf: 0, ai: 5 },
+    pro: { search: 30, pdf: 5, ai: 20 },
+    promax: { search: 100, pdf: 20, ai: 50 },
+    supreme: { search: 150, pdf: 50, ai: 100 }
 };
 
 const PLAN_PRICES = { pro: 9900, promax: 19900, supreme: 39900 };
@@ -200,15 +196,53 @@ function getBaseUrl() {
     return process.env.ECOURTS_BASE_URL;
 }
 
-// ✨ FIX: Helper to standardize headers so we don't repeat the API key logic
-function getUpstreamHeaders() {
-    return {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${process.env.ECOURTS_API_KEY || ''}`
-    };
-}
-
 // ── ROUTES ──
+
+// ✨ NEW: The Ask Legal AI Route
+app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
+    const userQuestion = req.body.question;
+    if (!userQuestion) return res.status(400).json({ success: false, error: 'Missing question' });
+
+    // Deducts 1 AI credit (Free users now have 5/day!)
+    const fup = await enforceFUP(req, res, 'ai', 1, false);
+    if (!fup) return; 
+
+    try {
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (!geminiKey) throw new Error("Missing GEMINI_API_KEY in Render Environment");
+
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+        
+        // Strict system instructions protect your liability
+        const payload = {
+            contents: [{ parts: [{ text: userQuestion }] }],
+            systemInstruction: { parts: [{ text: "You are a highly knowledgeable Indian Legal Assistant. Provide accurate legal information based on Indian law (including new BNS, BNSS, BSA). Always end your response by stating: '\n\nDisclaimer: This is legal information, not official legal advice. Please consult an advocate for your specific case.' Keep answers well-formatted, concise, and professional." }] },
+            generationConfig: { temperature: 0.3 }
+        };
+
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+            await refundCredit(req.uid, 'ai', 1);
+            console.error("Gemini API Error:", data);
+            return res.status(502).json({ success: false, error: 'AI API unavailable.' });
+        }
+        
+        const answerText = data.candidates[0].content.parts[0].text;
+        res.json({ success: true, answer: answerText });
+    } catch (error) {
+        await refundCredit(req.uid, 'ai', 1);
+        console.error(`AI fetch failed:`, error.message);
+        res.status(500).json({ success: false, error: 'Upstream AI error' });
+    }
+});
+
 
 app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
     try {
@@ -244,13 +278,17 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/cnr`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: getUpstreamHeaders(),
+            headers: { 
+                'Content-Type': 'application/json',
+                // Uses the API key you saved in Render
+                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
+            },
             body: JSON.stringify({ cnr })
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', 1);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
         
         const data = await response.json();
@@ -270,13 +308,16 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/search`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: getUpstreamHeaders(),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
+            },
             body: JSON.stringify(req.body)
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', 1);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
         
         const data = await response.json();
@@ -296,13 +337,16 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/causelist`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: getUpstreamHeaders(),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
+            },
             body: JSON.stringify(req.body)
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', 1);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
         
         const data = await response.json();
@@ -328,13 +372,16 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/bulk-refresh`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: getUpstreamHeaders(),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
+            },
             body: JSON.stringify({ cnrs })
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'search', cost);
-            return res.status(502).json({ success: false, error: 'eCourts API unavailable or Unauthorized.' });
+            return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
         
         const data = await response.json();
@@ -354,7 +401,10 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/download`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: getUpstreamHeaders(),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
+            },
             body: JSON.stringify(req.body)
         });
         
@@ -380,13 +430,16 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/ai-summary`;
         const response = await fetch(targetUrl, {
             method: 'POST',
-            headers: getUpstreamHeaders(),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
+            },
             body: JSON.stringify(req.body)
         });
         
         if (!response.ok) {
             await refundCredit(req.uid, 'ai', 1);
-            return res.status(502).json({ success: false, error: 'AI API unavailable or Unauthorized.' });
+            return res.status(502).json({ success: false, error: 'AI API unavailable.' });
         }
         
         const data = await response.json();
