@@ -110,7 +110,6 @@ let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
 let pendingSaveAction = null; 
 
-// ✨ FIX: Restored limits object to prevent UI crash
 const limits = { 
     free: { search: 1, pdf: 0 }, 
     pro: { search: 30, pdf: 5 }, 
@@ -711,7 +710,6 @@ function renderCaseDetail(payload) {
             
             if (filename) {
                 const safeId = filename.replace(/[^a-zA-Z0-9-]/g, '');
-                // ✨ FIX: Use data- attributes so filenames with apostrophes don't break the HTML button!
                 html += `<button id="btn-pdf-${safeId}" class="order-download-btn" data-cnr="${escapeHtml(data.cnr)}" data-filename="${escapeHtml(filename)}" onclick="window.downloadPDF(this.dataset.cnr, this.dataset.filename)">📄 Download</button>`;
             } else {
                 html += `<div style="font-size: 0.7rem; color: var(--text-subtle); font-style: italic;">No PDF</div>`;
@@ -888,7 +886,7 @@ window.renderDashboard = function() {
         </div>`; 
     }
 
-    practiceCases.forEach(c => {
+    practiceCases.forEach((c, index) => {
         totalExpected += c.totalFee; totalCollected += c.collected;
         const remaining = Math.max(0, c.totalFee - c.collected);
         
@@ -947,6 +945,19 @@ window.renderDashboard = function() {
             
             ${paymentsHtml}
         </div>`;
+
+        // ✨ FEATURE: Native Ad Banner (Only for Free Users, every 3 cases)
+        if (currentPlan === 'free' && (index + 1) % 3 === 0) {
+            html += `
+            <div class="dash-case-card native-ad-card" style="border: 1px dashed var(--border); background: var(--bg-alt); display: flex; gap: 12px; cursor: pointer; padding: 12px; margin-top: 12px; box-shadow: none;" onclick="window.open('https://your-sponsor-link.com', '_blank')">
+                <img src="https://raw.githubusercontent.com/gaurav-kalal/vaad/main/assets/ads/sponsor-1.jpg" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft);" alt="Sponsored Ad">
+                <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
+                    <div style="font-size: 0.65rem; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 700;">Sponsored</div>
+                    <div style="font-weight: 600; color: var(--text-main); font-size: 0.95rem; line-height: 1.2;">Premium Legal Templates</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">Access 10,000+ ready-to-use legal formats. Click to explore.</div>
+                </div>
+            </div>`;
+        }
     });
 
     document.getElementById('dashboard-cases').innerHTML = html;
