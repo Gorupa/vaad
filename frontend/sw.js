@@ -1,4 +1,4 @@
-const CACHE_NAME = 'vaad-v3.1'; // Bumped from v2.6 to force cache refresh on all users
+const CACHE_NAME = 'vaad-v3.2'; // Bumped from v2.6 to force cache refresh on all users
 
 const ASSETS_TO_CACHE = [
     '/',
