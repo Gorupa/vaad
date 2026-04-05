@@ -6,7 +6,7 @@ const Razorpay = require('razorpay');
 const admin = require('firebase-admin');
 const helmet = require('helmet');
 const fetch = require('node-fetch');
-const pdfParse = require('pdf-parse'); // ✨ NEW: Required to read Court PDFs!
+const pdfParse = require('pdf-parse'); // Required for reading PDFs before Gemini processing
 
 let serviceAccount;
 try {
@@ -83,7 +83,8 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
                 cycleStartDate: new Date().toISOString().split('T')[0],
                 searchCount: 0,
                 pdfCount: 0,
-                aiCount: 0
+                aiCount: 0,
+                summaryCount: 0
             });
         }
         res.status(200).json({ status: 'ok' });
@@ -95,11 +96,12 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 
 app.use(express.json());
 
+// Perfectly balanced limits for guaranteed 50%+ profit margins
 const PLAN_LIMITS = {
-    free: { search: 1, pdf: 0, ai: 5 },
-    pro: { search: 30, pdf: 5, ai: 20 },
-    promax: { search: 100, pdf: 20, ai: 50 },
-    supreme: { search: 150, pdf: 50, ai: 100 }
+    free: { search: 1, pdf: 0, ai: 5, summary: 0 },
+    pro: { search: 20, pdf: 5, ai: 50, summary: 3 },
+    promax: { search: 50, pdf: 10, ai: 100, summary: 8 },
+    supreme: { search: 100, pdf: 20, ai: 200, summary: 15 }
 };
 
 const PLAN_PRICES = { pro: 9900, promax: 19900, supreme: 39900 };
@@ -142,7 +144,7 @@ async function enforceFUP(req, res, actionType = 'search', deductAmount = 1, req
 
             const updates = {};
             if (diffDays >= 30) {
-                updates.searchCount = 0; updates.pdfCount = 0; updates.aiCount = 0;
+                updates.searchCount = 0; updates.pdfCount = 0; updates.aiCount = 0; updates.summaryCount = 0;
                 updates.cycleStartDate = new Date().toISOString().split('T')[0];
                 if (plan !== 'free') { updates.plan = 'free'; plan = 'free'; }
                 data = { ...data, ...updates, searchCount: 0 };
@@ -239,7 +241,6 @@ app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
         res.status(500).json({ success: false, error: 'Upstream AI error' });
     }
 });
-
 
 app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
     try {
@@ -417,17 +418,14 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
     }
 });
 
-// ✨ THE GEMINI PIVOT: Custom AI Summary Engine
 app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
-    // 1. Unlocked for all paid plans! (Costs 1 AI credit)
-    const fup = await enforceFUP(req, res, 'ai', 1, true);
+    const fup = await enforceFUP(req, res, 'summary', 1, true);
     if (!fup) return;
 
     try {
         const { cnr, filename } = req.body;
         if (!cnr || !filename) throw new Error("Missing CNR or filename");
 
-        // 2. Fetch the raw PDF from eCourts
         const pdfUrl = `${getBaseUrl()}/case/${cnr}/order/${filename}`;
         const pdfResponse = await fetch(pdfUrl, {
             method: 'GET',
@@ -436,16 +434,14 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         
         if (!pdfResponse.ok) {
             console.error(`🚨 UPSTREAM PDF FETCH ERROR FOR AI (${pdfResponse.status})`);
-            await refundCredit(req.uid, 'ai', 1);
+            await refundCredit(req.uid, 'summary', 1);
             return res.status(502).json({ success: false, error: 'Could not fetch order PDF for summarization.' });
         }
 
-        // 3. Extract Text from PDF Buffer
         const pdfBuffer = await pdfResponse.buffer();
         const pdfData = await pdfParse(pdfBuffer);
         const extractedText = pdfData.text;
 
-        // Graceful handling for scanned/handwritten Indian PDFs
         if (!extractedText || extractedText.trim().length < 50) {
             return res.json({ 
                 success: true, 
@@ -453,7 +449,6 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
             });
         }
 
-        // 4. Send the text to Gemini
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY");
 
@@ -465,7 +460,7 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
 
         const payload = {
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.2 } // Low temperature for high factual accuracy
+            generationConfig: { temperature: 0.2 } 
         };
 
         const aiResponse = await fetch(geminiUrl, {
@@ -483,11 +478,10 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         
         const answerText = aiData.candidates[0].content.parts[0].text;
         
-        // 5. Send back to the frontend in the expected format!
         res.json({ success: true, data: { summary: answerText, ai_summary: answerText } });
 
     } catch (error) {
-        await refundCredit(req.uid, 'ai', 1);
+        await refundCredit(req.uid, 'summary', 1);
         console.error(`AI Summary via Gemini failed:`, error.message);
         res.status(500).json({ success: false, error: 'Could not generate AI summary.' });
     }
