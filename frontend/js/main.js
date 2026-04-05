@@ -2,7 +2,7 @@ window.onerror = function(msg, url, line) { console.error("Script Error:", msg, 
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { getAuth, signInWithCredential, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, collection, getDocs, deleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
 const firebaseConfig = {
     apiKey: "AIzaSyCW0rBn8YLGfYqdkj3DCn2RPUeYirIpreU",
@@ -18,20 +18,17 @@ const auth = getAuth(app);
 const provider = new GoogleAuthProvider();
 const db = getFirestore(app);
 
-// ✨ SECURITY: HTML Escaper to prevent XSS attacks
 function escapeHtml(str) {
     if (typeof str !== 'string') return String(str || '');
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// ✨ SECURITY: Get fresh Firebase ID token for backend verification
 async function getAuthHeaders() {
     if (!currentUser) return { 'Content-Type': 'application/json' };
     const token = await currentUser.getIdToken();
     return { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` };
 }
 
-// ✨ STABILITY: Wrapper to catch HTML error pages masquerading as JSON
 async function safeFetch(endpoint, options) {
     const res = await fetch(endpoint, options);
     let json;
@@ -54,7 +51,6 @@ async function handleCredentialResponse(response) {
     catch (error) { resetLoginButtons(); }
 }
 
-// ── Modals ──
 window.openLoginModal = () => { document.getElementById('login-modal').classList.add('active'); };
 window.closeLoginModal = () => { document.getElementById('login-modal').classList.remove('active'); document.getElementById('auth-error').style.display = 'none'; resetLoginButtons(); };
 window.openWhatsNewModal = () => { document.getElementById('whats-new-modal').classList.add('active'); };
@@ -114,6 +110,14 @@ let practiceCases = JSON.parse(localStorage.getItem('vaad_dashboard_cases')) || 
 let userConsent = localStorage.getItem('vaad_dpdp_consent');
 let pendingSaveAction = null; 
 
+// ✨ FIX: Restored limits object to prevent UI crash
+const limits = { 
+    free: { search: 1, pdf: 0 }, 
+    pro: { search: 30, pdf: 5 }, 
+    promax: { search: 100, pdf: 20 }, 
+    supreme: { search: 150, pdf: 50 } 
+};
+
 document.addEventListener('click', async (e) => {
     const logoutTarget = e.target.closest('#logout-btn') || e.target.closest('#drawer-logout-btn');
     const emailLoginBtn = e.target.closest('#email-login-btn');
@@ -148,14 +152,13 @@ document.addEventListener('click', async (e) => {
     }
 });
 
-async function syncDashboardToCloud() {
-    if (!currentUser || userConsent !== 'true' || !syncPermission) return; 
-    try { 
-        await updateDoc(doc(db, "users", currentUser.uid), { practiceCases: practiceCases }); 
-    } catch (e) {
-        console.error("Cloud Sync Failed:", e);
-        throw e; // Throw so optimistic UI can catch and rollback
-    }
+async function bulkUploadLocalCases() {
+    if (!currentUser || userConsent !== 'true' || !syncPermission) return;
+    try {
+        for (const c of practiceCases) {
+            await setDoc(doc(db, "users", currentUser.uid, "cases", c.id.toString()), c);
+        }
+    } catch (e) { console.error("Bulk upload failed:", e); }
 }
 
 async function syncPermissionUI() {
@@ -179,13 +182,19 @@ window.toggleCloudSyncPermission = async function() {
     try {
         await setDoc(doc(db, 'users', currentUser.uid), { permissions: { cloudSync: isChecked } }, { merge: true });
         syncPermission = isChecked;
-        if (!isChecked) alert("Permission revoked."); else { alert("Sync Enabled."); await syncDashboardToCloud(); }
+        if (!isChecked) {
+            alert("Permission revoked. New cases will only save locally.");
+        } else {
+            alert("Sync Enabled. Backing up local cases...");
+            await bulkUploadLocalCases();
+        }
     } catch (e) { alert("Network error."); toggleEl.checked = !isChecked; }
 };
 
 window.acceptConsent = async function() {
     localStorage.setItem('vaad_dpdp_consent', 'true'); userConsent = 'true'; window.closeConsentModal();
-    if (pendingSaveAction) { await pendingSaveAction(); pendingSaveAction = null; } else { await syncDashboardToCloud(); }
+    if (pendingSaveAction) { await pendingSaveAction(); pendingSaveAction = null; } 
+    else { await bulkUploadLocalCases(); }
 };
 
 window.declineConsent = async function() {
@@ -218,12 +227,16 @@ onAuthStateChanged(auth, async (user) => {
                 currentPlan = data.plan || 'free';
                 await syncPermissionUI();
                 
-                if (data.practiceCases && userConsent === 'true') { 
-                    practiceCases = data.practiceCases; 
-                    localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases)); 
+                if (userConsent === 'true') {
+                    const casesSnap = await getDocs(collection(db, "users", user.uid, "cases"));
+                    if (!casesSnap.empty) {
+                        practiceCases = casesSnap.docs.map(d => d.data());
+                        practiceCases.sort((a, b) => b.id - a.id); 
+                        localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases)); 
+                    }
                 }
             } else {
-                await setDoc(doc(db, "users", user.uid), { name: user.displayName || user.email.split('@')[0], email: user.email, plan: 'free', cycleStartDate: new Date().toISOString().split('T')[0], joinedAt: new Date().toISOString(), practiceCases: [], permissions: { cloudSync: true }});
+                await setDoc(doc(db, "users", user.uid), { name: user.displayName || user.email.split('@')[0], email: user.email, plan: 'free', cycleStartDate: new Date().toISOString().split('T')[0], joinedAt: new Date().toISOString(), permissions: { cloudSync: true }});
                 currentPlan = 'free';
             }
         } catch (error) { currentPlan = 'free'; }
@@ -301,7 +314,6 @@ window.selectPlan = function(planType) {
     }
 };
 
-// ✨ SECURITY: Backend-driven Razorpay integration
 window.payWithRazorpay = async function(planType, amountInINR) {
     if (!currentUser) { window.closeModal(); window.openLoginModal(); return; }
     
@@ -311,7 +323,6 @@ window.payWithRazorpay = async function(planType, amountInINR) {
 
     try {
         const headers = await getAuthHeaders();
-        // Server creates the order and locks in the price to prevent manipulation
         const { res, json: orderData } = await safeFetch(`${API}/initiate-payment`, {
             method: 'POST',
             headers: headers,
@@ -330,7 +341,7 @@ window.payWithRazorpay = async function(planType, amountInINR) {
             key: "rzp_live_SYzqjL2QNwMNDE", 
             amount: order.amount, 
             currency: order.currency, 
-            order_id: order.id, // Enables the backend webhook!
+            order_id: order.id,
             name: "Vaad",
             description: `Upgrade to Vaad ${planType.toUpperCase()}`, 
             image: "https://vaad.pages.dev/icon-192.png",
@@ -566,7 +577,6 @@ function renderCaseList(resultsArray) {
     document.getElementById('results').innerHTML = html;
 }
 
-// ✨ SECURITY: Data parsed through escapeHtml
 function renderCaseDetail(payload) {
     if (!payload || !payload.data || !payload.data.courtCaseData) return showError('Invalid API data.'); 
     const data = payload.data.courtCaseData;
@@ -687,7 +697,7 @@ function renderCaseDetail(payload) {
     if (allOrders.length > 0) {
         html += `<div class="orders-section-title" style="margin-top:24px;">Orders & Judgments</div>`;
         allOrders.forEach(item => {
-            const filename = escapeHtml(item.orderUrl || item.judgement || item.orderPdf || item.pdfFilename); 
+            const filename = item.orderUrl || item.judgement || item.orderPdf || item.pdfFilename; 
             const date = escapeHtml(item.orderDate || item.dateOfOrder || 'N/A');
             const type = escapeHtml(item.description || item.orderType || item.purpose || 'Order');
             
@@ -701,7 +711,8 @@ function renderCaseDetail(payload) {
             
             if (filename) {
                 const safeId = filename.replace(/[^a-zA-Z0-9-]/g, '');
-                html += `<button id="btn-pdf-${safeId}" class="order-download-btn" onclick="window.downloadPDF('${escapeHtml(data.cnr)}', '${filename}')">📄 Download</button>`;
+                // ✨ FIX: Use data- attributes so filenames with apostrophes don't break the HTML button!
+                html += `<button id="btn-pdf-${safeId}" class="order-download-btn" data-cnr="${escapeHtml(data.cnr)}" data-filename="${escapeHtml(filename)}" onclick="window.downloadPDF(this.dataset.cnr, this.dataset.filename)">📄 Download</button>`;
             } else {
                 html += `<div style="font-size: 0.7rem; color: var(--text-subtle); font-style: italic;">No PDF</div>`;
             }
@@ -760,12 +771,16 @@ window.saveTrackedCase = async function() {
 
     const executeSave = async () => {
         const previousCases = JSON.parse(JSON.stringify(practiceCases));
-        practiceCases.unshift({ id: Date.now(), cnr: cnr, title: title, totalFee: total, perHearing: perHearing, collected: 0, payments: [] });
+        const newCase = { id: Date.now(), cnr: cnr, title: title, totalFee: total, perHearing: perHearing, collected: 0, payments: [] };
+        
+        practiceCases.unshift(newCase);
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
         window.renderDashboard();
         
         try {
-            await syncDashboardToCloud(); 
+            if (currentUser && userConsent === 'true' && syncPermission) {
+                await setDoc(doc(db, "users", currentUser.uid, "cases", newCase.id.toString()), newCase);
+            }
             cnrEl.value = ''; titleEl.value = ''; totalEl.value = ''; hearingEl.value = '';
             window.closeAddCaseModal(); 
             window.toggleView('dashboard');
@@ -773,7 +788,7 @@ window.saveTrackedCase = async function() {
             practiceCases = previousCases;
             localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
             window.renderDashboard();
-            alert('Failed to save. Please check your connection.');
+            alert('Failed to save to cloud. Please check your connection.');
         }
     };
 
@@ -800,12 +815,17 @@ window.logPayment = async function(id) {
         window.renderDashboard();
         
         try {
-            await syncDashboardToCloud();
+            if (currentUser && userConsent === 'true' && syncPermission) {
+                await updateDoc(doc(db, "users", currentUser.uid, "cases", id.toString()), {
+                    collected: practiceCases[caseIndex].collected,
+                    payments: practiceCases[caseIndex].payments
+                });
+            }
         } catch (e) {
             practiceCases = previousCases;
             localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
             window.renderDashboard();
-            alert('Failed to save payment. Changes reverted.');
+            alert('Failed to save payment to cloud. Changes reverted.');
         }
     }
 };
@@ -819,12 +839,14 @@ window.deleteDashboardCase = async function(id) {
     window.renderDashboard();
     
     try {
-        await syncDashboardToCloud();
+        if (currentUser && userConsent === 'true' && syncPermission) {
+            await deleteDoc(doc(db, "users", currentUser.uid, "cases", id.toString()));
+        }
     } catch(e) {
         practiceCases = previousCases;
         localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
         window.renderDashboard();
-        alert('Failed to delete. Changes reverted.');
+        alert('Failed to delete from cloud. Changes reverted.');
     }
 };
 
@@ -841,12 +863,17 @@ window.deletePaymentLog = async function(caseId, paymentIndex) {
         window.renderDashboard();
         
         try {
-            await syncDashboardToCloud();
+            if (currentUser && userConsent === 'true' && syncPermission) {
+                await updateDoc(doc(db, "users", currentUser.uid, "cases", caseId.toString()), {
+                    collected: practiceCases[caseIndex].collected,
+                    payments: practiceCases[caseIndex].payments
+                });
+            }
         } catch (e) {
             practiceCases = previousCases;
             localStorage.setItem('vaad_dashboard_cases', JSON.stringify(practiceCases));
             window.renderDashboard();
-            alert('Failed to delete payment. Changes reverted.');
+            alert('Failed to delete payment from cloud. Changes reverted.');
         }
     }
 };
@@ -928,7 +955,6 @@ window.renderDashboard = function() {
     document.getElementById('stat-pending').innerText = `₹${Math.max(0, totalExpected - totalCollected)}`;
 };
 
-// ✨ SECURITY: API data routed through escapeHtml to prevent XSS
 window.generateAISummary = async function(cnr) {
     if (!currentUser) { window.openLoginModal(); return; }
     if (currentPlan !== 'supreme') { window.openModal(); return; }
