@@ -198,12 +198,10 @@ function getBaseUrl() {
 
 // ── ROUTES ──
 
-// ✨ NEW: The Ask Legal AI Route
 app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
     const userQuestion = req.body.question;
     if (!userQuestion) return res.status(400).json({ success: false, error: 'Missing question' });
 
-    // Deducts 1 AI credit (Free users now have 5/day!)
     const fup = await enforceFUP(req, res, 'ai', 1, false);
     if (!fup) return; 
 
@@ -213,7 +211,6 @@ app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
 
         const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
         
-        // Strict system instructions protect your liability
         const payload = {
             contents: [{ parts: [{ text: userQuestion }] }],
             systemInstruction: { parts: [{ text: "You are a highly knowledgeable Indian Legal Assistant. Provide accurate legal information based on Indian law (including new BNS, BNSS, BSA). Always end your response by stating: '\n\nDisclaimer: This is legal information, not official legal advice. Please consult an advocate for your specific case.' Keep answers well-formatted, concise, and professional." }] },
@@ -275,18 +272,17 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return; 
 
     try {
-        const targetUrl = `${getBaseUrl()}/cnr`;
+        const targetUrl = `${getBaseUrl()}/case/${cnr}`;
         const response = await fetch(targetUrl, {
-            method: 'POST',
+            method: 'GET',
             headers: { 
-                'Content-Type': 'application/json',
-                // Uses the API key you saved in Render
                 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            },
-            body: JSON.stringify({ cnr })
+            }
         });
         
         if (!response.ok) {
+            const errorText = await response.text(); 
+            console.error(`🚨 UPSTREAM CNR ERROR (${response.status}):`, errorText);
             await refundCredit(req.uid, 'search', 1);
             return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
@@ -305,17 +301,19 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${getBaseUrl()}/search`;
+        const queryParams = new URLSearchParams(req.body).toString();
+        const targetUrl = `${getBaseUrl()}/search?${queryParams}`;
+        
         const response = await fetch(targetUrl, {
-            method: 'POST',
+            method: 'GET',
             headers: { 
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            },
-            body: JSON.stringify(req.body)
+            }
         });
         
         if (!response.ok) {
+            const errorText = await response.text(); 
+            console.error(`🚨 UPSTREAM SEARCH ERROR (${response.status}):`, errorText);
             await refundCredit(req.uid, 'search', 1);
             return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
@@ -334,17 +332,19 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${getBaseUrl()}/causelist`;
+        const queryParams = new URLSearchParams(req.body).toString();
+        const targetUrl = `${getBaseUrl()}/causelist/search?${queryParams}`;
+        
         const response = await fetch(targetUrl, {
-            method: 'POST',
+            method: 'GET',
             headers: { 
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            },
-            body: JSON.stringify(req.body)
+            }
         });
         
         if (!response.ok) {
+            const errorText = await response.text(); 
+            console.error(`🚨 UPSTREAM CAUSELIST ERROR (${response.status}):`, errorText);
             await refundCredit(req.uid, 'search', 1);
             return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
@@ -380,6 +380,8 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
         });
         
         if (!response.ok) {
+            const errorText = await response.text(); 
+            console.error(`🚨 UPSTREAM BULK-REFRESH ERROR (${response.status}):`, errorText);
             await refundCredit(req.uid, 'search', cost);
             return res.status(502).json({ success: false, error: 'eCourts API unavailable.' });
         }
@@ -398,17 +400,19 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${getBaseUrl()}/download`;
+        const { cnr, filename } = req.body;
+        const targetUrl = `${getBaseUrl()}/case/${cnr}/order/${filename}`;
+        
         const response = await fetch(targetUrl, {
-            method: 'POST',
+            method: 'GET',
             headers: { 
-                'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            },
-            body: JSON.stringify(req.body)
+            }
         });
         
         if (!response.ok) {
+            const errorText = await response.text(); 
+            console.error(`🚨 UPSTREAM PDF ERROR (${response.status}):`, errorText);
             await refundCredit(req.uid, 'pdf', 1);
             throw new Error('PDF Fetch Failed');
         }
@@ -438,6 +442,8 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         });
         
         if (!response.ok) {
+            const errorText = await response.text(); 
+            console.error(`🚨 UPSTREAM AI-SUMMARY ERROR (${response.status}):`, errorText);
             await refundCredit(req.uid, 'ai', 1);
             return res.status(502).json({ success: false, error: 'AI API unavailable.' });
         }
