@@ -74,12 +74,11 @@ body {
     display: flex;
     flex-direction: column;
     overflow-x: hidden;
-    /* safe area for notch devices */
     padding-bottom: env(safe-area-inset-bottom);
 }
 
 /* ═══════════════════════════════════════════════════
-   TOP APP BAR (M3 Nav)
+   TOP APP BAR (Universal Nav)
 ═══════════════════════════════════════════════════ */
 .nav {
     background: rgba(255,255,255,0.95);
@@ -123,12 +122,13 @@ body {
 
 .nav-right { display: flex; align-items: center; gap: 10px; }
 
+/* ✨ UNIVERSAL HAMBURGER (Always Visible) */
 .hamburger-btn {
     background: none;
     border: none;
     cursor: pointer;
     color: var(--text-main);
-    display: flex;
+    display: flex; 
     align-items: center;
     justify-content: center;
     width: 40px;
@@ -244,14 +244,6 @@ body {
     color: var(--text-main);
 }
 .btn-action:hover { background: var(--bg-surface); border-color: var(--primary); color: var(--primary); }
-
-.btn-ai {
-    background: var(--primary);
-    color: white;
-    border-color: transparent;
-    box-shadow: 0 2px 8px rgba(26,58,138,0.2);
-}
-.btn-ai:hover { background: var(--primary-hover); transform: translateY(-1px); }
 
 /* ═══════════════════════════════════════════════════
    DRAWER (Side Menu)
@@ -1369,7 +1361,7 @@ input:checked + .slider::before { transform: translateX(22px); }
 .quick-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
 
 /* ═══════════════════════════════════════════════════
-   MOBILE RESPONSIVE
+   MOBILE RESPONSIVE (And Universal Tablet fixes)
 ═══════════════════════════════════════════════════ */
 @media (max-width: 640px) {
     .desktop-only { display: none !important; }
