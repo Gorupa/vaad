@@ -94,7 +94,6 @@ app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, 
 
 app.use(express.json());
 
-// ✨ UPDATED: Free users now get 5 AI questions per day!
 const PLAN_LIMITS = {
     free: { search: 1, pdf: 0, ai: 5 },
     pro: { search: 30, pdf: 5, ai: 20 },
@@ -288,7 +287,8 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        res.json(data);
+        // ✨ FIXED: Stamping success: true here!
+        res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
         console.error(`Fetch failed for CNR ${cnr}:`, error.message);
@@ -319,7 +319,8 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        res.json(data);
+        // ✨ FIXED: Stamping success: true here!
+        res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
         console.error(`Search fetch failed:`, error.message);
@@ -350,7 +351,8 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        res.json(data);
+        // ✨ FIXED: Stamping success: true here!
+        res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
         console.error(`Causelist fetch failed:`, error.message);
@@ -387,7 +389,8 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        res.json(data);
+        // ✨ FIXED: Stamping success: true here!
+        res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'search', cost);
         console.error(`Bulk refresh fetch failed:`, error.message);
@@ -449,7 +452,8 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         }
         
         const data = await response.json();
-        res.json(data);
+        // ✨ FIXED: Stamping success: true here!
+        res.json({ success: true, data: data });
     } catch (error) {
         await refundCredit(req.uid, 'ai', 1);
         console.error(`AI Summary fetch failed:`, error.message);
