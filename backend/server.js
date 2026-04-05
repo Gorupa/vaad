@@ -6,6 +6,7 @@ const Razorpay = require('razorpay');
 const admin = require('firebase-admin');
 const helmet = require('helmet');
 const fetch = require('node-fetch');
+const pdfParse = require('pdf-parse'); // ✨ NEW: Required to read Court PDFs!
 
 let serviceAccount;
 try {
@@ -274,9 +275,7 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
         const targetUrl = `${getBaseUrl()}/case/${cnr}`;
         const response = await fetch(targetUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            }
+            headers: { 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` }
         });
         
         if (!response.ok) {
@@ -305,9 +304,7 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
         
         const response = await fetch(targetUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            }
+            headers: { 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` }
         });
         
         if (!response.ok) {
@@ -336,9 +333,7 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
         
         const response = await fetch(targetUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            }
+            headers: { 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` }
         });
         
         if (!response.ok) {
@@ -360,7 +355,6 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
 app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
     const { cnrs } = req.body;
     if (!Array.isArray(cnrs) || cnrs.length === 0) return res.status(400).json({ success: false, error: 'Invalid CNR list' });
-    
     if (cnrs.length > 50) return res.status(400).json({ success: false, error: 'Maximum 50 CNRs per request.' });
     
     const cost = cnrs.length;
@@ -404,9 +398,7 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
         
         const response = await fetch(targetUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            }
+            headers: { 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` }
         });
         
         if (!response.ok) {
@@ -425,44 +417,79 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
     }
 });
 
+// ✨ THE GEMINI PIVOT: Custom AI Summary Engine
 app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
+    // 1. Unlocked for all paid plans! (Costs 1 AI credit)
     const fup = await enforceFUP(req, res, 'ai', 1, true);
     if (!fup) return;
 
-    // ✨ SAFETY LOCK: Strictly restrict Vendor AI to Supreme only
-    if (fup.plan !== 'supreme') {
-        await refundCredit(req.uid, 'ai', 1);
-        return res.status(403).json({ 
-            success: false, 
-            error: 'feature_locked', 
-            message: 'AI Order Summaries are exclusive to the Supreme Plan.' 
-        });
-    }
-
     try {
         const { cnr, filename } = req.body;
-        const targetUrl = `${getBaseUrl()}/case/${cnr}/order-ai/${filename}`;
-        
-        const response = await fetch(targetUrl, {
+        if (!cnr || !filename) throw new Error("Missing CNR or filename");
+
+        // 2. Fetch the raw PDF from eCourts
+        const pdfUrl = `${getBaseUrl()}/case/${cnr}/order/${filename}`;
+        const pdfResponse = await fetch(pdfUrl, {
             method: 'GET',
-            headers: { 
-                'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` 
-            }
+            headers: { 'Authorization': `Bearer ${process.env.ECOURTS_API_KEY}` }
         });
         
-        if (!response.ok) {
-            const errorText = await response.text(); 
-            console.error(`🚨 UPSTREAM AI-SUMMARY ERROR (${response.status}):`, errorText);
+        if (!pdfResponse.ok) {
+            console.error(`🚨 UPSTREAM PDF FETCH ERROR FOR AI (${pdfResponse.status})`);
             await refundCredit(req.uid, 'ai', 1);
-            return res.status(502).json({ success: false, error: 'AI API unavailable.' });
+            return res.status(502).json({ success: false, error: 'Could not fetch order PDF for summarization.' });
+        }
+
+        // 3. Extract Text from PDF Buffer
+        const pdfBuffer = await pdfResponse.buffer();
+        const pdfData = await pdfParse(pdfBuffer);
+        const extractedText = pdfData.text;
+
+        // Graceful handling for scanned/handwritten Indian PDFs
+        if (!extractedText || extractedText.trim().length < 50) {
+            return res.json({ 
+                success: true, 
+                data: { summary: "This PDF appears to be a scanned image or handwritten document. The AI cannot extract text from it currently." } 
+            });
+        }
+
+        // 4. Send the text to Gemini
+        const geminiKey = process.env.GEMINI_API_KEY;
+        if (!geminiKey) throw new Error("Missing GEMINI_API_KEY");
+
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`;
+        
+        const prompt = `You are an expert Indian Legal AI. Read the following court order text and provide a structured summary. 
+        Include: 1. Date of Order, 2. Judge Name, 3. Key Findings, 4. Next Hearing Date/Outcome. 
+        Keep it strictly factual, professional, and concise.\n\nCourt Order Text:\n${extractedText.substring(0, 25000)}`;
+
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.2 } // Low temperature for high factual accuracy
+        };
+
+        const aiResponse = await fetch(geminiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        const aiData = await aiResponse.json();
+        
+        if (!aiResponse.ok) {
+            console.error("Gemini API Error:", aiData);
+            throw new Error("Gemini API failed");
         }
         
-        const data = await response.json();
-        res.json({ success: true, data: data });
+        const answerText = aiData.candidates[0].content.parts[0].text;
+        
+        // 5. Send back to the frontend in the expected format!
+        res.json({ success: true, data: { summary: answerText, ai_summary: answerText } });
+
     } catch (error) {
         await refundCredit(req.uid, 'ai', 1);
-        console.error(`AI Summary fetch failed:`, error.message);
-        res.status(500).json({ success: false, error: 'Upstream API error' });
+        console.error(`AI Summary via Gemini failed:`, error.message);
+        res.status(500).json({ success: false, error: 'Could not generate AI summary.' });
     }
 });
 
