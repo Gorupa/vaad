@@ -4,22 +4,39 @@ const cors = require('cors');
 const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const admin = require('firebase-admin');
-const helmet = require('helmet'); // Keeping Helmet for essential HTTP header security
+const helmet = require('helmet');
 
-// Initialize Firebase Admin
-// Make sure you have your firebase-adminsdk.json file in the root or set in ENV
-const serviceAccount = require('./firebase-adminsdk.json'); 
+// ✨ FIX: Securely load Firebase Admin SDK from Environment Variables
+let serviceAccount;
+try {
+    if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+        // Production: Parse the JSON string from Render Environment Variables
+        serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    } else {
+        // Local Testing: Load the local file
+        serviceAccount = require('./firebase-adminsdk.json');
+    }
+} catch (error) {
+    console.error("CRITICAL ERROR: Could not load Firebase credentials.", error.message);
+    process.exit(1); // Stop the server if credentials are bad
+}
+
 admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
 });
-const db = admin.firestore();
+
+// ✨ FIX: Prevent crash if Razorpay keys are missing
+if (!process.env.RAZORPAY_KEY_SECRET && process.env.NODE_ENV === 'production') {
+    console.warn("WARNING: RAZORPAY_KEY_SECRET is missing. Payments will fail.");
+}
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID || 'rzp_live_SYzqjL2QNwMNDE',
-    key_secret: process.env.RAZORPAY_KEY_SECRET
+    key_secret: process.env.RAZORPAY_KEY_SECRET || 'dummy_secret_for_local_testing'
 });
 
+const db = admin.firestore();
 const app = express();
 
 // ✨ SECURITY: Helmet secures HTTP headers
@@ -215,7 +232,6 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return; 
 
     try {
-        // Replace this with your actual external eCourts API fetch logic
         const targetUrl = `${process.env.ECOURTS_BASE_URL}/cnr`;
         const response = await fetch(targetUrl, {
             method: 'POST',
@@ -248,7 +264,6 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
 });
 
 app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
-    // Pass requirePro = true to enforceFUP to block free users
     const fup = await enforceFUP(req, res, 'search', 1, true); 
     if (!fup) return;
 
@@ -271,7 +286,6 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
     if (!Array.isArray(cnrs) || cnrs.length === 0) return res.status(400).json({ success: false, error: 'Invalid CNR list' });
     
     const cost = cnrs.length;
-    // Require Pro and deduct cost for all CNRs atomically
     const fup = await enforceFUP(req, res, 'search', cost, true);
     if (!fup) return;
 
@@ -301,7 +315,6 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
             body: JSON.stringify(req.body)
         });
         
-        // Handle PDF stream correctly
         if (!response.ok) throw new Error('PDF Fetch Failed');
         
         res.setHeader('Content-Type', 'application/pdf');
