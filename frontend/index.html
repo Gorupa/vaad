@@ -19,27 +19,24 @@
 <body>
 
 <nav class="nav">
-    <div style="display: flex; align-items: center; gap: 12px;">
+    <div style="display: flex; align-items: center; gap: 16px;">
         <button id="menu-btn" class="hamburger-btn" onclick="window.toggleMenu()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
         </button>
         <a class="nav-brand" href="#" onclick="window.toggleView('search')">Vaad <span class="version-badge">v2.1</span></a>
     </div>
     
-    <div class="nav-right desktop-only">
-        <span class="nav-badge">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a></span>
+    <div class="nav-right">
+        <span class="nav-badge desktop-only">Powered by <a href="https://ecourtsindia.com/api" target="_blank" rel="noopener">eCourtsIndia</a></span>
         
-        <button id="login-btn" class="btn-auth" onclick="window.openLoginModal()">Sign In</button>
-
-        <div id="user-menu" class="user-profile" style="display: none;">
-            <a href="#" onclick="window.toggleView('dashboard')" id="nav-dashboard-btn" class="btn-text-link" style="margin-right:12px; font-weight: 600;">💼 Dashboard</a>
-            <button id="nav-upgrade-btn" class="btn-upgrade" onclick="window.openModal()" style="display: none;">⚡ Upgrade</button>
+        <button id="login-btn" style="display: none !important;"></button>
+        <div id="user-menu" style="display: none !important;">
             <img id="user-avatar" src="" alt="Avatar">
-            <div style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1;">
-                <span id="user-name" style="font-size: 13px; font-weight: 700;">User</span>
-                <span id="user-badge" style="font-size: 9px; font-weight: 800; color: var(--primary); margin-top: 2px;">FREE</span>
-            </div>
-            <button id="logout-btn" class="btn-text-link">Log Out</button>
+            <span id="user-name"></span>
+            <span id="user-badge"></span>
+            <button id="logout-btn"></button>
+            <a href="#" id="nav-dashboard-btn"></a>
+            <button id="nav-upgrade-btn"></button>
         </div>
     </div>
 </nav>
@@ -241,12 +238,23 @@
         <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; margin-bottom: 6px; color: var(--primary);">Select a Plan</h3>
         <p id="modal-subtitle" style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem; line-height: 1.5;">Powered by official eCourts API. Secure, ad-free access.</p>
         
+        <div class="pricing-card" style="background: var(--bg); border-color: var(--border); cursor: default; box-shadow: none;">
+            <div class="pricing-plan-name" style="color: var(--text-muted);">Free Tier</div>
+            <div class="pricing-price">₹0<span> / forever</span></div>
+            <ul class="feature-list">
+                <li><strong>Practice Ledger Dashboard</strong></li>
+                <li><strong>5 AI Queries</strong> per day</li>
+                <li>Statutes & Bare Acts Library</li>
+                <li>1 Trial eCourts Search</li>
+            </ul>
+        </div>
+
         <div id="pro-card" class="pricing-card" onclick="window.selectPlan('pro')">
             <div class="pricing-plan-name" style="color: var(--primary);">Pro Plan</div>
             <div class="pricing-price">₹99<span> / month</span></div>
             <ul class="feature-list">
-                <li><strong>30 Searches</strong> per month</li>
-                <li><strong>5 PDF Downloads</strong> per month</li>
+                <li><strong>30 Searches</strong> + 5 PDFs</li>
+                <li><strong>20 AI Queries</strong> per day</li>
                 <li>Unlock Cause List Search</li>
             </ul>
         </div>
@@ -255,9 +263,9 @@
             <div class="pricing-plan-name" style="color: var(--gold);">Pro Max</div>
             <div class="pricing-price">₹199<span> / month</span></div>
             <ul class="feature-list">
-                <li><strong>100 Searches</strong> per month</li>
-                <li><strong>20 PDF Downloads</strong> per month</li>
-                <li>Unlock Bulk Refresh</li>
+                <li><strong>100 Searches</strong> + 20 PDFs</li>
+                <li><strong>50 AI Queries</strong> per day</li>
+                <li>Unlock Bulk Refresh Engine</li>
             </ul>
         </div>
 
@@ -265,9 +273,9 @@
             <div class="pricing-plan-name" style="color: var(--primary-hover);">Supreme Plan</div>
             <div class="pricing-price">₹399<span> / month</span></div>
             <ul class="feature-list" style="color: var(--text-main);">
-                <li><strong>150 Searches</strong> per month</li>
-                <li><strong>50 PDF Downloads</strong> per month</li>
-                <li>20 AI Case Summaries</li>
+                <li><strong>150 Searches</strong> + 50 PDFs</li>
+                <li><strong>100 AI Queries</strong> per day</li>
+                <li>Instant AI Case Summaries</li>
             </ul>
         </div>
 
@@ -341,35 +349,46 @@
 </div>
 
 <div id="whats-new-modal" class="modal-overlay">
-    <div class="modal-box" style="max-height: 85vh; overflow-y: auto;">
+    <div class="modal-box" style="max-height: 85vh; overflow-y: auto; padding: 24px;">
         <button class="modal-close" onclick="window.closeWhatsNewModal()">×</button>
         <div class="hero-eyebrow" style="margin-bottom: 16px;">Changelog</div>
-        <h2 style="font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--primary); margin-bottom: 24px;">What's New</h2>
+        <h2 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--primary); margin-bottom: 24px;">Version History</h2>
         
-        <div class="release-entry">
-            <div class="release-header">
-                <span class="release-tag gold-tag">v2.1</span>
-                <span class="release-date">The Dharma Update</span>
+        <details class="changelog-details" open>
+            <summary class="changelog-summary"><span style="color: var(--gold); font-weight: 800;">v2.1</span> — The Dharma Update</summary>
+            <div style="padding-top: 12px; border-top: 1px solid var(--border-soft); margin-top: 12px;">
+                <ul class="release-list">
+                    <li><strong>Ask AI Chatbot:</strong> A built-in legal assistant trained on Indian law (BNS included). Free tier gets 5 queries/day.</li>
+                    <li><strong>Statutes Library:</strong> Read Bare Acts directly inside the app.</li>
+                    <li><strong>Universal Design:</strong> Unified hamburger navigation across desktop, tablet, and mobile.</li>
+                    <li><strong>Deep Data Mapping:</strong> Case details beautifully display Advocates, FIRs, Judges, and Acts in a proper Docket format.</li>
+                </ul>
             </div>
-            <h3 class="release-title">Premium Design & FUP Vault</h3>
-            <ul class="release-list">
-                <li><strong>Material 3 UI:</strong> Completely overhauled the interface with Deep Navy, Warm Gold, and Native App gestures.</li>
-                <li><strong>Deep Data Mapping:</strong> Case details now beautifully display Advocates, FIRs, Judges, and Acts in a proper Docket format.</li>
-                <li><strong>Revenue Vault:</strong> Deployed a strict 3-Wallet system on the backend to enforce precise Search, PDF, and AI limits.</li>
-            </ul>
-        </div>
+        </details>
 
-        <div class="release-entry">
-            <div class="release-header">
-                <span class="release-tag">v2.0</span>
-                <span class="release-date">The Dashboard Update</span>
+        <details class="changelog-details">
+            <summary class="changelog-summary"><span style="font-weight: 800;">v2.0</span> — The Dashboard Update</summary>
+            <div style="padding-top: 12px; border-top: 1px solid var(--border-soft); margin-top: 12px;">
+                <ul class="release-list">
+                    <li><strong>Practice Dashboard:</strong> Track case fees, set per-hearing installments, and view outstanding balances.</li>
+                    <li><strong>Universal Search:</strong> Search through your saved clients instantly.</li>
+                    <li><strong>Cloud Sync:</strong> Secure server backup for your ledger data.</li>
+                    <li><strong>Monetization Engine:</strong> Pro, Pro Max, and Supreme tiers added with Razorpay integration.</li>
+                </ul>
             </div>
-            <h3 class="release-title">Ledger & Cloud Sync</h3>
-            <ul class="release-list">
-                <li><strong>Practice Dashboard:</strong> Track case fees, set per-hearing installments, and view outstanding balances.</li>
-                <li><strong>Universal Search:</strong> Search through your saved clients instantly.</li>
-            </ul>
-        </div>
+        </details>
+
+        <details class="changelog-details">
+            <summary class="changelog-summary"><span style="font-weight: 800;">v1.0</span> — Initial Launch</summary>
+            <div style="padding-top: 12px; border-top: 1px solid var(--border-soft); margin-top: 12px;">
+                <ul class="release-list">
+                    <li><strong>Core Search Engine:</strong> Instant CNR, Litigant, and Advocate search using official eCourts data.</li>
+                    <li><strong>PDF Downloads:</strong> Direct court order and judgment retrieval.</li>
+                    <li><strong>Secure Auth:</strong> Firebase email and Google authentication implemented.</li>
+                    <li><strong>PWA Setup:</strong> App is installable on Android and iOS home screens.</li>
+                </ul>
+            </div>
+        </details>
     </div>
 </div>
 
@@ -433,7 +452,7 @@
         <details class="changelog-details">
             <summary class="changelog-summary">How do the FUP (Search Limits) work?</summary>
             <div style="padding-top: 12px; color: var(--text-muted); font-size: 0.9rem; line-height: 1.6;">
-                To prevent abuse of the official API, searches and PDF downloads are limited based on your tier. Free users get 1 trial search. You can upgrade to a Pro, Pro Max, or Supreme plan. Your limits reset automatically every 30 days based on your billing cycle.
+                To prevent abuse of the official API, searches and PDF downloads are limited based on your tier. Free users get 1 trial search and 5 AI queries. You can upgrade to a Pro, Pro Max, or Supreme plan. Your limits reset automatically every 30 days based on your billing cycle.
             </div>
         </details>
     </div>
