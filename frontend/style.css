@@ -1352,6 +1352,23 @@ input:checked + .slider { background: var(--primary); }
 input:checked + .slider::before { transform: translateX(22px); }
 
 /* ═══════════════════════════════════════════════════
+   ✨ ASK AI CHAT UI
+═══════════════════════════════════════════════════ */
+.chat-container { display: flex; flex-direction: column; gap: 16px; max-height: 50vh; overflow-y: auto; padding: 10px 0; margin-bottom: 16px; }
+.chat-bubble { max-width: 85%; padding: 12px 16px; border-radius: var(--radius-lg); font-size: 0.95rem; line-height: 1.5; animation: fadeIn 0.3s ease; }
+.chat-bubble.user { background: var(--primary); color: white; align-self: flex-end; border-bottom-right-radius: 4px; box-shadow: var(--shadow-sm); }
+.chat-bubble.ai { background: var(--bg-alt); border: 1px solid var(--gold-border); color: var(--text-main); align-self: flex-start; border-bottom-left-radius: 4px; box-shadow: var(--shadow-sm); }
+.chat-input-row { display: flex; gap: 8px; margin-top: 10px; }
+.chat-input { flex: 1; padding: 14px 18px; border: 1px solid var(--border); border-radius: var(--radius-pill); font-family: inherit; font-size: 0.95rem; background: var(--bg); color: var(--text-main); transition: border-color 0.2s, box-shadow 0.2s; }
+.chat-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(26,58,138,0.08); }
+.chat-send-btn { background: var(--primary); color: white; border: none; border-radius: var(--radius-pill); padding: 0 24px; font-weight: 700; cursor: pointer; transition: 0.2s; box-shadow: var(--shadow-sm); }
+.chat-send-btn:hover { background: var(--primary-hover); transform: translateY(-1px); }
+.quick-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 12px; scrollbar-width: none; }
+.quick-chips::-webkit-scrollbar { display: none; }
+.quick-chip { white-space: nowrap; padding: 8px 14px; background: var(--bg-alt); border: 1px solid var(--border-soft); border-radius: var(--radius-pill); font-size: 0.8rem; font-weight: 500; color: var(--text-muted); cursor: pointer; transition: 0.2s; }
+.quick-chip:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-bg); }
+
+/* ═══════════════════════════════════════════════════
    MOBILE RESPONSIVE
 ═══════════════════════════════════════════════════ */
 @media (max-width: 640px) {
