@@ -1,8 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-     <script src="https://accounts.google.com/gsi/client" async defer></script>
-
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Vaad 2.1 — The Dharma Update</title>
@@ -118,12 +117,16 @@
             </div>
 
             <hr class="tab-divider">
-            <div class="tabs">
-                <div class="tab indian-tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number</div>
-                <div class="tab indian-tab" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant</div>
-                <div class="tab indian-tab" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
-                <div class="tab indian-tab" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List 🔒</div>
-                <div class="tab us-tab" data-tab="us-case" style="display: none;" onclick="window.switchTab('us-case')">US Case Law 🔒</div>
+            <div class="tabs-scroll-container">
+                <div class="tabs">
+                    <div class="tab indian-tab active" data-tab="cnr" onclick="window.switchTab('cnr')">CNR Number</div>
+                    <div class="tab indian-tab" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant</div>
+                    <div class="tab indian-tab" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
+                    <div class="tab indian-tab" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List 🔒</div>
+                    <div class="tab indian-tab" data-tab="statute" onclick="window.switchTab('statute')">📜 Statutes</div>
+                    <div class="tab" data-tab="ask-ai" onclick="window.switchTab('ask-ai')">🧠 Ask AI</div>
+                    <div class="tab us-tab" data-tab="us-case" style="display: none;" onclick="window.switchTab('us-case')">US Case Law 🔒</div>
+                </div>
             </div>
             
             <div class="search-form">
@@ -141,22 +144,62 @@
                         <textarea id="cnr-bulk-input" rows="4" placeholder="Paste up to 50 CNRs here (one per line)..."></textarea>
                         <div class="cnr-hint">1 search credit deducted per CNR</div>
                     </div>
+                    <button class="btn-search" id="search-btn" onclick="window.handleSearch()"><span id="btn-text">Search Cases</span></button>
+                    <div id="limit-text" class="free-limits">Sign in to search</div>
                 </div>
 
-                <div class="form-panel indian-panel" id="panel-litigant" style="display: none;"><div class="field"><label class="field-label">Party Name</label><input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off"></div></div>
-                <div class="form-panel indian-panel" id="panel-advocate" style="display: none;"><div class="field"><label class="field-label">Advocate Name</label><input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off"></div></div>
+                <div class="form-panel indian-panel" id="panel-litigant" style="display: none;">
+                    <div class="field"><label class="field-label">Party Name</label><input type="text" id="litigant-input" placeholder="e.g. Rahul Sharma" autocomplete="off"></div>
+                    <button class="btn-search" onclick="window.handleSearch()">Search Cases</button>
+                </div>
+                
+                <div class="form-panel indian-panel" id="panel-advocate" style="display: none;">
+                    <div class="field"><label class="field-label">Advocate Name</label><input type="text" id="advocate-input" placeholder="e.g. Vikram Singh" autocomplete="off"></div>
+                    <button class="btn-search" onclick="window.handleSearch()">Search Cases</button>
+                </div>
+                
                 <div class="form-panel indian-panel" id="panel-causelist" style="display: none;">
                     <div style="display: flex; gap: 12px; margin-bottom: 12px;"><div class="field" style="flex: 1;"><label class="field-label">State Code</label><input type="text" id="causelist-state" placeholder="e.g. RJ" maxlength="2" style="text-transform: uppercase;"></div></div>
                     <div class="field"><label class="field-label">Advocate / Party</label><input type="text" id="causelist-query" placeholder="e.g. Sharma"></div>
+                    <button class="btn-search" onclick="window.handleSearch()">Search Cause List</button>
                 </div>
+
+                <div class="form-panel indian-panel" id="panel-statute" style="display: none;">
+                    <div class="field">
+                        <label class="field-label">Search Bare Acts & Statutes</label>
+                        <input type="text" id="statute-input" placeholder="e.g., Bharatiya Nyaya Sanhita, Sec 420">
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
+                            Search the official central acts database.
+                        </div>
+                    </div>
+                    <button class="btn-search" onclick="window.handleStatuteSearch()">Search Laws</button>
+                </div>
+
+                <div class="form-panel" id="panel-ask-ai" style="display: none;">
+                    <div style="font-size: 1.1rem; font-weight: 600; color: var(--text-main); margin-bottom: 4px;">Legal Assistant</div>
+                    <div style="font-size: 0.8rem; color: var(--text-subtle); margin-bottom: 16px;">Get instant legal information based on Indian law.</div>
+                    
+                    <div class="quick-chips">
+                        <div class="quick-chip" onclick="document.getElementById('ai-chat-input').value=this.innerText; window.sendChatMessage();">What is Section 420 under the new BNS?</div>
+                        <div class="quick-chip" onclick="document.getElementById('ai-chat-input').value=this.innerText; window.sendChatMessage();">Format of a legal notice for a bounced cheque</div>
+                        <div class="quick-chip" onclick="document.getElementById('ai-chat-input').value=this.innerText; window.sendChatMessage();">What are the grounds for divorce in Hindu Marriage Act?</div>
+                    </div>
+
+                    <div class="chat-container" id="chat-history">
+                        <div class="chat-bubble ai">Hello! I am your Vaad Legal Assistant. How can I help you today?</div>
+                    </div>
+
+                    <div class="chat-input-row">
+                        <input type="text" id="ai-chat-input" class="chat-input" placeholder="Ask a legal question...">
+                        <button class="chat-send-btn" id="ai-send-btn" onclick="window.sendChatMessage()">Send</button>
+                    </div>
+                </div>
+
                 <div class="form-panel us-panel" id="panel-us-case" style="display: none; text-align: center; padding: 40px 20px;">
                     <div class="hero-eyebrow" style="margin-bottom: 10px;">Coming Soon</div>
                     <h3 style="color: var(--text-main); font-size: 1.25rem;">US Case Law</h3>
                     <p style="color: var(--text-muted); font-size: 0.95rem; margin-top: 8px;">Training AI on millions of US Federal and State court opinions.</p>
                 </div>
-
-                <button class="btn-search" id="search-btn" onclick="window.handleSearch()"><span id="btn-text">Search Cases</span></button>
-                <div id="limit-text" class="free-limits">Sign in to search</div>
             </div>
         </div>
     </div>
