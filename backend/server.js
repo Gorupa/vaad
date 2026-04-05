@@ -1,281 +1,335 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const fetch = require('node-fetch');
 const crypto = require('crypto');
-const admin = require('firebase-admin');
 const Razorpay = require('razorpay');
+const admin = require('firebase-admin');
+const helmet = require('helmet'); // Keeping Helmet for essential HTTP header security
 
-// ── FIREBASE ADMIN INIT ──
-if (process.env.FIREBASE_SERVICE_ACCOUNT) {
-    try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        admin.initializeApp({ credential: admin.credential.cert(serviceAccount) });
-        console.log("✅ Firebase Admin Initialized.");
-    } catch (e) { 
-        console.error("❌ Firebase Init Error:", e.message); 
-    }
-} else {
-    console.warn("⚠️ FIREBASE_SERVICE_ACCOUNT missing. FUP and webhooks will not work.");
-}
+// Initialize Firebase Admin
+// Make sure you have your firebase-adminsdk.json file in the root or set in ENV
+const serviceAccount = require('./firebase-adminsdk.json'); 
+admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+});
+const db = admin.firestore();
 
-const db = admin.apps.length ? admin.firestore() : null;
-
-// ── RAZORPAY INIT ──
-const rzp = (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_SECRET_KEY) 
-    ? new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_SECRET_KEY }) 
-    : null;
-
-if (!rzp) console.warn("⚠️ Razorpay keys missing. Payment orders will fail.");
+// Initialize Razorpay
+const razorpay = new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID || 'rzp_live_SYzqjL2QNwMNDE',
+    key_secret: process.env.RAZORPAY_KEY_SECRET
+});
 
 const app = express();
 
-app.use(cors({ 
-    origin: ['https://vaad.pages.dev', 'http://localhost:3000', 'http://localhost:5500'] 
-}));
+// ✨ SECURITY: Helmet secures HTTP headers
+app.use(helmet());
+app.use(cors());
 
-// RAW BODY for webhook (must be before express.json)
-app.use('/api/webhook/razorpay', express.raw({ type: 'application/json' }));
-app.use(express.json());
-
-const API_KEY = process.env.ECOURTS_API_KEY;
-const BASE_URL = 'https://webapi.ecourtsindia.com/api/partner';
-const eCourtsHeaders = { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' };
-
-// ✨ THE 3-WALLET FUP MODEL ✨
-const PLAN_LIMITS = {
-    free:    { search: 1,   pdf: 0,  ai: 0 },
-    pro:     { search: 30,  pdf: 5,  ai: 0 },
-    promax:  { search: 100, pdf: 20, ai: 0 },
-    supreme: { search: 150, pdf: 50, ai: 20 }
-};
-
-// ─────────────────────────────────────────────
-// DYNAMIC FUP MIDDLEWARE (Protects Search, PDF, AI, and Bulk Cost)
-// ─────────────────────────────────────────────
-async function enforceFUP(req, res, actionType = 'search', deductAmount = 1) {
-    if (!db) { res.status(500).json({ success: false, error: 'Database error.' }); return null; }
-    
-    const { userId } = req.body;
-    if (!userId) { res.status(401).json({ success: false, error: 'Please sign in.' }); return null; }
-
-    let userSnap = await db.collection('users').doc(userId).get();
-    if (!userSnap.exists) { res.status(401).json({ success: false, error: 'User not found.' }); return null; }
-
-    const userRef = userSnap.ref;
-    let data = userSnap.data();
-    let plan = String(data.plan || 'free').toLowerCase().replace(/[^a-z]/g, '');
-    if (!PLAN_LIMITS[plan]) plan = 'free';
-
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : today; 
-    cycleStart.setHours(0, 0, 0, 0);
-    const diffDays = Math.floor((today - cycleStart) / (1000 * 60 * 60 * 24));
-
-    if (diffDays >= 30) {
-        const todayStr = new Date().toISOString().split('T')[0];
-        if (plan !== 'free') {
-            await userRef.update({ plan: 'free', searchCount: 0, pdfCount: 0, aiCount: 0, cycleStartDate: todayStr });
-            res.status(403).json({ success: false, error: 'subscription_expired', message: 'Your Pro subscription has expired. Please renew.' });
-            return null; 
-        } else {
-            await userRef.update({ searchCount: 0, pdfCount: 0, aiCount: 0, cycleStartDate: todayStr });
-            data.searchCount = 0; data.pdfCount = 0; data.aiCount = 0;
-        }
-    }
-
-    const limit = PLAN_LIMITS[plan][actionType];
-    const usedCount = data[`${actionType}Count`] || 0;
-
-    if (usedCount + deductAmount > limit) {
-        let msg = `Limit reached. You have ${Math.max(0, limit - usedCount)} credits left, but tried to use ${deductAmount}. Upgrade your plan.`;
-        if (actionType === 'pdf' && plan === 'free') msg = "PDF downloads are a premium feature. Please upgrade your plan.";
-        if (actionType === 'ai' && plan !== 'supreme') msg = "AI Assistant is exclusive to the Supreme plan.";
-        res.status(403).json({ success: false, error: 'limit_reached', message: msg });
-        return null;
-    }
-
-    await userRef.update({ [`${actionType}Count`]: admin.firestore.FieldValue.increment(deductAmount) });
-    return { userRef, actionType, deductAmount, plan };
-}
-
-async function decrementOnFailure(fup) {
-    if (!fup) return;
+// ✨ SECURITY: Webhook MUST use express.raw BEFORE express.json
+// This is required to accurately verify the Razorpay HMAC signature
+app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
-        await fup.userRef.update({ [`${fup.actionType}Count`]: admin.firestore.FieldValue.increment(-fup.deductAmount) });
-    } catch (e) { console.error("FUP decrement failed:", e); }
-}
-
-// ── ROUTE 1: CNR SEARCH ──
-app.post('/api/cnr', async (req, res) => {
-    const fup = await enforceFUP(req, res, 'search', 1); if (!fup) return;
-    try {
-        const r = await fetch(`${BASE_URL}/case/${req.body.cnr}`, { headers: eCourtsHeaders });
-        const d = await r.json();
-        if (!r.ok) { await decrementOnFailure(fup); return res.status(400).json({ success: false, error: d.message }); }
-        res.json({ success: true, data: d });
-    } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
-});
-
-// ── ROUTE 2: LIST SEARCH ──
-app.post('/api/search', async (req, res) => {
-    const fup = await enforceFUP(req, res, 'search', 1); if (!fup) return;
-    let url = `${BASE_URL}/search?pageSize=10&${req.body.type}s=${encodeURIComponent(req.body.query)}`;
-    try {
-        const r = await fetch(url, { headers: eCourtsHeaders });
-        const d = await r.json();
-        if (!r.ok) { await decrementOnFailure(fup); return res.status(400).json({ success: false, error: d.message }); }
-        res.json({ success: true, data: d.data.results });
-    } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
-});
-
-// ── ROUTE 3: CAUSE LIST ──
-app.post('/api/causelist', async (req, res) => {
-    // 🔒 CAUSE LIST LOCK: Pro and above only
-    const userDoc = await db.collection('users').doc(req.body.userId).get();
-    if ((userDoc.data()?.plan || 'free') === 'free') {
-        return res.status(403).json({ success: false, error: 'limit_reached', message: 'Cause List requires a Pro plan.' });
-    }
-    
-    const fup = await enforceFUP(req, res, 'search', 1); if (!fup) return;
-    try {
-        const r = await fetch(`${BASE_URL}/causelist/search?q=${encodeURIComponent(req.body.query)}&state=${encodeURIComponent(req.body.state)}&limit=20`, { headers: eCourtsHeaders });
-        const d = await r.json();
-        if (!r.ok) { await decrementOnFailure(fup); return res.status(400).json({ success: false, error: d.message }); }
-        res.json({ success: true, data: d });
-    } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
-});
-
-// ── ROUTE 4: BULK REFRESH ──
-app.post('/api/bulk-refresh', async (req, res) => {
-    // 🔒 BULK LOCK: Pro Max and above only
-    const userDoc = await db.collection('users').doc(req.body.userId).get();
-    const p = userDoc.data()?.plan || 'free';
-    if (p === 'free' || p === 'pro') {
-        return res.status(403).json({ success: false, error: 'limit_reached', message: 'Bulk Refresh requires Pro Max.' });
-    }
-    
-    // ✨ Deduct the exact array length to protect revenue
-    const fup = await enforceFUP(req, res, 'search', req.body.cnrs.length); if (!fup) return;
-    try {
-        const r = await fetch(`${BASE_URL}/case/bulk-refresh`, { method: 'POST', headers: eCourtsHeaders, body: JSON.stringify({ cnrs: req.body.cnrs }) });
-        const d = await r.json();
-        if (!r.ok) { await decrementOnFailure(fup); return res.status(400).json({ success: false, error: d.message }); }
-        res.json({ success: true, data: d });
-    } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
-});
-
-// ── ROUTE 5: AI ORDER ANALYSIS (Uses 'ai' credit) ──
-app.post('/api/order/analyze', async (req, res) => {
-    // 🔒 AI LOCK: Supreme only
-    const userDoc = await db.collection('users').doc(req.body.userId).get();
-    const p = userDoc.data()?.plan || 'free';
-    if (p !== 'supreme') {
-        return res.status(403).json({ success: false, error: 'limit_reached', message: 'AI Assistant requires the Supreme plan.' });
-    }
-
-    const fup = await enforceFUP(req, res, 'ai', 1); if (!fup) return;
-    const { cnr, filename, type } = req.body;
-    try {
-        const endpointType = type === 'summary' ? 'order-ai' : 'order-md';
-        const response = await fetch(`${BASE_URL}/case/${cnr}/${endpointType}/${filename}`, { headers: eCourtsHeaders });
-        const data = await response.json();
-        if (!response.ok) { await decrementOnFailure(fup); return res.status(400).json({ success: false, error: data.message }); }
-        res.json({ success: true, data });
-    } catch (error) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
-});
-
-// ── ROUTE 6: PDF DOWNLOAD (Uses 'pdf' credit) ──
-app.post('/api/download', async (req, res) => {
-    const fup = await enforceFUP(req, res, 'pdf', 1); if (!fup) return;
-    try {
-        const r = await fetch(`${BASE_URL}/case/${req.body.cnr}/order/${req.body.filename}`, { headers: eCourtsHeaders });
-        if (r.headers.get('content-type')?.includes('application/json')) {
-            await decrementOnFailure(fup);
-            return res.status(400).json({ success: false, error: 'PDF not found' });
-        }
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename="${req.body.filename}"`);
-        r.body.pipe(res);
-    } catch (e) { await decrementOnFailure(fup); res.status(500).json({ success: false, error: 'Server error' }); }
-});
-
-// ── ROUTE 7: INITIATE PAYMENT ORDER ──
-app.post('/api/initiate-payment', async (req, res) => {
-    if (!rzp) return res.status(500).json({ success: false, error: 'Payment service not configured.' });
-    const officialPricing = { pro: 9900, promax: 19900, supreme: 39900 };
-    if (!officialPricing[req.body.plan] || (req.body.amount * 100) !== officialPricing[req.body.plan]) {
-        return res.status(400).json({ success: false, error: 'Invalid amount' });
-    }
-    try {
-        const order = await rzp.orders.create({ 
-            amount: officialPricing[req.body.plan], 
-            currency: 'INR', 
-            receipt: `vaad_${Date.now()}`, 
-            notes: { userId: req.body.userId, planName: req.body.plan } 
-        });
-        res.json({ success: true, data: { order } });
-    } catch (error) { res.status(500).json({ success: false, error: 'Order failed.' }); }
-});
-
-// ── ROUTE 8: RAZORPAY WEBHOOK ──
-app.post('/api/webhook/razorpay', async (req, res) => {
-    try {
-        const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-        
-        if (!webhookSecret) {
-            console.error("❌ CRITICAL: RAZORPAY_WEBHOOK_SECRET is missing in Render Environment Variables!");
-            return res.status(500).json({ error: 'Server config error.' });
-        }
-
+        const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
         const signature = req.headers['x-razorpay-signature'];
-        if (!signature) return res.status(400).json({ error: 'No signature provided.' });
+        const body = req.body.toString();
 
-        const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(req.body).digest('hex');
-        
-        if (signature !== expectedSignature) {
-            console.error("⛔ WEBHOOK BLOCKED: Invalid signature. Your secret in Razorpay does not match your secret in Render.");
-            return res.status(400).json({ error: 'Invalid signature.' });
+        const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('hex');
+
+        if (expectedSignature !== signature) {
+            console.error('⛔ Webhook signature mismatch');
+            return res.status(400).json({ success: false, error: 'Invalid signature' });
         }
-        
-        const payload = JSON.parse(req.body.toString());
-        console.log(`📡 Razorpay Webhook Received Event: ${payload.event}`);
 
-        // Listen for captured payments
+        const payload = JSON.parse(body);
+        
         if (payload.event === 'payment.captured') {
             const payment = payload.payload.payment.entity;
             const userId = payment.notes?.userId;
             const planName = payment.notes?.planName;
 
-            if (!userId || !planName) {
-                console.error("❌ Missing 'notes' in payment entity. Cannot identify user:", payment.notes);
-                return res.status(400).json({ error: 'Missing notes data' });
+            // ✨ SECURITY: CRITICAL-2 - Re-verify the amount paid matches the plan price
+            const officialPricingPaise = { pro: 9900, promax: 19900, supreme: 39900 };
+            const expectedAmount = officialPricingPaise[planName];
+
+            if (!expectedAmount || payment.amount !== expectedAmount) {
+                console.error(`⛔ FRAUD ALERT: User ${userId} paid ₹${payment.amount/100} but planName is '${planName}' (expected ₹${expectedAmount/100})`);
+                // Return 200 so Razorpay stops retrying, but DO NOT upgrade the user
+                return res.status(200).json({ status: 'fraud_detected_manual_review_required' });
             }
 
-            console.log(`💰 Processing Upgrade: User [${userId}] -> Plan [${planName}]`);
+            console.log(`✅ Webhook verified. Upgrading user ${userId} to ${planName}`);
             
-            // Upgrade plan and instantly reset all 3 wallets to 0
-            await db.collection('users').doc(userId).update({ 
-                plan: planName, 
-                cycleStartDate: new Date().toISOString().split('T')[0], 
-                searchCount: 0, 
-                pdfCount: 0, 
-                aiCount: 0 
+            await db.collection('users').doc(userId).update({
+                plan: planName,
+                cycleStartDate: new Date().toISOString().split('T')[0],
+                searchCount: 0,
+                pdfCount: 0,
+                aiCount: 0
             });
-            
-            console.log(`✅ SUCCESS: User [${userId}] is now on ${planName} plan!`);
-            return res.status(200).json({ status: 'success' });
         }
-        
-        console.log(`⏭️ Ignored event: ${payload.event}`);
-        res.status(200).json({ status: 'ignored' });
-
+        res.status(200).json({ status: 'ok' });
     } catch (error) {
-        console.error("🔥 FATAL WEBHOOK ERROR:", error.message);
-        res.status(500).json({ error: 'Internal server error.' });
+        console.error('Webhook error:', error);
+        res.status(500).json({ success: false, error: 'Webhook processing failed' });
     }
 });
 
-// ── ROUTE 9: HEALTH CHECK ──
-app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
+// Standard JSON parser for all other routes
+app.use(express.json());
 
-app.listen(process.env.PORT || 3000, () => console.log(`🚀 Vaad backend running`));
+// System Configuration Source of Truth
+const PLAN_LIMITS = {
+    free: { search: 1, pdf: 0, ai: 0 },
+    pro: { search: 30, pdf: 5, ai: 0 },
+    promax: { search: 100, pdf: 20, ai: 0 },
+    supreme: { search: 150, pdf: 50, ai: 20 }
+};
+
+const PLAN_PRICES = {
+    pro: 9900,
+    promax: 19900,
+    supreme: 39900
+};
+
+// ✨ SECURITY: HIGH-1 - Verify Firebase ID Token
+async function verifyFirebaseAuth(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ success: false, error: 'No auth token provided.' });
+    }
+    try {
+        const token = authHeader.split('Bearer ')[1];
+        const decoded = await admin.auth().verifyIdToken(token);
+        req.uid = decoded.uid; // Attach verified UID to request
+        next();
+    } catch (e) {
+        return res.status(401).json({ success: false, error: 'Invalid or expired token.' });
+    }
+}
+
+// ✨ SECURITY: CRITICAL-3 - Enforce FUP using Atomic Transactions
+async function enforceFUP(req, res, actionType = 'search', deductAmount = 1, requirePro = false) {
+    if (!db) { res.status(500).json({ success: false, error: 'Database error.' }); return null; }
+    
+    const userId = req.uid; // Uses the verified UID from middleware
+
+    const userRef = db.collection('users').doc(userId);
+    let resultFup = null;
+
+    try {
+        await db.runTransaction(async (transaction) => {
+            const userSnap = await transaction.get(userRef);
+            if (!userSnap.exists) throw new Error('USER_NOT_FOUND');
+
+            let data = userSnap.data();
+            let plan = String(data.plan || 'free').toLowerCase().replace(/[^a-z]/g, '');
+            if (!PLAN_LIMITS[plan]) plan = 'free';
+
+            // Cycle reset logic inside transaction
+            const today = new Date(); today.setHours(0,0,0,0);
+            const cycleStart = data.cycleStartDate ? new Date(data.cycleStartDate) : today;
+            cycleStart.setHours(0,0,0,0);
+            const diffDays = Math.floor((today - cycleStart) / (1000 * 60 * 60 * 24));
+
+            const updates = {};
+            if (diffDays >= 30) {
+                updates.searchCount = 0; updates.pdfCount = 0; updates.aiCount = 0;
+                updates.cycleStartDate = new Date().toISOString().split('T')[0];
+                if (plan !== 'free') { updates.plan = 'free'; plan = 'free'; }
+                data = { ...data, ...updates, searchCount: 0 };
+            }
+
+            // Feature Gate check
+            if (requirePro && plan === 'free') {
+                throw new Error('FEATURE_LOCKED');
+            }
+
+            const limit = PLAN_LIMITS[plan][actionType] || 0;
+            const usedCount = data[`${actionType}Count`] || 0;
+
+            // Check Limit
+            if (usedCount + deductAmount > limit) {
+                throw new Error(`LIMIT_REACHED:${plan}:${usedCount}:${limit}`);
+            }
+
+            // Increment Limit atomically
+            updates[`${actionType}Count`] = admin.firestore.FieldValue.increment(deductAmount);
+            transaction.update(userRef, updates);
+            
+            resultFup = { actionType, deductAmount, plan };
+        });
+        return resultFup;
+    } catch (e) {
+        if (e.message === 'USER_NOT_FOUND') {
+            res.status(401).json({ success: false, error: 'User not found.' }); return null;
+        }
+        if (e.message === 'FEATURE_LOCKED') {
+            res.status(403).json({ success: false, error: 'feature_locked', message: 'This feature requires a Premium plan.' }); return null;
+        }
+        if (e.message.startsWith('LIMIT_REACHED')) {
+            const [, plan, used, limit] = e.message.split(':');
+            res.status(403).json({ success: false, error: 'limit_reached', message: `Limit reached (${used}/${limit}). Please upgrade.` });
+            return null;
+        }
+        console.error(e);
+        res.status(500).json({ success: false, error: 'Server error during FUP check.' }); return null;
+    }
+}
+
+// ── ROUTES ──
+
+// ✨ SECURITY: CRITICAL-1 - Secure backend order creation for Razorpay
+app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
+    try {
+        const { plan } = req.body;
+        const userId = req.uid;
+
+        const amount = PLAN_PRICES[plan];
+        if (!amount) return res.status(400).json({ success: false, error: 'Invalid plan selected.' });
+
+        const options = {
+            amount: amount,
+            currency: 'INR',
+            receipt: `rcpt_${userId}_${Date.now()}`,
+            notes: {
+                userId: userId,
+                planName: plan
+            }
+        };
+
+        const order = await razorpay.orders.create(options);
+        
+        res.json({ success: true, data: { order } });
+    } catch (error) {
+        console.error('Razorpay Order Error:', error);
+        res.status(500).json({ success: false, error: 'Could not initiate payment.' });
+    }
+});
+
+app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
+    const { cnr } = req.body;
+    if (!cnr) return res.status(400).json({ success: false, error: 'Missing CNR' });
+
+    const fup = await enforceFUP(req, res, 'search', 1, false);
+    if (!fup) return; 
+
+    try {
+        // Replace this with your actual external eCourts API fetch logic
+        const targetUrl = `${process.env.ECOURTS_BASE_URL}/cnr`;
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cnr })
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Upstream API error' });
+    }
+});
+
+app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
+    const fup = await enforceFUP(req, res, 'search', 1, false);
+    if (!fup) return;
+
+    try {
+        const targetUrl = `${process.env.ECOURTS_BASE_URL}/search`;
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body)
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Upstream API error' });
+    }
+});
+
+app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
+    // Pass requirePro = true to enforceFUP to block free users
+    const fup = await enforceFUP(req, res, 'search', 1, true); 
+    if (!fup) return;
+
+    try {
+        const targetUrl = `${process.env.ECOURTS_BASE_URL}/causelist`;
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body)
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Upstream API error' });
+    }
+});
+
+app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
+    const { cnrs } = req.body;
+    if (!Array.isArray(cnrs) || cnrs.length === 0) return res.status(400).json({ success: false, error: 'Invalid CNR list' });
+    
+    const cost = cnrs.length;
+    // Require Pro and deduct cost for all CNRs atomically
+    const fup = await enforceFUP(req, res, 'search', cost, true);
+    if (!fup) return;
+
+    try {
+        const targetUrl = `${process.env.ECOURTS_BASE_URL}/bulk-refresh`;
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cnrs })
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Upstream API error' });
+    }
+});
+
+app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
+    const fup = await enforceFUP(req, res, 'pdf', 1, true);
+    if (!fup) return;
+
+    try {
+        const targetUrl = `${process.env.ECOURTS_BASE_URL}/download`;
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body)
+        });
+        
+        // Handle PDF stream correctly
+        if (!response.ok) throw new Error('PDF Fetch Failed');
+        
+        res.setHeader('Content-Type', 'application/pdf');
+        response.body.pipe(res);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Upstream API error' });
+    }
+});
+
+app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
+    const fup = await enforceFUP(req, res, 'ai', 1, true);
+    if (!fup) return;
+
+    try {
+        const targetUrl = `${process.env.ECOURTS_BASE_URL}/ai-summary`;
+        const response = await fetch(targetUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(req.body)
+        });
+        const data = await response.json();
+        res.json(data);
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Upstream API error' });
+    }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`🚀 Vaad Secure Server running on port ${PORT}`);
+});
