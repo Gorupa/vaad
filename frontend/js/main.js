@@ -111,10 +111,10 @@ let userConsent = localStorage.getItem('vaad_dpdp_consent');
 let pendingSaveAction = null; 
 
 const limits = { 
-    free: { search: 1, pdf: 0 }, 
-    pro: { search: 30, pdf: 5 }, 
-    promax: { search: 100, pdf: 20 }, 
-    supreme: { search: 150, pdf: 50 } 
+    free: { search: 1, pdf: 0, ai: 5 }, 
+    pro: { search: 30, pdf: 5, ai: 20 }, 
+    promax: { search: 100, pdf: 20, ai: 50 }, 
+    supreme: { search: 150, pdf: 50, ai: 100 } 
 };
 
 document.addEventListener('click', async (e) => {
@@ -458,6 +458,65 @@ window.handleSearch = async function() {
 
     await performSearch(endpoint, bodyData, renderType);
 };
+
+// ✨ NEW: Handle Statutes Search
+window.handleStatuteSearch = async function() {
+    if (!currentUser) { window.openLoginModal(); return; }
+    
+    const query = document.getElementById('statute-input').value.trim().toLowerCase();
+    if (!query) return alert("Please enter an Act or Section.");
+
+    window.clearResults();
+    document.getElementById('results').innerHTML = `<div class="empty-state"><div class="spinner" style="border-top-color:var(--primary); width:30px; height:30px; margin-bottom:16px;"></div><div class="empty-state-text">Searching India Code database...</div></div>`;
+
+    try {
+        // Fetching from the static GitHub JSON file we discussed
+        const res = await fetch('https://raw.githubusercontent.com/gaurav-kalal/vaad/main/api/laws.json');
+        if (!res.ok) throw new Error("Database unavailable. Ensure laws.json is uploaded to GitHub.");
+        
+        const lawsData = await res.json();
+        
+        // Find a matching statute
+        const match = lawsData.find(law => 
+            law.act.toLowerCase().includes(query) || 
+            law.section.toLowerCase().includes(query) || 
+            law.title.toLowerCase().includes(query)
+        );
+
+        if (match) {
+            renderStatuteCard(match);
+        } else {
+            document.getElementById('results').innerHTML = `<div class="error-box">⚠️ No matching statutes found in database. Try searching 'BNS' or 'Divorce'.</div>`;
+        }
+
+    } catch (e) {
+        document.getElementById('results').innerHTML = `<div class="error-box">⚠️ Error fetching statute: ${escapeHtml(e.message)}</div>`;
+    }
+};
+
+function renderStatuteCard(data) {
+    const html = `
+        <button class="back-link" onclick="window.clearResults()">← Back to search</button>
+        <div class="case-detail-card" style="margin-top: 16px;">
+            <div class="case-detail-header" style="background: var(--bg-alt); border-bottom: 1px solid var(--border-soft); padding: 20px;">
+                <div style="font-size: 0.75rem; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;">${escapeHtml(data.chapter)}</div>
+                <div class="case-detail-title" style="font-size: 1.25rem; color: var(--text-main);">${escapeHtml(data.act)}</div>
+                <div class="case-detail-cnr" style="color: var(--primary); font-weight: 600; margin-top: 8px;">${escapeHtml(data.section)}: ${escapeHtml(data.title)}</div>
+            </div>
+            
+            <div style="padding: 24px; font-size: 0.95rem; line-height: 1.8; color: var(--text-main); font-family: 'Georgia', serif;">
+                ${escapeHtml(data.text).replace(/\n/g, '<br><br>')}
+            </div>
+            
+            <div style="padding: 16px 24px; background: var(--bg-alt); border-top: 1px solid var(--border-soft); display: flex; gap: 12px;">
+                <button class="add-ledger-btn" style="margin: 0; background: var(--bg-main); color: var(--text-main); border-color: var(--border);" onclick="window.print()">
+                   🖨️ Print Section
+                </button>
+            </div>
+        </div>
+    `;
+    document.getElementById('results').innerHTML = html;
+}
 
 window.fetchCaseDetails = async function(cnr) {
     if (!cnr || cnr === '—') return showError("No CNR available for this case.");
@@ -829,7 +888,7 @@ window.logPayment = async function(id) {
 };
 
 window.deleteDashboardCase = async function(id) {
-    if (!confirm("Are permanently delete this case? payment history lost.")) return;
+    if (!confirm("Are you sure you want to permanently delete this case? Payment history will be lost.")) return;
     
     const previousCases = JSON.parse(JSON.stringify(practiceCases));
     practiceCases = practiceCases.filter(c => c.id !== id);
@@ -950,11 +1009,11 @@ window.renderDashboard = function() {
         if (currentPlan === 'free' && (index + 1) % 3 === 0) {
             html += `
             <div class="dash-case-card native-ad-card" style="border: 1px dashed var(--border); background: var(--bg-alt); display: flex; gap: 12px; cursor: pointer; padding: 12px; margin-top: 12px; box-shadow: none;" onclick="window.open('https://your-sponsor-link.com', '_blank')">
-                <img src="https://raw.githubusercontent.com/gaurav-kalal/vaad/main/assets/ads/sponsor-1.jpg" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft);" alt="Sponsored Ad">
+                <img src="https://raw.githubusercontent.com/gaurav-kalal/vaad/main/assets/ads/mlsu-ad-1.jpg" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border-soft);" alt="Sponsored Ad">
                 <div style="flex: 1; display: flex; flex-direction: column; justify-content: center;">
                     <div style="font-size: 0.65rem; color: var(--text-subtle); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; font-weight: 700;">Sponsored</div>
-                    <div style="font-weight: 600; color: var(--text-main); font-size: 0.95rem; line-height: 1.2;">Premium Legal Templates</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">Access 10,000+ ready-to-use legal formats. Click to explore.</div>
+                    <div style="font-weight: 600; color: var(--text-main); font-size: 0.95rem; line-height: 1.2;">MLSU Law Admissions Open</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; line-height: 1.4;">Best Govt College in Udaipur. Click to explore.</div>
                 </div>
             </div>`;
         }
@@ -999,5 +1058,51 @@ window.generateAISummary = async function(cnr) {
         updateSearchLimitUI(); 
     } catch (e) {
         box.innerHTML = `<div class="error-box" style="margin-bottom: 12px;">⚠️ Error: ${escapeHtml(e.message)}</div>`;
+    }
+};
+
+// ✨ NEW: Ask AI Chat Handler
+window.sendChatMessage = async function() {
+    if (!currentUser) { window.openLoginModal(); return; }
+    
+    const inputEl = document.getElementById('ai-chat-input');
+    const question = inputEl.value.trim();
+    if (!question) return;
+
+    const chatHistory = document.getElementById('chat-history');
+    const btn = document.getElementById('ai-send-btn');
+    
+    chatHistory.innerHTML += `<div class="chat-bubble user">${escapeHtml(question)}</div>`;
+    inputEl.value = '';
+    btn.disabled = true;
+    btn.innerText = '...';
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+
+    try {
+        const headers = await getAuthHeaders();
+        const res = await fetch(`${API}/ask-legal-ai`, {
+            method: 'POST',
+            headers: headers,
+            body: JSON.stringify({ question: question })
+        });
+
+        const data = await res.json();
+        
+        if (res.status === 403) {
+            chatHistory.innerHTML += `<div class="chat-bubble ai" style="color: var(--error-text);">You have reached your daily AI limit (5/5). Please upgrade to Pro for more queries.</div>`;
+            window.openModal();
+        } else if (!res.ok) {
+            chatHistory.innerHTML += `<div class="chat-bubble ai" style="color: var(--error-text);">Error: AI is temporarily unavailable.</div>`;
+        } else {
+            const formattedAnswer = escapeHtml(data.answer).replace(/\n/g, '<br>');
+            chatHistory.innerHTML += `<div class="chat-bubble ai"><strong>✨ Legal Insight</strong><br><br>${formattedAnswer}</div>`;
+            updateSearchLimitUI();
+        }
+    } catch (e) {
+        chatHistory.innerHTML += `<div class="chat-bubble ai" style="color: var(--error-text);">Network error communicating with AI.</div>`;
+    } finally {
+        btn.disabled = false;
+        btn.innerText = 'Send';
+        chatHistory.scrollTop = chatHistory.scrollHeight;
     }
 };
