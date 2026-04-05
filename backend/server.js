@@ -5,7 +5,6 @@ const crypto = require('crypto');
 const Razorpay = require('razorpay');
 const admin = require('firebase-admin');
 const helmet = require('helmet');
-// ✨ FIX: CRITICAL-NEW-3 - Added node-fetch back for Render compatibility
 const fetch = require('node-fetch');
 
 let serviceAccount;
@@ -37,7 +36,19 @@ const db = admin.firestore();
 const app = express();
 
 app.use(helmet());
-app.use(cors());
+
+// ✨ FIX: Restrict CORS to only your frontend domains
+app.use(cors({
+    origin: [
+        'https://vaad.pages.dev',
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:5500',
+        'http://127.0.0.1:5500'
+    ],
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-razorpay-signature']
+}));
 
 app.post('/api/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
     try {
@@ -167,7 +178,6 @@ async function enforceFUP(req, res, actionType = 'search', deductAmount = 1, req
     }
 }
 
-// ✨ FIX: HIGH-NEW-4 - Helper to refund credits if eCourts API fails
 async function refundCredit(userId, actionType, amount = 1) {
     try {
         await db.collection('users').doc(userId).update({
@@ -285,7 +295,6 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
     const { cnrs } = req.body;
     if (!Array.isArray(cnrs) || cnrs.length === 0) return res.status(400).json({ success: false, error: 'Invalid CNR list' });
     
-    // ✨ FIX: HIGH-NEW-3 - Prevent hackers from bypassing the 50 CNR limit
     if (cnrs.length > 50) return res.status(400).json({ success: false, error: 'Maximum 50 CNRs per request.' });
     
     const cost = cnrs.length;
