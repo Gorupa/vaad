@@ -188,9 +188,17 @@ async function refundCredit(userId, actionType, amount = 1) {
     }
 }
 
+// ✨ FIX: Helper to safely get the base URL and warn if it's missing
+function getBaseUrl() {
+    if (!process.env.ECOURTS_BASE_URL) {
+        console.error("CRITICAL: ECOURTS_BASE_URL is not set in Render Environment Variables!");
+        throw new Error("Missing Base URL");
+    }
+    return process.env.ECOURTS_BASE_URL;
+}
+
 // ── ROUTES ──
 
-// ✨ FIX: Shortened receipt string to pass Razorpay's 40-character limit
 app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
     try {
         const { plan } = req.body;
@@ -202,7 +210,6 @@ app.post('/api/initiate-payment', verifyFirebaseAuth, async (req, res) => {
         const options = {
             amount: amount,
             currency: 'INR',
-            // Fix: Slice the User ID so the total string is ~24 characters (under the 40 char limit)
             receipt: `r_${userId.substring(0, 8)}_${Date.now()}`,
             notes: { userId: userId, planName: plan }
         };
@@ -223,7 +230,7 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return; 
 
     try {
-        const targetUrl = `${process.env.ECOURTS_BASE_URL}/cnr`;
+        const targetUrl = `${getBaseUrl()}/cnr`;
         const response = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -239,6 +246,7 @@ app.post('/api/cnr', verifyFirebaseAuth, async (req, res) => {
         res.json(data);
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
+        console.error(`Fetch failed for CNR ${cnr}:`, error.message);
         res.status(500).json({ success: false, error: 'Upstream API error' });
     }
 });
@@ -248,7 +256,7 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${process.env.ECOURTS_BASE_URL}/search`;
+        const targetUrl = `${getBaseUrl()}/search`;
         const response = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -264,6 +272,7 @@ app.post('/api/search', verifyFirebaseAuth, async (req, res) => {
         res.json(data);
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
+        console.error(`Search fetch failed:`, error.message);
         res.status(500).json({ success: false, error: 'Upstream API error' });
     }
 });
@@ -273,7 +282,7 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${process.env.ECOURTS_BASE_URL}/causelist`;
+        const targetUrl = `${getBaseUrl()}/causelist`;
         const response = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -289,6 +298,7 @@ app.post('/api/causelist', verifyFirebaseAuth, async (req, res) => {
         res.json(data);
     } catch (error) {
         await refundCredit(req.uid, 'search', 1);
+        console.error(`Causelist fetch failed:`, error.message);
         res.status(500).json({ success: false, error: 'Upstream API error' });
     }
 });
@@ -304,7 +314,7 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${process.env.ECOURTS_BASE_URL}/bulk-refresh`;
+        const targetUrl = `${getBaseUrl()}/bulk-refresh`;
         const response = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -320,6 +330,7 @@ app.post('/api/bulk-refresh', verifyFirebaseAuth, async (req, res) => {
         res.json(data);
     } catch (error) {
         await refundCredit(req.uid, 'search', cost);
+        console.error(`Bulk refresh fetch failed:`, error.message);
         res.status(500).json({ success: false, error: 'Upstream API error' });
     }
 });
@@ -329,7 +340,7 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${process.env.ECOURTS_BASE_URL}/download`;
+        const targetUrl = `${getBaseUrl()}/download`;
         const response = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -345,6 +356,7 @@ app.post('/api/download', verifyFirebaseAuth, async (req, res) => {
         response.body.pipe(res);
     } catch (error) {
         await refundCredit(req.uid, 'pdf', 1);
+        console.error(`PDF download failed:`, error.message);
         res.status(500).json({ success: false, error: 'Upstream API error' });
     }
 });
@@ -354,7 +366,7 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
     if (!fup) return;
 
     try {
-        const targetUrl = `${process.env.ECOURTS_BASE_URL}/ai-summary`;
+        const targetUrl = `${getBaseUrl()}/ai-summary`;
         const response = await fetch(targetUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -370,6 +382,7 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         res.json(data);
     } catch (error) {
         await refundCredit(req.uid, 'ai', 1);
+        console.error(`AI Summary fetch failed:`, error.message);
         res.status(500).json({ success: false, error: 'Upstream API error' });
     }
 });
