@@ -211,8 +211,8 @@ app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY in Render Environment");
 
-        // ✨ FIXED: Added '-latest' to the model name
-        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`;
+        // ✨ FIXED: Updated model to the currently active gemini-2.5-flash
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         
         const payload = {
             contents: [{ parts: [{ text: userQuestion }] }],
@@ -453,8 +453,8 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY");
 
-        // ✨ FIXED: Added '-latest' to the model name here as well
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${geminiKey}`;
+        // ✨ FIXED: Updated model to the currently active gemini-2.5-flash here as well
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         
         const prompt = `You are an expert Indian Legal AI. Read the following court order text and provide a structured summary. 
         Include: 1. Date of Order, 2. Judge Name, 3. Key Findings, 4. Next Hearing Date/Outcome. 
