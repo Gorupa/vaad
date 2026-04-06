@@ -118,7 +118,6 @@
                     <div class="tab indian-tab" data-tab="litigant" onclick="window.switchTab('litigant')">Litigant</div>
                     <div class="tab indian-tab" data-tab="advocate" onclick="window.switchTab('advocate')">Advocate</div>
                     <div class="tab indian-tab" data-tab="causelist" onclick="window.switchTab('causelist')">Cause List 🔒</div>
-                    <div class="tab indian-tab" data-tab="statute" onclick="window.switchTab('statute')">📜 Statutes</div>
                     <div class="tab" data-tab="ask-ai" onclick="window.switchTab('ask-ai')">🧠 Ask AI</div>
                     <div class="tab us-tab" data-tab="us-case" style="display: none;" onclick="window.switchTab('us-case')">US Case Law 🔒</div>
                 </div>
@@ -157,17 +156,6 @@
                     <div style="display: flex; gap: 12px; margin-bottom: 12px;"><div class="field" style="flex: 1;"><label class="field-label">State Code</label><input type="text" id="causelist-state" placeholder="e.g. RJ" maxlength="2" style="text-transform: uppercase;"></div></div>
                     <div class="field"><label class="field-label">Advocate / Party</label><input type="text" id="causelist-query" placeholder="e.g. Sharma"></div>
                     <button class="btn-search" onclick="window.handleSearch()">Search Cause List</button>
-                </div>
-
-                <div class="form-panel indian-panel" id="panel-statute" style="display: none;">
-                    <div class="field">
-                        <label class="field-label">Search Bare Acts & Statutes</label>
-                        <input type="text" id="statute-input" placeholder="e.g., Bharatiya Nyaya Sanhita, Sec 420">
-                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 6px;">
-                            Search the official central acts database.
-                        </div>
-                    </div>
-                    <button class="btn-search" onclick="window.handleStatuteSearch()">Search Laws</button>
                 </div>
 
                 <div class="form-panel" id="panel-ask-ai" style="display: none;">
@@ -361,7 +349,6 @@
             <div style="padding-top: 12px; border-top: 1px solid var(--border-soft); margin-top: 12px;">
                 <ul class="release-list">
                     <li><strong>Ask AI Chatbot:</strong> A built-in legal assistant trained on Indian law (BNS included). Free tier gets 5 queries/day.</li>
-                    <li><strong>Statutes Library:</strong> Read Bare Acts directly inside the app.</li>
                     <li><strong>Universal Design:</strong> Unified hamburger navigation across desktop, tablet, and mobile.</li>
                     <li><strong>Deep Data Mapping:</strong> Case details beautifully display Advocates, FIRs, Judges, and Acts in a proper Docket format.</li>
                 </ul>
