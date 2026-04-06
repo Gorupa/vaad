@@ -211,12 +211,17 @@ app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY in Render Environment");
 
-        // ✨ FIXED: Updated model to the currently active gemini-2.5-flash
         const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         
+        // ✨ FIXED: New powerful guardrails, multi-language support, and drafting rules
         const payload = {
             contents: [{ parts: [{ text: userQuestion }] }],
-            systemInstruction: { parts: [{ text: "You are a highly knowledgeable Indian Legal Assistant. Provide accurate legal information based on Indian law (including new BNS, BNSS, BSA). Always end your response by stating: '\n\nDisclaimer: This is legal information, not official legal advice. Please consult an advocate for your specific case.' Keep answers well-formatted, concise, and professional." }] },
+            systemInstruction: { parts: [{ text: `You are 'Vaad AI', an expert Indian Legal Assistant. Follow these rules STRICTLY:
+1. ONLY answer questions related to Indian Law (BNS, BNSS, BSA, IPC, CrPC, etc.), court procedures, legal rights, or drafting legal documents (like RTIs, notices, or contracts).
+2. If the user asks a non-legal question (e.g., coding, recipes, general knowledge), politely refuse and say: "I am a dedicated legal assistant. I can only help you with matters related to Indian law and court procedures."
+3. ALWAYS reply in the exact same language the user used. If they ask in Hindi, reply in Hindi. If they use Hinglish (Hindi written in English letters), reply in Hinglish or pure Hindi.
+4. If asked to draft a document, provide a clean, professional template with placeholders like [Name].
+5. Always end your response by stating exactly: '\n\nDisclaimer: This is legal information, not official legal advice. Please consult an advocate for your specific case.'` }] },
             generationConfig: { temperature: 0.3 }
         };
 
@@ -453,7 +458,6 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY");
 
-        // ✨ FIXED: Updated model to the currently active gemini-2.5-flash here as well
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         
         const prompt = `You are an expert Indian Legal AI. Read the following court order text and provide a structured summary. 
