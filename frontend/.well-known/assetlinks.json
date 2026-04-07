@@ -1,4 +1,4 @@
-[{
+i[{
       "relation": ["delegate_permission/common.handle_all_urls"],
       "target": {
         "namespace": "android_app",
@@ -6,14 +6,3 @@
         "sha256_cert_fingerprints": ["F6:91:CC:62:92:C2:FC:DA:F4:F5:1A:EF:B3:AA:50:98:DA:5C:4B:39:76:36:DE:EC:68:F4:02:2C:AC:17:CD:40"]
       }
     }]
-[
-  {
-    "relation": ["delegate_permission/common.handle_all_urls"],
-    "target": {
-      "namespace": "android_app",
-      "package_name": "dev.pages.vaad.twa",
-      "sha256_cert_fingerprints":
-        ["BD:A9:3F:55:E5:26:6F:0C:85:B1:D2:6B:40:74:C5:C7:72:87:D8:81:D1:CE:B4:EC:BF:F0:56:4E:FC:5E:51:48"]
-    }
-  }
-]
