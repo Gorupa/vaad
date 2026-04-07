@@ -6,7 +6,7 @@ const Razorpay = require('razorpay');
 const admin = require('firebase-admin');
 const helmet = require('helmet');
 const fetch = require('node-fetch');
-const pdfParse = require('pdf-parse'); 
+const pdfParse = require('pdf-parse'); // Required for reading PDFs before Gemini processing
 
 let serviceAccount;
 try {
@@ -211,20 +211,12 @@ app.post('/api/ask-legal-ai', verifyFirebaseAuth, async (req, res) => {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY in Render Environment");
 
-        // ✨ UPDATE: Using the ultra-stable gemini-2.0-flash endpoint
-        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+        // ✨ FIXED: Updated model to the currently active gemini-2.5-flash
+        const targetUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         
-        // ✨ UPDATE: Strict JSON payload matching Google REST API format
         const payload = {
-            contents: [
-                { 
-                    role: "user",
-                    parts: [{ text: userQuestion }] 
-                }
-            ],
-            system_instruction: { 
-                parts: [{ text: "You are 'Vaad AI', an expert Indian Legal Assistant. Follow these rules STRICTLY:\n1. ONLY answer questions related to Indian Law (BNS, BNSS, BSA, IPC, CrPC, etc.), court procedures, legal rights, or drafting legal documents (like RTIs, notices, or contracts).\n2. If the user asks a non-legal question (e.g., coding, recipes, general knowledge), politely refuse and say: 'I am a dedicated legal assistant. I can only help you with matters related to Indian law and court procedures.'\n3. ALWAYS reply in the exact same language the user used. If they ask in Hindi, reply in Hindi. If they use Hinglish, reply in Hinglish.\n4. If asked to draft a document, provide a clean, professional template with placeholders like [Name].\n5. Always end your response by stating exactly: '\n\nDisclaimer: This is legal information, not official legal advice. Please consult an advocate for your specific case.'" }] 
-            },
+            contents: [{ parts: [{ text: userQuestion }] }],
+            systemInstruction: { parts: [{ text: "You are a highly knowledgeable Indian Legal Assistant. Provide accurate legal information based on Indian law (including new BNS, BNSS, BSA). Always end your response by stating: '\n\nDisclaimer: This is legal information, not official legal advice. Please consult an advocate for your specific case.' Keep answers well-formatted, concise, and professional." }] },
             generationConfig: { temperature: 0.3 }
         };
 
@@ -461,18 +453,15 @@ app.post('/api/ai-summary', verifyFirebaseAuth, async (req, res) => {
         const geminiKey = process.env.GEMINI_API_KEY;
         if (!geminiKey) throw new Error("Missing GEMINI_API_KEY");
 
-        // ✨ UPDATE: Using the ultra-stable gemini-2.0-flash endpoint here as well
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`;
+        // ✨ FIXED: Updated model to the currently active gemini-2.5-flash here as well
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
         
-        const prompt = `You are an expert Indian Legal AI. Read the following court order text and provide a structured summary. \nInclude: 1. Date of Order, 2. Judge Name, 3. Key Findings, 4. Next Hearing Date/Outcome. \nKeep it strictly factual, professional, and concise.\n\nCourt Order Text:\n${extractedText.substring(0, 25000)}`;
+        const prompt = `You are an expert Indian Legal AI. Read the following court order text and provide a structured summary. 
+        Include: 1. Date of Order, 2. Judge Name, 3. Key Findings, 4. Next Hearing Date/Outcome. 
+        Keep it strictly factual, professional, and concise.\n\nCourt Order Text:\n${extractedText.substring(0, 25000)}`;
 
         const payload = {
-            contents: [
-                { 
-                    role: "user", 
-                    parts: [{ text: prompt }] 
-                }
-            ],
+            contents: [{ parts: [{ text: prompt }] }],
             generationConfig: { temperature: 0.2 } 
         };
 
