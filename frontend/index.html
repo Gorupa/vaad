@@ -3,7 +3,7 @@
 <head>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vaad 2.1 — The Dharma Update</title>
     <meta name="description" content="Track Indian court cases instantly. Powered by official eCourtsIndia API and AI.">
     
@@ -13,14 +13,17 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="apple-touch-icon" href="icon-192.png">
 
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
 <nav class="nav">
     <div style="display: flex; align-items: center; gap: 12px;">
-        <button id="menu-btn" class="hamburger-btn" onclick="window.toggleMenu()">
+        <button id="menu-btn" class="hamburger-btn" aria-label="Open Menu" onclick="window.toggleMenu()">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="12" x2="20" y2="12"></line><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="18" x2="20" y2="18"></line></svg>
         </button>
         <a class="nav-brand" href="#" onclick="window.toggleView('search')">Vaad <span class="version-badge">v2.1</span></a>
@@ -220,7 +223,7 @@
 
 <div id="upgrade-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 90vh; overflow-y: auto;">
-        <button class="modal-close" onclick="window.closeModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeModal()">×</button>
         <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; margin-bottom: 6px; color: var(--primary);">Select a Plan</h3>
         <p id="modal-subtitle" style="color: var(--text-muted); margin-bottom: 24px; font-size: 0.9rem; line-height: 1.5;">Powered by official eCourts API. Secure, ad-free access.</p>
         
@@ -275,7 +278,7 @@
 
 <div id="login-modal" class="modal-overlay">
     <div class="modal-box" style="text-align: center;">
-        <button class="modal-close" onclick="window.closeLoginModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeLoginModal()">×</button>
         <div style="font-size: 2.5rem; margin-bottom: 8px;">⚖️</div>
         <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; margin-bottom: 8px; color: var(--primary);">Sign In</h3>
         <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 24px;">Access the ledger and API tools.</p>
@@ -293,7 +296,7 @@
         </div>
 
         <button id="google-login-btn" class="btn-action" style="width: 100%; justify-content: center; padding: 12px;">
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" style="width: 20px; margin-right: 8px;" alt="G">
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" width="20" height="20" style="margin-right: 8px;" alt="Google Logo">
             Continue with Google
         </button>
     </div>
@@ -301,7 +304,7 @@
 
 <div id="add-case-modal" class="modal-overlay">
     <div class="modal-box">
-        <button class="modal-close" onclick="window.closeAddCaseModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeAddCaseModal()">×</button>
         <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.6rem; margin-bottom: 20px; color: var(--text-main);">Add Case to Ledger</h3>
         <div class="field"><label class="field-label">Link CNR (Optional)</label><input type="text" id="track-cnr" placeholder="e.g. RJUD010012342025" autocomplete="off"></div>
         <div class="field"><label class="field-label">Case Title / Client Name</label><input type="text" id="track-title" placeholder="e.g. State vs Sharma" autocomplete="off"></div>
@@ -315,7 +318,7 @@
 
 <div id="consent-modal" class="modal-overlay">
     <div class="modal-box">
-        <button class="modal-close" onclick="window.closeConsentModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeConsentModal()">×</button>
         <h3 style="font-family: 'DM Serif Display', serif; font-size: 1.6rem; margin-bottom: 12px; color: var(--primary);">Cloud Sync ☁️</h3>
         <p style="font-size: 0.95rem; color: var(--text-muted); margin-bottom: 24px; line-height: 1.6;">
             To keep your fee ledger safe and synced across your devices, Vaad needs to store your Dashboard data securely. Do you consent to enabling Cloud Sync?
@@ -330,7 +333,7 @@
         <div style="display: flex; gap: 12px; align-items: center; border-bottom: 2px solid var(--primary); padding-bottom: 12px; margin-bottom: 16px;">
             <span style="font-size: 1.2rem;">🔍</span>
             <input type="text" id="uni-search-input" placeholder="Search ledger..." autocomplete="off" onkeyup="window.runUniversalSearch()" style="border: none; background: transparent; padding: 0; font-size: 1.1rem; box-shadow: none;">
-            <button onclick="window.closeUniversalSearch()" class="modal-close" style="position: static; flex-shrink: 0;">×</button>
+            <button onclick="window.closeUniversalSearch()" class="modal-close" aria-label="Close Modal" style="position: static; flex-shrink: 0;">×</button>
         </div>
         <div id="uni-search-results" style="max-height: 50vh; overflow-y: auto;">
             <div class="empty-state" style="padding: 20px;"><div class="empty-state-text">Type to search your Dashboard...</div></div>
@@ -340,7 +343,7 @@
 
 <div id="whats-new-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 85vh; overflow-y: auto; padding: 24px;">
-        <button class="modal-close" onclick="window.closeWhatsNewModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeWhatsNewModal()">×</button>
         <div class="hero-eyebrow" style="margin-bottom: 16px;">Changelog</div>
         <h2 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--primary); margin-bottom: 24px;">Version History</h2>
         
@@ -383,7 +386,7 @@
 
 <div id="dev-modal" class="modal-overlay">
     <div class="modal-box" style="text-align: center; max-width: 380px;">
-        <button class="modal-close" onclick="window.closeDevModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeDevModal()">×</button>
         <div style="font-size: 2.5rem; margin-bottom: 10px;">⚖️</div>
         <h2 style="font-family: 'DM Serif Display', serif; font-size: 1.8rem; color: var(--primary); margin-bottom: 8px;">Vaad 2.1</h2>
         <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 20px;">The Modern Legal Dashboard</p>
@@ -405,7 +408,7 @@
 
 <div id="faq-modal" class="modal-overlay">
     <div class="modal-box" style="max-height: 85vh; overflow-y: auto;">
-        <button class="modal-close" onclick="window.closeFaqModal()">×</button>
+        <button class="modal-close" aria-label="Close Modal" onclick="window.closeFaqModal()">×</button>
         <div class="hero-eyebrow" style="margin-bottom: 16px;">Support</div>
         <h2 style="font-family: 'DM Serif Display', serif; font-size: 2rem; color: var(--primary); margin-bottom: 24px;">Help & FAQ</h2>
                 
@@ -457,7 +460,7 @@
     </div>
 </div>
 
-<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://checkout.razorpay.com/v1/checkout.js" defer></script>
 <script type="module" src="js/main.js"></script>
 </body>
 </html>
